@@ -56,6 +56,7 @@ final class CaptureManager implements Listener {
     enum End { STRUGGLE, BROKEN, TIMEOUT, LET_GO, DEATH, QUIT, MOVED, SHUTDOWN }
 
     private final Soulbound plugin;
+    private final LeashItem leash;
     private final Map<UUID, Capture> byCaptive = new HashMap<>();
     private final Map<UUID, Capture> byCaptor = new HashMap<>();
     private final Map<UUID, Long> immuneUntil = new HashMap<>();
@@ -70,8 +71,9 @@ final class CaptureManager implements Listener {
     private boolean requireLead, captorSlowness, broadcast, killOnLogout;
     private List<String> disabledWorlds = new ArrayList<>();
 
-    CaptureManager(Soulbound plugin) {
+    CaptureManager(Soulbound plugin, LeashItem leash) {
         this.plugin = plugin;
+        this.leash = leash;
         loadSettings();
     }
 
@@ -113,6 +115,10 @@ final class CaptureManager implements Listener {
         if (!(e.getRightClicked() instanceof Player victim)) return;
         Player captor = e.getPlayer();
         if (captor.getInventory().getItemInMainHand().getType() != Material.LEAD) return;
+        if (!leash.captures(captor.getInventory().getItemInMainHand())) {
+            if (e.getRightClicked() instanceof Player) captor.sendActionBar(Component.text("A plain lead won't hold a person. Craft a " + leashName() + ".", NamedTextColor.RED));
+            return;
+        }
         e.setCancelled(true);
         String refusal = whyNot(captor, victim);
         if (refusal != null) { captor.sendActionBar(Component.text(refusal, NamedTextColor.RED)); return; }
@@ -168,8 +174,8 @@ final class CaptureManager implements Listener {
         if (captor.isDead() || victim.isDead()) { end(cap, End.DEATH); return; }
         if (!captor.getWorld().equals(victim.getWorld())) { end(cap, End.MOVED); return; }
         if (tick >= cap.endsAt) { end(cap, End.TIMEOUT); return; }
-        if (requireLead && captor.getInventory().getItemInMainHand().getType() != Material.LEAD
-                && captor.getInventory().getItemInOffHand().getType() != Material.LEAD) { end(cap, End.LET_GO); return; }
+        if (requireLead && !leash.captures(captor.getInventory().getItemInMainHand())
+                && !leash.captures(captor.getInventory().getItemInOffHand())) { end(cap, End.LET_GO); return; }
 
         // the drag: free within the slack, pulled beyond it, snapped back if it gets silly
         Location cl = captor.getLocation(), vl = victim.getLocation();
@@ -259,6 +265,7 @@ final class CaptureManager implements Listener {
             victim.removePotionEffect(PotionEffectType.MINING_FATIGUE);
         }
         if (why != End.SHUTDOWN) immuneUntil.put(cap.captive, System.currentTimeMillis() + immunitySeconds * 1000L);
+        if (captor != null && why != End.SHUTDOWN && leash.consumeOnCapture() && captor.getGameMode() != GameMode.CREATIVE) breakOneLeash(captor);
         String cn = captor != null ? captor.getName() : "their captor", vn = victim != null ? victim.getName() : "the captive";
         switch (why) {
             case STRUGGLE -> {
@@ -433,6 +440,23 @@ final class CaptureManager implements Listener {
     }
 
     // ---------------------------------------------------------------- helpers
+
+    private String leashName() { return plugin.getConfig().getString("leash.name", "Bondage Leash"); }
+
+    /** A capture leash is used up when its capture ends, win or lose. */
+    private void breakOneLeash(Player captor) {
+        org.bukkit.inventory.PlayerInventory inv = captor.getInventory();
+        org.bukkit.inventory.ItemStack[] slots = inv.getContents();
+        int pick = -1;
+        if (leash.captures(inv.getItemInMainHand())) pick = inv.getHeldItemSlot();
+        else for (int i = 0; i < slots.length; i++) if (leash.captures(slots[i])) { pick = i; break; }
+        if (pick < 0) return;
+        org.bukkit.inventory.ItemStack it = inv.getItem(pick);
+        if (it == null) return;
+        if (it.getAmount() <= 1) inv.setItem(pick, null); else it.setAmount(it.getAmount() - 1);
+        captor.sendMessage(Component.text("Your " + leashName() + " is worn through and breaks.", NamedTextColor.GRAY));
+        sound(captor.getLocation(), "minecraft:entity.item.break", 0.8f, 0.8f);
+    }
 
     private static float clamp(float f) { return Math.max(0f, Math.min(1f, f)); }
 

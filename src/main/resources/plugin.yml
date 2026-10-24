@@ -7,7 +7,7 @@ authors: [Lirdi]
 commands:
   soulbound:
     description: Release your captive, or reload the config.
-    usage: /soulbound <release|reload>
+    usage: /soulbound <release|give|reload>
     aliases: [sb]
 permissions:
   soulbound.capture:
