@@ -1,0 +1,32 @@
+# Soulbound: capturing players with a lead.
+capture:
+  # A player at or below this much health can be captured. 6 = 3 hearts.
+  max-health: 6.0
+  # How long a capture lasts before the lead gives way, in seconds.
+  duration-seconds: 180
+  # The captor must keep a lead in hand, or the captive goes free.
+  require-holding-lead: true
+  # Damage the captor can take (from anyone) before the lead breaks. 6 = 3 hearts.
+  captor-break-damage: 6.0
+  # Sneak presses the captive needs to struggle free.
+  struggle-presses: 30
+  # The captive can wander this far before being pulled back, in blocks.
+  slack: 4.0
+  # Beyond this distance the captive is snapped to the captor.
+  snap-distance: 9.0
+  # After being freed, a player can't be captured again for this long, in seconds.
+  immunity-seconds: 300
+  # Slow the captor down while dragging someone.
+  captor-slowness: true
+  # Announce captures and escapes in chat to everyone.
+  broadcast: true
+
+safety:
+  # No captures at all in these worlds.
+  disabled-worlds: []
+  # No captures within this many blocks of a world's spawn point. 0 to turn off.
+  spawn-safe-radius: 48
+
+logout:
+  # What happens if the captive logs out: "kill" (they die where they stand) or "release".
+  captive: kill

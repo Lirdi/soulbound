@@ -1,0 +1,21 @@
+name: Soulbound
+version: '${version}'
+main: net.soulbound.Soulbound
+api-version: '26.3'
+description: Capture weakened players with a lead.
+authors: [Lirdi]
+commands:
+  soulbound:
+    description: Release your captive, or reload the config.
+    usage: /soulbound <release|reload>
+    aliases: [sb]
+permissions:
+  soulbound.capture:
+    description: Can capture weakened players with a lead.
+    default: true
+  soulbound.immune:
+    description: Can never be captured.
+    default: op
+  soulbound.admin:
+    description: Can reload the config.
+    default: op
