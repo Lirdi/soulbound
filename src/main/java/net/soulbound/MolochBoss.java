@@ -112,6 +112,8 @@ final class MolochBoss implements Listener {
     private Vector moveDir;
     private Location moveTarget, lastPos;
     private Vector leapV;
+    private int edgeHalves, stuckHalves, escapeCooldown;
+    private Location lastSpot;
     private Player victim;
     private final Set<UUID> moveHit = new HashSet<>();
     private final Map<UUID, Integer> farTicks = new HashMap<>(), lastSwing = new HashMap<>();
@@ -440,6 +442,28 @@ final class MolochBoss implements Listener {
             titleNear(c, Component.empty(), Component.text("His champions are dead. Moloch's guard is broken!", NamedTextColor.GOLD));
         }
 
+        // he's too big for the doorways and his body is wider than his hitbox, so near the walls he'd look stuck in them.
+        // If he's been pressed against a wall, or hasn't moved while people are out of reach, he leaps back into the hall.
+        if (escapeCooldown > 0) escapeCooldown--;
+        if (move == Move.NONE && !fighters.isEmpty()) {
+            Location here = boss.getLocation();
+            double dc = Math.max(Math.abs(here.getX() - c.getX()), Math.abs(here.getZ() - c.getZ()));
+            edgeHalves = dc > 28 ? edgeHalves + 1 : 0;
+            boolean still = lastSpot != null && lastSpot.getWorld() == here.getWorld() && lastSpot.distanceSquared(here) < 0.3 * 0.3;
+            Player near = fighters.stream().min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(here))).get();
+            stuckHalves = still && near.getLocation().distance(here) > 0.7 * scale + 3 ? stuckHalves + 1 : 0;
+            lastSpot = here;
+            if (escapeCooldown == 0 && (edgeHalves >= 3 || stuckHalves >= 6)) {
+                edgeHalves = stuckHalves = 0;
+                escapeCooldown = 12;
+                Location to = near.getLocation();
+                double nd = Math.max(Math.abs(to.getX() - c.getX()), Math.abs(to.getZ() - c.getZ()));
+                if (nd > 22) to = c.clone().add(to.clone().subtract(c).toVector().multiply(0.5));   // they're by the wall too: land between them and the middle
+                startLeapTo(to, near);
+                return;
+            }
+        }
+
         // he's too big to leave the hall, so he roams it freely. Only if something has gone badly wrong
         // (fallen out of the world, or somehow far outside) is he put back on his dais.
         Location b = boss.getLocation();
@@ -631,7 +655,7 @@ final class MolochBoss implements Listener {
         if (moveTick > 33) {
             double moved = Math.hypot(at.getX() - lastPos.getX(), at.getZ() - lastPos.getZ());
             Location c = zones.arenaCentre();
-            boolean atWall = Math.max(Math.abs(at.getX() - c.getX()), Math.abs(at.getZ() - c.getZ())) > 31;
+            boolean atWall = Math.max(Math.abs(at.getX() - c.getX()), Math.abs(at.getZ() - c.getZ())) > 29;
             if (moved < 0.25 || atWall) { startStun(); return; }
         }
         lastPos = at.clone();
@@ -710,6 +734,14 @@ final class MolochBoss implements Listener {
     private void startLeap(Player target) {
         beginMove(Move.LEAP, target);
         moveTarget = clampToHall(target.getLocation());
+        boss.getWorld().playSound(boss.getLocation(), "minecraft:entity.warden.sonic_charge", 3f, 0.6f);
+    }
+
+    /** A leap to a fixed spot (used to get himself out from against a wall). The ring doesn't follow anyone. */
+    private void startLeapTo(Location spot, Player faceTo) {
+        beginMove(Move.LEAP, null);
+        moveTarget = clampToHall(spot);
+        if (faceTo != null) face(faceTo.getLocation());
         boss.getWorld().playSound(boss.getLocation(), "minecraft:entity.warden.sonic_charge", 3f, 0.6f);
     }
 
