@@ -243,6 +243,13 @@ boss:
 
 # The ender dragon becomes God: a giant old man with a grey beard in white robes, flying where the dragon flies.
 # (The resource pack makes the dragon invisible, gives it an old man's voice and names it God.)
+# Moloch's heavy blows crack your screen (needs the server resource pack). Hits landing within stack-seconds of each
+# other crack it further, up to three stages; then the cracks hold for hold-seconds and fade.
+screen-crack:
+  enabled: true
+  min-damage: 6
+  stack-seconds: 6
+  hold-seconds: 2.5
 # Shulkers in the End are Archangels: one hit from their bolt kills (creative and spectator are safe).
 archangels:
   instant-kill: true

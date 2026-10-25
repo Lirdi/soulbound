@@ -715,7 +715,7 @@ final class MolochBoss implements Listener {
             letGo(dir.multiply(1.9).setY(0.55));
             at.getWorld().playSound(at, "minecraft:entity.warden.roar", 3f, 0.9f);
             at.getWorld().playSound(at, "minecraft:entity.player.attack.knockback", 3f, 0.5f);
-            Bukkit.getScheduler().runTaskLater(plugin, () -> { if (thrown.isValid() && !thrown.isDead()) thrown.damage(grabThrowDamage, boss); }, 2L);
+            Bukkit.getScheduler().runTaskLater(plugin, () -> { if (thrown.isValid() && !thrown.isDead()) { thrown.damage(grabThrowDamage, boss); if (thrown instanceof Player tp) plugin.cracks().crack(tp); } }, 2L);
             sayNear(at, "Moloch hurls " + thrown.getName() + " across the hall!", NamedTextColor.RED);
             endMove();
         }
@@ -1631,6 +1631,15 @@ final class MolochBoss implements Listener {
             e.setDamage(Math.min(e.getDamage(), boomCap));
             e.getEntity().setFireTicks(80);
         }
+    }
+
+    /** His heavy blows crack your screen (melee, charge, slam, fire ring, sonic boom; the throw cracks it too). */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBossCracks(EntityDamageByEntityEvent e) {
+        Entity src = e.getDamager();
+        if (src instanceof Projectile pr && pr.getShooter() instanceof Entity sh) src = sh;
+        if (!isBoss(src) || !(e.getEntity() instanceof Player p)) return;
+        if (e.getDamage() >= plugin.getConfig().getDouble("screen-crack.min-damage", 6)) plugin.cracks().crack(p);
     }
 
     /** He never targets mobs, and his servants never turn on him or each other. */

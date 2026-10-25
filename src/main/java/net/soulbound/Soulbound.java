@@ -28,6 +28,7 @@ public final class Soulbound extends JavaPlugin {
     private HeavenBuilder heaven;
     private HaloItem halo;
     private MolochGear gear;
+    private ScreenCrack cracks;
 
     @Override
     public void onEnable() {
@@ -45,6 +46,7 @@ public final class Soulbound extends JavaPlugin {
         drums = new SummitDrums(this, zones);
         halo = new HaloItem(this, store);
         gear = new MolochGear(this, store);
+        cracks = new ScreenCrack(this);
         god = new GodManager(this, store);
         heaven = new HeavenBuilder(this, store);
 
@@ -100,6 +102,7 @@ public final class Soulbound extends JavaPlugin {
     MolochBoss boss() { return boss; }
     HaloItem halo() { return halo; }
     MolochGear gear() { return gear; }
+    public ScreenCrack cracks() { return cracks; }
 
     // ---------------------------------------------------------------- commands
 
