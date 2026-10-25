@@ -161,10 +161,10 @@ boss:
   # After the collapse he's in a frenzy: this much faster, with his moves coming quicker.
   frenzy-speed: 1.3
 
-  # When he dies he rises and breaks into light like the ender dragon, showering this much experience.
+  # When he dies he shudders, cracks, crashes over onto the floor and bursts apart, spilling this much experience.
   death-xp: 1500
-  # If he strays this far from the dais he's pulled back.
-  leash-radius: 26
+  # He roams the whole hall (he's too big to leave it). Only if he somehow ends up this far from the dais is he put back.
+  emergency-return-distance: 70
   # Moloch never gives players Darkness (the warden's blinding pulse).
   no-darkness: true
   # Everyone who dealt at least this much damage is rewarded. %player% is each one.

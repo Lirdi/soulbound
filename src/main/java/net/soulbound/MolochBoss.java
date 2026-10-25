@@ -69,7 +69,7 @@ import java.util.UUID;
  * the bull charge (dodge it into a pillar and he topples over, stunned and open), the leap slam, furnace breath,
  * the fire ring and the chain pull (for anyone hanging back). Arrows only ever do half damage, and his Soulfire Ward
  * burns them and throws fire back, more so when people lean on bows. At 75% his golden champions shield him,
- * at 50% he screams, at 25% he collapses and feeds, and below that he's in a frenzy. He dies like the ender dragon.
+ * at 50% he screams, at 25% he collapses and feeds, and below that he's in a frenzy. When he dies he cracks, crashes to the floor and bursts apart.
  */
 final class MolochBoss implements Listener {
     static final String TAG = "moloch_boss", MINION = "moloch_minion";
@@ -82,9 +82,6 @@ final class MolochBoss implements Listener {
     private static final double[][] DOORS = {{30, 12}, {30, -12}, {-30, 12}, {-30, -12}, {12, 30}, {-12, 30}, {12, -30}, {-12, -30}};
     private static final double REAL_HP = 1024;   // the game's cap: his real health; crowd scaling works through damage instead
 
-    private static final Particle.DustOptions RAY_WHITE = new Particle.DustOptions(Color.fromRGB(255, 255, 255), 2.2f);
-    private static final Particle.DustOptions RAY_PINK = new Particle.DustOptions(Color.fromRGB(255, 120, 255), 2.0f);
-    private static final Particle.DustOptions RAY_PURPLE = new Particle.DustOptions(Color.fromRGB(190, 40, 255), 1.7f);
     private static final Particle.DustOptions WARN = new Particle.DustOptions(Color.fromRGB(200, 20, 10), 1.6f);
     private static final Particle.DustOptions CHAIN = new Particle.DustOptions(Color.fromRGB(95, 95, 105), 1.4f);
     private static final Particle.DustOptions GOLD = new Particle.DustOptions(Color.fromRGB(255, 196, 40), 1.4f);
@@ -132,8 +129,6 @@ final class MolochBoss implements Listener {
     private Warden collapseBoss;
     private boolean dying;
     private static final int DEATH_TICKS = 200;
-    private final List<Vector> rays = new ArrayList<>();
-    private final List<Double> rayLengths = new ArrayList<>();
 
     // settings
     private double scale, hpBase, hpPerFighter, boomCap, meleeDamage, ringDamage, ringRadius, minDamage, leashRadius, extraPerPlayer;
@@ -179,7 +174,7 @@ final class MolochBoss implements Listener {
         champMax = c.getInt("boss.champions-max", 8);
         champHealth = c.getDouble("boss.champion-health", 60);
         frenzySpeed = c.getDouble("boss.frenzy-speed", 1.3);
-        leashRadius = c.getDouble("boss.leash-radius", 26);
+        leashRadius = c.getDouble("boss.emergency-return-distance", 70);
         minDamage = c.getDouble("boss.reward-min-damage", 10);
         participantCommands = c.getStringList("boss.reward-commands");
         topCommands = c.getStringList("boss.top-damage-commands");
@@ -445,9 +440,10 @@ final class MolochBoss implements Listener {
             titleNear(c, Component.empty(), Component.text("His champions are dead. Moloch's guard is broken!", NamedTextColor.GOLD));
         }
 
-        // keep him in his hall (not mid-move: the charge and leap move him on purpose)
+        // he's too big to leave the hall, so he roams it freely. Only if something has gone badly wrong
+        // (fallen out of the world, or somehow far outside) is he put back on his dais.
         Location b = boss.getLocation();
-        if (move == Move.NONE && (Math.max(Math.abs(b.getX() - c.getX()), Math.abs(b.getZ() - c.getZ())) > leashRadius || b.getY() < c.getY() - 4 || b.getY() > c.getY() + 30))
+        if (move == Move.NONE && (Math.max(Math.abs(b.getX() - c.getX()), Math.abs(b.getZ() - c.getZ())) > leashRadius || b.getY() < c.getY() - 20))
             boss.teleport(dais());
 
         // players only: forget anything else he's angry at, and hunt the nearest player
@@ -1117,7 +1113,12 @@ final class MolochBoss implements Listener {
         at.getWorld().spawnParticle(p, at, count, spread, spread, spread, speed, data, true);
     }
 
-    // ---------------------------------------------------------------- his death, as the ender dragon dies
+    // ---------------------------------------------------------------- his death: the idol breaks apart
+
+    private static final int CRASH_TICK = 120, FINAL_TICK = 190;
+    private static final Material[] WRECK = {Material.WAXED_COPPER_BLOCK, Material.WAXED_EXPOSED_COPPER, Material.WAXED_WEATHERED_COPPER,
+            Material.GOLD_BLOCK, Material.POLISHED_BLACKSTONE, Material.POLISHED_BLACKSTONE_BRICKS, Material.IRON_BLOCK};
+    static final String DEBRIS = "moloch_debris";
 
     private void startDeath(Player killer) {
         dying = true;
@@ -1128,11 +1129,10 @@ final class MolochBoss implements Listener {
         Location c = zones.arenaCentre();
         boss.setPose(Pose.STANDING, false);
         boss.setAI(false);
-        boss.setGravity(false);
         boss.setInvulnerable(true);
         boss.setSilent(true);
         boss.setHealth(1);
-        for (UUID id : minions) {   // any servants left vanish with him
+        for (UUID id : minions) {   // any servants left crumble with him
             Entity m = Bukkit.getEntity(id);
             if (m == null) continue;
             fx(Particle.POOF, m.getLocation().add(0, 1, 0), 12, 0.4, 0.02, null);
@@ -1140,17 +1140,8 @@ final class MolochBoss implements Listener {
         }
         minions.clear();
         champions.clear();
-        rays.clear();
-        rayLengths.clear();
-        Random r = new Random(432L);
-        for (int i = 0; i < 32; i++) {
-            Vector d = new Vector(r.nextDouble() * 2 - 1, r.nextDouble() * 2 - 1, r.nextDouble() * 2 - 1);
-            if (d.lengthSquared() < 1e-3) d = new Vector(0, 1, 0);
-            rays.add(d.normalize());
-            rayLengths.add(0.4 + r.nextDouble() * 0.6);
-        }
-        bar.color(BossBar.Color.PURPLE);
-        bar.name(Component.text("Moloch is falling", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
+        bar.color(BossBar.Color.WHITE);
+        bar.name(Component.text("Moloch is breaking apart", NamedTextColor.GOLD, TextDecoration.BOLD));
         bar.progress(0f);
         for (Player p : c.getWorld().getPlayers()) {
             if (p.getLocation().distanceSquared(c) < 200 * 200) p.playSound(c, "moloch:death", 6f, 1f);
@@ -1161,39 +1152,112 @@ final class MolochBoss implements Listener {
         deathTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickDeath, 1L, 1L);
     }
 
+    /**
+     * Ten seconds, timed to his death sound: he freezes and shudders while cracks burst open and pieces of metal
+     * break off him; at six seconds his legs give and he crashes over onto the floor; then he bursts apart.
+     */
     private void tickDeath() {
         if (boss == null || !boss.isValid()) { finishDeath(); return; }
         deathTicks++;
-        double t = deathTicks / (double) DEATH_TICKS;
-        float spin = (float) (6 + 10 * t);
-        Location at = boss.getLocation().add(0, 0.1, 0);
-        at.setYaw(at.getYaw() + spin);
-        at.setPitch(0);
-        boss.teleport(at);
-        Location core = at.clone().add(0, 2.9 * scale * 0.5, 0);
-        double turn = Math.toRadians(spin);
-        for (Vector d : rays) d.rotateAroundY(turn);
-        if (deathTicks % 2 == 0) {
-            int shown = Math.min(rays.size(), (int) ((t + t * t) / 2 * 60));
-            double reach = 4 + 14 * t;
-            for (int i = 0; i < shown; i++) {
-                Vector d = rays.get(i);
-                double len = reach * rayLengths.get(i);
-                for (double r = 0.8; r < len; r += 0.75) {
-                    double f = r / len;
-                    fx(Particle.DUST, core.clone().add(d.clone().multiply(r)), 1, 0.02, 0, f < 0.35 ? RAY_WHITE : f < 0.7 ? RAY_PINK : RAY_PURPLE);
-                }
+        Location at = boss.getLocation();
+        World w = at.getWorld();
+        double h = 2.9 * scale;
+        boolean down = deathTicks >= CRASH_TICK;
+
+        if (!down) {
+            // shuddering, harder as he gives way
+            double k = deathTicks / (double) CRASH_TICK;
+            if (deathTicks % 2 == 0) {
+                Location j = at.clone();
+                j.setYaw(at.getYaw() + (float) ((rnd.nextDouble() - 0.5) * (2 + 8 * k)));
+                boss.teleport(j);
+            }
+            // cracks bursting open across his body
+            if (rnd.nextDouble() < 0.06 + 0.22 * k) {
+                Location crack = bodyPoint(at, h);
+                fx(Particle.EXPLOSION, crack, 1, 0, 0, null);
+                fx(Particle.CRIT, crack, 25, 0.3, 0.6, null);
+                fx(Particle.LARGE_SMOKE, crack, 6, 0.3, 0.03, null);
+                w.playSound(crack, rnd.nextBoolean() ? "minecraft:block.anvil.land" : "minecraft:entity.zombie.attack_iron_door", 2f, 0.5f + (float) rnd.nextDouble() * 0.4f);
+                if (rnd.nextDouble() < 0.5 + 0.5 * k) throwDebris(crack, 1 + rnd.nextInt(2), 0.35);
+            }
+            if (deathTicks % 10 == 0) fx(Particle.LARGE_SMOKE, at.clone().add(0, h * 0.6, 0), 8, scale * 0.5, 0.02, null);
+        }
+
+        // the crash: his legs buckle and he topples over onto the floor
+        if (deathTicks == CRASH_TICK) {
+            boss.setRotation(Math.round(at.getYaw() / 90f) * 90f, 0);
+            boss.setPose(Pose.SLEEPING, true);
+            w.playSound(at, "minecraft:block.anvil.land", 4f, 0.4f);
+            w.playSound(at, "minecraft:entity.generic.explode", 4f, 0.6f);
+            w.playSound(at, "minecraft:entity.iron_golem.death", 4f, 0.5f);
+            fx(Particle.BLOCK, at.clone().add(0, 0.4, 0), 400, scale * 1.6, 0.25, Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
+            fx(Particle.CLOUD, at.clone().add(0, 0.6, 0), 120, scale * 1.5, 0.08, null);
+            for (int i = 0; i < 4; i++) fx(Particle.EXPLOSION, at.clone().add(rnd.nextGaussian() * scale, 0.8, rnd.nextGaussian() * scale), 1, 0, 0, null);
+            throwDebris(at.clone().add(0, 1.5, 0), 10, 0.6);
+            for (Player p : fighters()) {   // the whole floor jumps
+                double d = p.getLocation().distance(at);
+                if (d < 20) p.setVelocity(p.getVelocity().setY(0.55 * (1 - d / 25)));
             }
         }
-        if (deathTicks >= DEATH_TICKS - 20) {
-            double s = 4 + scale;
-            fx(Particle.EXPLOSION_EMITTER, core.clone().add((rnd.nextDouble() - 0.5) * s, (rnd.nextDouble() - 0.5) * s, (rnd.nextDouble() - 0.5) * s), 1, 0, 0, null);
+
+        // on the floor: pieces keep bursting off him
+        if (down && deathTicks < FINAL_TICK && rnd.nextDouble() < 0.25) {
+            Location crack = at.clone().add(rnd.nextGaussian() * scale * 0.9, 0.6 + rnd.nextDouble() * scale * 0.6, rnd.nextGaussian() * scale * 0.9);
+            fx(Particle.EXPLOSION, crack, 1, 0, 0, null);
+            fx(Particle.CRIT, crack, 20, 0.3, 0.5, null);
+            throwDebris(crack, 1, 0.45);
         }
-        if (deathXp > 0 && deathTicks > 150 && deathTicks % 5 == 0) dropXp(core, (int) (deathXp * 0.08));
-        if (deathTicks >= DEATH_TICKS) {
-            if (deathXp > 0) dropXp(core, (int) (deathXp * 0.2));
-            finishDeath();
+        if (down && deathTicks % 6 == 0) fx(Particle.LARGE_SMOKE, at.clone().add(0, 1, 0), 10, scale, 0.03, null);
+
+        // the last burst: he breaks apart and the wreckage rains down
+        if (deathTicks == FINAL_TICK) {
+            Location core = at.clone().add(0, 1.5, 0);
+            for (int i = 0; i < 3; i++) fx(Particle.EXPLOSION_EMITTER, core.clone().add(rnd.nextGaussian() * scale, 0.5, rnd.nextGaussian() * scale), 1, 0, 0, null);
+            fx(Particle.BLOCK, core, 500, scale * 1.4, 0.4, Material.WAXED_COPPER_BLOCK.createBlockData());
+            fx(Particle.BLOCK, core, 300, scale * 1.4, 0.4, Material.GOLD_BLOCK.createBlockData());
+            fx(Particle.CRIT, core, 200, scale, 1.0, null);
+            fx(Particle.LARGE_SMOKE, core, 150, scale * 1.5, 0.1, null);
+            w.playSound(core, "minecraft:entity.generic.explode", 5f, 0.5f);
+            w.playSound(core, "minecraft:block.anvil.destroy", 4f, 0.5f);
+            throwDebris(core, 24, 0.9);
+            if (deathXp > 0) dropXp(core, deathXp);
+            for (Player p : fighters()) {
+                Vector d = p.getLocation().toVector().subtract(at.toVector()); d.setY(0);
+                if (d.length() > 16 || d.lengthSquared() < 1e-4) continue;
+                p.setVelocity(d.normalize().multiply(0.9 * (1 - d.length() / 20)).setY(0.4));
+            }
+            boss.remove();
         }
+        if (deathTicks >= DEATH_TICKS) finishDeath();
+    }
+
+    /** A random point on his standing body. */
+    private Location bodyPoint(Location at, double h) {
+        return at.clone().add(rnd.nextGaussian() * scale * 0.35, h * (0.15 + 0.8 * rnd.nextDouble()), rnd.nextGaussian() * scale * 0.35);
+    }
+
+    /** Chunks of metal and stone flung off him. They clang when they hit the floor and vanish (no blocks are placed). */
+    private void throwDebris(Location from, int count, double power) {
+        for (int i = 0; i < count; i++) {
+            org.bukkit.entity.FallingBlock fb = from.getWorld().spawnFallingBlock(from, WRECK[rnd.nextInt(WRECK.length)].createBlockData());
+            fb.setDropItem(false);
+            fb.setHurtEntities(false);
+            fb.setPersistent(false);
+            fb.addScoreboardTag(DEBRIS);
+            fb.setVelocity(new Vector(rnd.nextGaussian(), 0.6 + rnd.nextDouble(), rnd.nextGaussian()).normalize().multiply(power + rnd.nextDouble() * power));
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onDebrisLands(org.bukkit.event.entity.EntityChangeBlockEvent e) {
+        if (!e.getEntity().getScoreboardTags().contains(DEBRIS)) return;
+        e.setCancelled(true);
+        Location l = e.getBlock().getLocation().add(0.5, 0.2, 0.5);
+        l.getWorld().playSound(l, rnd.nextBoolean() ? "minecraft:block.anvil.land" : "minecraft:entity.zombie.attack_iron_door", 1.2f, 0.7f + (float) rnd.nextDouble() * 0.6f);
+        if (e.getEntity() instanceof org.bukkit.entity.FallingBlock fb)
+            l.getWorld().spawnParticle(Particle.BLOCK, l, 15, 0.3, 0.1, 0.3, 0.05, fb.getBlockData(), true);
+        e.getEntity().remove();
     }
 
     private void dropXp(Location at, int amount) {
@@ -1202,7 +1266,7 @@ final class MolochBoss implements Listener {
             amount -= v;
             at.getWorld().spawn(at, ExperienceOrb.class, o -> {
                 o.setExperience(v);
-                o.setVelocity(new Vector(rnd.nextGaussian() * 0.15, 0.2 + rnd.nextDouble() * 0.2, rnd.nextGaussian() * 0.15));
+                o.setVelocity(new Vector(rnd.nextGaussian() * 0.3, 0.3 + rnd.nextDouble() * 0.4, rnd.nextGaussian() * 0.3));
             });
         }
     }

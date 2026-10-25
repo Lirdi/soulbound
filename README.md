@@ -22,7 +22,7 @@ Capture weakened players, sacrifice them to Moloch, and fight Moloch himself. Wo
 ## Moloch's Hunger and the awakening
 - Sacrifices and gold or mob offerings in the pit fill Moloch's Hunger (0 to 100).
 - When it's full, his awakening is booked for the next Friday or Saturday at 8pm (London time), with at least 6 hours' notice, and announced.
-- He rises on the dais: a giant warden everyone fights together, scaled live to the crowd in the hall. He charges (dodge so he hits a pillar and he topples, stunned), leaps and slams, breathes fire, blasts a fire ring and chains anyone hanging back. Arrows do half damage and his Soulfire Ward burns them. At 75% his gold-armoured champions shield him, at 50% he screams (Nausea, Weakness), at 25% he collapses and feeds (hunger to zero), then frenzies. He dies like the ender dragon, to his own death sound (`moloch:death`).
+- He rises on the dais: a giant warden everyone fights together, scaled live to the crowd in the hall. He charges (dodge so he hits a pillar and he topples, stunned), leaps and slams, breathes fire, blasts a fire ring and chains anyone hanging back. Arrows do half damage and his Soulfire Ward burns them. At 75% his gold-armoured champions shield him, at 50% he screams (Nausea, Weakness), at 25% he collapses and feeds (hunger to zero), then frenzies. When he dies he shudders and cracks, crashes over onto the floor and bursts apart in clanging metal, to his own death sound (`moloch:death`).
 - Bring him down in 30 minutes and everyone who hurt him gets diamonds and XP, with extra for the top damage dealer. Fail and a blood moon hangs over his realm for 24 hours (stronger mobs).
 - No other wardens exist in the world (ancient-city shriekers summon nothing).
 
