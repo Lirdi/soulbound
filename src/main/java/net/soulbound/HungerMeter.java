@@ -52,7 +52,8 @@ final class HungerMeter implements Listener {
     private String objective;
     private ZoneId zone;
     private final List<Slot> slots = new ArrayList<>();
-    private int minNoticeHours;
+    private int minNoticeHours, delayMinutes;
+    private boolean useSlots;
 
     private record Slot(DayOfWeek day, LocalTime time) { }
 
@@ -71,6 +72,8 @@ final class HungerMeter implements Listener {
         objective = c.getString("hunger.datapack-objective", "sacrifice.offer");
         try { zone = ZoneId.of(c.getString("hunger.timezone", "Europe/London")); } catch (Exception ex) { zone = ZoneId.of("Europe/London"); }
         minNoticeHours = c.getInt("hunger.min-notice-hours", 6);
+        useSlots = c.getBoolean("hunger.use-time-slots", false);
+        delayMinutes = Math.max(0, c.getInt("hunger.awaken-delay-minutes", 5));
         barEnabled = c.getBoolean("hunger.bar.enabled", true);
         barEverywhere = c.getBoolean("hunger.bar.always-for-everyone", false);
         popupSeconds = Math.max(2, c.getInt("hunger.bar.popup-seconds", 8));
@@ -132,6 +135,14 @@ final class HungerMeter implements Listener {
     }
 
     private void book() {
+        if (!useSlots) {   // he rises right away, after a short warning so people can get to the arena
+            awakenAt = System.currentTimeMillis() + delayMinutes * 60_000L;
+            persist();
+            Bukkit.broadcast(Component.text("MOLOCH STIRS.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+            say("His hunger is full. He rises in " + delayMinutes + " minute" + (delayMinutes == 1 ? "" : "s") + ". Get to the arena under the pyramid!", NamedTextColor.RED);
+            for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:awaken", 0.8f, 1f);
+            return;
+        }
         ZonedDateTime now = ZonedDateTime.now(zone), earliest = now.plusHours(minNoticeHours), best = null;
         for (Slot s : slots) {
             ZonedDateTime t = earliest.with(s.time());
@@ -145,7 +156,11 @@ final class HungerMeter implements Listener {
         for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:awaken", 0.6f, 1f);
     }
 
-    String whenText() { return awakenAt == 0 ? "not yet" : when(Instant.ofEpochMilli(awakenAt).atZone(zone)); }
+    String whenText() {
+        if (awakenAt == 0) return "not yet";
+        if (!useSlots) return "in " + CurseManager.clock((int) Math.max(0, (awakenAt - System.currentTimeMillis()) / 1000));
+        return when(Instant.ofEpochMilli(awakenAt).atZone(zone));
+    }
 
     private String when(ZonedDateTime t) {
         return t.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.UK) + " at " + t.format(DateTimeFormatter.ofPattern("h:mma", Locale.UK)).toLowerCase(Locale.ROOT)
@@ -154,6 +169,14 @@ final class HungerMeter implements Listener {
 
     private void tickSecond() {
         pollDatapack();
+        // the countdown to his rising
+        if (awakenAt > 0 && !plugin.boss().active()) {
+            long left = (awakenAt - System.currentTimeMillis()) / 1000;
+            if (left == 180 || left == 60 || left == 30 || left == 10) {
+                say("Moloch rises in " + (left >= 60 ? (left / 60) + " minute" + (left == 60 ? "" : "s") : left + " seconds") + "!", NamedTextColor.RED);
+                for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:drums", 0.5f, 1.1f);
+            }
+        }
         if (awakenAt > 0 && System.currentTimeMillis() >= awakenAt && !plugin.boss().active()) {
             if (plugin.boss().begin()) { awakenAt = 0; persist(); }
             else awakenAt = System.currentTimeMillis() + 60_000;   // realm not loaded yet: try again in a minute
@@ -211,7 +234,7 @@ final class HungerMeter implements Listener {
         }
         bar.name(name);
         for (Player p : Bukkit.getOnlinePlayers()) {
-            boolean see = barEverywhere || popping || plugin.zones().inRealm(p.getLocation());
+            boolean see = barEverywhere || popping || awakenAt > 0 || plugin.zones().inRealm(p.getLocation());   // the countdown is for everyone
             if (see && viewers.add(p.getUniqueId())) p.showBossBar(bar);
             if (!see && viewers.remove(p.getUniqueId())) p.hideBossBar(bar);
         }

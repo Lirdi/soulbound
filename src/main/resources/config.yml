@@ -103,6 +103,10 @@ hunger:
   # At least this much warning before he rises.
   min-notice-hours: 6
 
+  # When his hunger is full he rises this many minutes later (with countdown warnings). Set use-time-slots: true
+  # to book him for the next awakening slot above instead.
+  awaken-delay-minutes: 5
+  use-time-slots: false
   # The Hunger bar: a boss bar filling towards his awakening. Always shown in his realm; whenever it grows
   # (a sacrifice or offering) everyone online sees it fill up for a few seconds.
   bar:
