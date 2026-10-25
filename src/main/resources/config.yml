@@ -255,14 +255,15 @@ god:
   flying-offset-back: 0.45
   flying-offset-down: 0.15
   standing-offset-down: 0.3
-  # His abilities, on top of the dragon's own fight. Roughly every this many seconds (quicker as he weakens) he either
-  # smites (a pillar of light finds you, then lightning strikes where it stands: move!) or calls Pillar of Salt
-  # (anyone looking at him is frozen for 3 seconds).
-  seconds-between-abilities: 11
+  # His fight is the Seven Days of Creation. Day 1 he sits on his throne, peaceful and chatty, until someone strikes
+  # him or answers "I've come to challenge you"; each later day starts as his health drops by another seventh.
+  # Smite (a pillar of light, then lightning: move!) runs through every day.
   smite-damage: 6
-  # At half health he dozes off for this long: double damage, but this much damage wakes him up furious.
-  nap-seconds: 8
+  # On the seventh day he keeps dozing off for this long (double damage); this much damage wakes him up furious.
+  nap-seconds: 7
   nap-wake-damage: 30
-  # At 75% he judges: anyone who sacrificed a player to Moloch within this many days glows red as a SINNER,
+  # Judgement (day 5): anyone who sacrificed a player to Moloch within this many days glows red as a SINNER,
   # is smitten first and takes double smite damage.
   sinner-days: 7
+  # Nudge him up or down on his throne if he doesn't sit right (in blocks).
+  throne-sit-offset: 0.0

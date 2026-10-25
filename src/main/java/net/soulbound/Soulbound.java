@@ -93,6 +93,10 @@ public final class Soulbound extends JavaPlugin {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (command.getName().equalsIgnoreCase("moloch")) return moloch(sender, args);
+        if (command.getName().equalsIgnoreCase("god")) {
+            if (sender instanceof Player p && args.length > 0) god.choose(p, args[0]);
+            return true;
+        }
         String sub = args.length > 0 ? args[0].toLowerCase() : "";
         switch (sub) {
             case "release" -> {
@@ -236,6 +240,7 @@ public final class Soulbound extends JavaPlugin {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         boolean admin = sender.hasPermission("soulbound.admin");
+        if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
             if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "reload") : List.of();
             return null;   // player names

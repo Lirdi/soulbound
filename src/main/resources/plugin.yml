@@ -12,6 +12,9 @@ commands:
   moloch:
     description: Moloch's state, and admin controls for his awakening.
     usage: /moloch [awaken|stop|hunger|curse|uncurse|gate|setarrival|reload]
+  god:
+    description: Answer God when he asks why you're here.
+    usage: /god <challenge|lost|forgive|look>
 permissions:
   soulbound.capture:
     description: Can capture weakened players with a lead.

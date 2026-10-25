@@ -177,6 +177,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         }
         // the throne, north of the portal, facing it
         int g = ground(w, 0, -17);
+        store.set("heaven.seat", "0.5," + (g + 3.5) + ",-16.5");   // where God sits
         for (int x = -5; x <= 5; x++) for (int z = -21; z <= -14; z++) {
             for (int y = g + 1; y <= g + 16; y++) set(w, x, y, z, Material.AIR.createBlockData());
             set(w, x, g, z, Material.SMOOTH_QUARTZ.createBlockData());
