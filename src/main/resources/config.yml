@@ -241,9 +241,9 @@ boss:
 # (The resource pack makes the dragon invisible, gives it an old man's voice and names it God.)
 god:
   enabled: true
-  # false: he flies upright, like an old man floating through the sky. true: he flies face-forward like an elytra
-  # glider (Minecraft can hide him at some angles in that pose, because his body reaches far outside his hitbox).
-  flying-pose: false
+  # true: he swims through the sky face-forward, like an elytra glider (Minecraft can hide him at some angles in this
+  # pose, because his body reaches far outside his hitbox). false: he floats upright like an old man drifting along.
+  flying-pose: true
   # How big he is (1 = player size, up to 16).
   scale: 9
   # Hits on his body pass this share of their damage on to the dragon (the dragon's own hitbox still takes full hits).

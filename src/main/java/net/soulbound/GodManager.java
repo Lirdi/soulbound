@@ -102,7 +102,7 @@ final class GodManager implements Listener {
     void loadSettings() {
         FileConfiguration c = plugin.getConfig();
         enabled = c.getBoolean("god.enabled", true);
-        flyingPose = c.getBoolean("god.flying-pose", false);
+        flyingPose = c.getBoolean("god.flying-pose", true);
         scale = Math.max(1, Math.min(16, c.getDouble("god.scale", 9)));
         hitShare = c.getDouble("god.body-hit-damage", 0.5);
         flyBack = c.getDouble("god.flying-offset-back", 0.45);
