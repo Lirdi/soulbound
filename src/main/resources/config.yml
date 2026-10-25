@@ -159,6 +159,12 @@ boss:
   # The leap (from 75%): a red ring marks where he'll land, then he slams down.
   slam-damage: 12
   slam-radius: 6
+  # The grab: he snatches the nearest player (within reach) up onto his head and squeezes them, then hurls them across
+  # the hall. Everyone else dealing this much damage per fighter while he holds them makes him drop them instead.
+  grab-hold-seconds: 3
+  grab-squeeze-damage: 1.5
+  grab-throw-damage: 2
+  grab-break-damage-per-fighter: 30
   # Furnace breath (from 75%): a cone of fire that sweeps after its target. Damage every half second inside it.
   breath-damage: 3
   breath-range: 14

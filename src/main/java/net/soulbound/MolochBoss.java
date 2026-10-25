@@ -78,7 +78,7 @@ final class MolochBoss implements Listener {
             "NETHER_PORTAL", "VILLAGE_DEFENSE", "VILLAGE_INVASION", "SILVERFISH_BLOCK", "RAID", "LIGHTNING", "ENDER_PEARL", "SPAWNER", "TRIAL_SPAWNER");
 
     private enum Stage { WAVE, BREAK, BOSS }
-    private enum Move { NONE, RING, CHARGE, LEAP, BREATH, CHAIN, STUN }
+    private enum Move { NONE, RING, CHARGE, LEAP, BREATH, CHAIN, STUN, GRAB }
 
     private static final List<String> DEFAULT_WAVES = List.of("vindicator:4", "blaze:3,magma_cube:2", "wither_skeleton:3,piglin_brute:1");
     private static final List<String> DEFAULT_WAVE_NAMES = List.of("The cult rises", "Fire from below", "His honour guard");
@@ -116,6 +116,10 @@ final class MolochBoss implements Listener {
     private Vector moveDir;
     private Location moveTarget, lastPos;
     private Vector leapV;
+    // the grab: who he's holding, how hard the others have hit him since, and whether we're letting go on purpose
+    private double grabSqueeze, grabThrowDamage, grabBreak, grabDamage;
+    private int grabSeconds;
+    private boolean releasing;
     private int edgeHalves, stuckHalves, escapeCooldown;
     private Location lastSpot;
     private Player victim;
@@ -165,6 +169,10 @@ final class MolochBoss implements Listener {
         ringDamage = c.getDouble("boss.fire-ring-damage", 6);
         ringRadius = c.getDouble("boss.fire-ring-radius", 8);
         chargeDamage = c.getDouble("boss.charge-damage", 12);
+        grabSqueeze = c.getDouble("boss.grab-squeeze-damage", 1.5);
+        grabThrowDamage = c.getDouble("boss.grab-throw-damage", 2);
+        grabBreak = c.getDouble("boss.grab-break-damage-per-fighter", 30);
+        grabSeconds = Math.max(1, c.getInt("boss.grab-hold-seconds", 3));
         stunSeconds = Math.max(1, c.getInt("boss.stun-seconds", 5));
         stunMultiplier = c.getDouble("boss.stun-damage-multiplier", 2.0);
         slamDamage = c.getDouble("boss.slam-damage", 12);
@@ -577,6 +585,7 @@ final class MolochBoss implements Listener {
             case LEAP -> tickLeap();
             case BREATH -> tickBreath();
             case CHAIN -> tickChain();
+            case GRAB -> tickGrab();
             case STUN -> tickStun();
         }
     }
@@ -590,6 +599,8 @@ final class MolochBoss implements Listener {
         if (phase >= 2) { w.put(Move.LEAP, 3); w.put(Move.BREATH, 3); }
         Player far = farthest(f);
         if (far != null && far.getLocation().distance(boss.getLocation()) > chainRange) w.put(Move.CHAIN, 3);
+        Player close = nearest(f);
+        if (close != null && close.getLocation().distance(boss.getLocation()) <= grabReach()) w.put(Move.GRAB, 3);
         w.remove(lastMove);   // never the same move twice in a row
         int total = w.values().stream().mapToInt(Integer::intValue).sum(), roll = rnd.nextInt(Math.max(1, total));
         Move pick = Move.CHARGE;
@@ -601,6 +612,7 @@ final class MolochBoss implements Listener {
             case LEAP -> startLeap(far != null && rnd.nextBoolean() ? far : any);
             case BREATH -> startBreath(any);
             case CHAIN -> startChain(far);
+            case GRAB -> startGrab(close);
             default -> startCharge(any);
         }
     }
@@ -619,6 +631,7 @@ final class MolochBoss implements Listener {
 
     private void endMove() {
         boolean wasStun = move == Move.STUN;
+        if (move == Move.GRAB) letGo(null);
         move = Move.NONE;
         victim = null;
         if (boss != null && boss.isValid()) {
@@ -634,6 +647,93 @@ final class MolochBoss implements Listener {
         Vector d = at.toVector().subtract(boss.getLocation().toVector());
         float yaw = (float) Math.toDegrees(Math.atan2(-d.getX(), d.getZ()));
         boss.setRotation(yaw, 0);
+    }
+
+    // ---- the grab: he reaches for whoever is closest, hoists them up onto his head and squeezes. If the others hit him
+    //      hard enough he drops them; otherwise he hurls them across the hall.
+
+    private double grabReach() { return 0.7 * scale + 4; }
+
+    private Player nearest(List<Player> f) {
+        return f.stream().min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(boss.getLocation()))).orElse(null);
+    }
+
+    private void startGrab(Player target) {
+        if (target == null) { endMove(); return; }
+        beginMove(Move.GRAB, target);
+        grabDamage = 0;
+        Location at = boss.getLocation();
+        at.getWorld().playSound(at, "minecraft:entity.warden.angry", 3f, 0.6f);
+        at.getWorld().playSound(at, "minecraft:entity.ravager.attack", 3f, 0.5f);
+        target.sendActionBar(Component.text("Moloch reaches for you! Get away!", NamedTextColor.RED, TextDecoration.BOLD));
+    }
+
+    private void tickGrab() {
+        moveTick++;
+        if (victim == null || !victim.isValid() || victim.isDead() || !victim.isOnline()) { endMove(); return; }
+        Location at = boss.getLocation();
+        if (moveTick <= 12) {   // the reach: a moment to dodge
+            face(victim.getLocation());
+            if (moveTick % 3 == 0) fx(Particle.DUST, victim.getLocation().add(0, 1, 0), 6, 0.4, 0, WARN);
+            if (moveTick < 12) return;
+            if (victim.getLocation().distance(at) > grabReach() + 1.5) {   // dodged
+                at.getWorld().playSound(at, "minecraft:entity.player.attack.sweep", 3f, 0.5f);
+                endMove();
+                return;
+            }
+            boss.addPassenger(victim);
+            at.getWorld().playSound(at, "minecraft:entity.iron_golem.attack", 3f, 0.5f);
+            victim.showTitle(Title.title(Component.empty(), Component.text("Moloch has you!", NamedTextColor.DARK_RED, TextDecoration.BOLD),
+                    Title.Times.times(Duration.ofMillis(100), Duration.ofMillis(1500), Duration.ofMillis(300))));
+            for (Player p : fighters()) if (p != victim)
+                p.sendActionBar(Component.text("Moloch has grabbed " + victim.getName() + "! Hit him to make him let go!", NamedTextColor.GOLD));
+            return;
+        }
+        if (!boss.getPassengers().contains(victim)) { endMove(); return; }
+        // squeezing
+        if ((moveTick - 12) % 20 == 0) {
+            victim.damage(grabSqueeze, boss);
+            victim.getWorld().playSound(victim.getLocation(), "minecraft:entity.player.hurt_sweet_berry_bush", 1.5f, 0.6f);
+            fx(Particle.BLOCK, victim.getLocation(), 12, 0.3, 0.05, Material.REDSTONE_BLOCK.createBlockData());
+        }
+        double need = grabBreak * Math.max(1, crowd);
+        if (grabDamage >= need) {   // the others hit him hard enough: he drops them
+            Player freed = victim;
+            letGo(new Vector(0, 0.3, 0));
+            at.getWorld().playSound(at, "minecraft:entity.warden.hurt", 3f, 0.6f);
+            sayNear(at, freed.getName() + " is torn free of Moloch's grip!", NamedTextColor.GOLD);
+            move = Move.NONE;
+            endMove();
+            nextMoveIn += 40;   // he staggers
+            return;
+        }
+        if (moveTick >= 12 + grabSeconds * 20) {   // the throw
+            Player thrown = victim;
+            Vector dir = at.getDirection().setY(0);
+            if (dir.lengthSquared() < 1e-3) dir = new Vector(1, 0, 0);
+            dir.normalize().rotateAroundY(Math.toRadians(rnd.nextInt(91) - 45));
+            letGo(dir.multiply(1.9).setY(0.55));
+            at.getWorld().playSound(at, "minecraft:entity.warden.roar", 3f, 0.9f);
+            at.getWorld().playSound(at, "minecraft:entity.player.attack.knockback", 3f, 0.5f);
+            Bukkit.getScheduler().runTaskLater(plugin, () -> { if (thrown.isValid() && !thrown.isDead()) thrown.damage(grabThrowDamage, boss); }, 2L);
+            sayNear(at, "Moloch hurls " + thrown.getName() + " across the hall!", NamedTextColor.RED);
+            endMove();
+        }
+    }
+
+    /** Let go of whoever he's holding, flinging them with this velocity (next tick, once they're off him). */
+    private void letGo(Vector fling) {
+        Player held = victim;
+        if (held == null || boss == null) return;
+        releasing = true;
+        try { boss.removePassenger(held); } finally { releasing = false; }
+        if (fling != null) Bukkit.getScheduler().runTaskLater(plugin, () -> { if (held.isValid()) held.setVelocity(fling); }, 1L);
+    }
+
+    /** The held player can't climb down off him. */
+    @EventHandler(ignoreCancelled = true)
+    public void onDismount(org.bukkit.event.entity.EntityDismountEvent e) {
+        if (!releasing && move == Move.GRAB && isBoss(e.getDismounted()) && e.getEntity() == victim) e.setCancelled(true);
     }
 
     // ---- the fire ring: a roar, a warning ring of smoke, then a blast around his feet
@@ -1193,6 +1293,7 @@ final class MolochBoss implements Listener {
         dying = true;
         deathTicks = 0;
         if (collapsing) endCollapse();
+        if (move == Move.GRAB) letGo(null);
         move = Move.NONE;
         wardLeft = 0;
         Location c = zones.arenaCentre();
@@ -1460,6 +1561,7 @@ final class MolochBoss implements Listener {
         if (move == Move.STUN) m *= stunMultiplier;
         e.setDamage(e.getDamage() * m);
         allDmg += e.getDamage() / hpScale;
+        if (move == Move.GRAB && moveTick > 12) grabDamage += e.getDamage() / hpScale;
         if (projectile) projDmg += e.getDamage() / hpScale;
     }
 
