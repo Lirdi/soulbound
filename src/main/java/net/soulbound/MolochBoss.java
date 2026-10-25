@@ -6,6 +6,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -18,6 +19,7 @@ import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
@@ -83,10 +85,18 @@ final class MolochBoss implements Listener {
     private double maxHp, savedHp;
     private long endsAt, bloodMoonUntil;
     private int phase, half, ringWindup = -1, respawns;
+    // his death: ten seconds of rising, burning and breaking apart, like the ender dragon's
+    private static final int DEATH_TICKS = 200;
+    private boolean dying;
+    private int deathTicks;
+    private BukkitTask deathTask;
+    private final List<Vector> beams = new ArrayList<>();
+    private static final Particle.DustOptions EMBER = new Particle.DustOptions(Color.fromRGB(255, 120, 20), 1.8f);
+    private static final Particle.DustOptions CORE = new Particle.DustOptions(Color.fromRGB(255, 230, 140), 1.3f);
 
     // settings
     private double scale, baseHealth, perPlayer, boomCap, ringDamage, ringRadius, minDamage, leashRadius, extraPerPlayer;
-    private int fightMinutes, ringEvery, breakSeconds, bloodMoonHours;
+    private int fightMinutes, ringEvery, breakSeconds, bloodMoonHours, deathXp;
     private boolean blockWardens, noDarkness;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
@@ -114,6 +124,7 @@ final class MolochBoss implements Listener {
         bloodMoonHours = c.getInt("boss.blood-moon-hours", 24);
         blockWardens = c.getBoolean("boss.block-other-wardens", true);
         noDarkness = c.getBoolean("boss.no-darkness", true);
+        deathXp = Math.max(0, c.getInt("boss.death-xp", 1500));
         waves = c.isList("boss.waves") ? c.getStringList("boss.waves") : DEFAULT_WAVES;
         waveNames = c.isList("boss.wave-names") ? c.getStringList("boss.wave-names") : DEFAULT_WAVE_NAMES;
         breakSeconds = Math.max(2, c.getInt("boss.wave-break-seconds", 6));
@@ -126,7 +137,8 @@ final class MolochBoss implements Listener {
 
     void stop() {
         if (task != null) task.cancel();
-        if (active) {   // a restart mid-fight: tidy up, and wake him again as soon as the server's back
+        if (active && dying) win();   // he was already dying: the players won
+        else if (active) {   // a restart mid-fight: tidy up, and wake him again as soon as the server's back
             cleanup();
             plugin.hunger().awakenNow();
         }
@@ -270,7 +282,7 @@ final class MolochBoss implements Listener {
         if (!active) return;
         half++;
         Location c = zones.arenaCentre();
-        if (c == null) return;
+        if (c == null || dying) return;
         if (System.currentTimeMillis() >= endsAt) { lose(); return; }
         long left = Math.max(0, endsAt - System.currentTimeMillis()) / 1000;
         keepMinionsIn(c);
@@ -414,6 +426,112 @@ final class MolochBoss implements Listener {
         return out;
     }
 
+    // ---------------------------------------------------------------- his death
+
+    private void startDeath(Player killer) {
+        dying = true;
+        deathTicks = 0;
+        Location c = zones.arenaCentre();
+        boss.setAI(false);
+        boss.setGravity(false);
+        boss.setInvulnerable(true);
+        boss.setSilent(true);
+        boss.setHealth(1);
+        for (UUID id : minions) {   // his servants burn up with him
+            Entity m = Bukkit.getEntity(id);
+            if (m == null) continue;
+            fx(Particle.LAVA, m.getLocation().add(0, 1, 0), 12, 0.4, 0, null);
+            m.remove();
+        }
+        minions.clear();
+        beams.clear();
+        bar.name(Component.text("Moloch is falling", NamedTextColor.GOLD, TextDecoration.BOLD));
+        bar.progress(0f);
+        for (Player p : c.getWorld().getPlayers()) {
+            if (p.getLocation().distanceSquared(c) < 200 * 200) p.playSound(c, "moloch:death", 6f, 1f);
+            else p.playSound(p.getLocation(), "moloch:death", 0.5f, 1f);   // the whole realm hears him fall
+        }
+        titleNear(c, Component.text("MOLOCH FALLS", NamedTextColor.GOLD, TextDecoration.BOLD),
+                Component.text(killer != null ? "struck down by " + killer.getName() : "", NamedTextColor.YELLOW));
+        deathTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickDeath, 1L, 1L);
+    }
+
+    /** Every tick of his death: he rises and turns, beams of fire burst out of him, and he cracks apart from inside. */
+    private void tickDeath() {
+        if (boss == null || !boss.isValid()) { finishDeath(); return; }
+        deathTicks++;
+        float t = deathTicks / (float) DEATH_TICKS;
+        Location at = boss.getLocation().add(0, 0.035, 0);
+        at.setYaw(at.getYaw() + 1.5f + 6f * t);
+        at.setPitch(0);
+        boss.teleport(at);
+        Location core = at.clone().add(0, 2.9 * scale * 0.55, 0);
+
+        // beams of fire, more and longer as he breaks apart
+        if (deathTicks % 12 == 1 && beams.size() < 16) {
+            Vector d = new Vector(rnd.nextGaussian(), rnd.nextGaussian() * 0.6 + 0.35, rnd.nextGaussian());
+            beams.add(d.normalize());
+        }
+        if (deathTicks % 2 == 0) {
+            double len = 4 + 18 * t, spin = Math.toRadians(1.2);
+            for (Vector d : beams) {
+                d.rotateAroundY(spin);
+                for (double r = 1.2; r < len; r += 0.7)
+                    fx(Particle.DUST, core.clone().add(d.clone().multiply(r)), 1, 0.05, 0, r < len * 0.35 ? CORE : EMBER);
+            }
+        }
+
+        // bursts inside him, coming faster
+        if (rnd.nextDouble() < 0.12 + 0.45 * t) {
+            double s = scale * 0.9;
+            fx(Particle.EXPLOSION, core.clone().add(rnd.nextGaussian() * s, rnd.nextGaussian() * s * 1.2, rnd.nextGaussian() * s), 1, 0, 0, null);
+        }
+        if (deathTicks % 3 == 0) fx(Particle.FLAME, core, 6, scale * 0.6, 0.04, null);
+        if (deathTicks % 5 == 0) fx(Particle.LAVA, core, 3, scale * 0.5, 0, null);
+        if (deathTicks % 8 == 0) fx(Particle.LARGE_SMOKE, at.clone().add(0, 1, 0), 10, 2.5, 0.02, null);
+
+        // like the dragon, he showers experience as he goes
+        if (deathXp > 0 && deathTicks > DEATH_TICKS - 70 && deathTicks % 2 == 0) {
+            int each = Math.max(1, deathXp / 35);
+            at.getWorld().spawn(core, ExperienceOrb.class, o -> {
+                o.setExperience(each);
+                o.setVelocity(new Vector(rnd.nextGaussian() * 0.25, 0.3 + rnd.nextDouble() * 0.3, rnd.nextGaussian() * 0.25));
+            });
+        }
+
+        if (deathTicks >= DEATH_TICKS) finishDeath();
+    }
+
+    /** The blast: he bursts apart and a shockwave throws everyone back (no damage, no broken blocks). */
+    private void finishDeath() {
+        if (deathTask != null) { deathTask.cancel(); deathTask = null; }
+        if (boss != null && boss.isValid()) {
+            Location at = boss.getLocation(), core = at.clone().add(0, 2.9 * scale * 0.55, 0);
+            World w = at.getWorld();
+            fx(Particle.EXPLOSION_EMITTER, core, 8, scale, 0, null);
+            fx(Particle.FLAME, core, 400, 0.5, 0.7, null);
+            fx(Particle.LAVA, core, 120, scale * 1.2, 0, null);
+            fx(Particle.LARGE_SMOKE, core, 160, scale, 0.12, null);
+            for (Beam b : List.of(new Beam(0, 1), new Beam(1, 0), new Beam(0, -1), new Beam(-1, 0)))
+                fx(Particle.FLAME, core.clone().add(b.x * 3, 0, b.z * 3), 60, 1, 0.3, null);
+            w.strikeLightningEffect(at);
+            for (Player p : w.getPlayers()) {
+                Vector d = p.getLocation().toVector().subtract(at.toVector()); d.setY(0);
+                if (d.length() > 24 || d.lengthSquared() < 1e-4) continue;
+                p.setVelocity(d.normalize().multiply(1.6 * (1 - d.length() / 30)).setY(0.6));
+            }
+            boss.remove();
+        }
+        win();
+    }
+
+    private record Beam(int x, int z) { }
+
+    /** Particles everyone in the hall can see, however far back they stand. */
+    private void fx(Particle p, Location at, int count, double spread, double speed, Object data) {
+        at.getWorld().spawnParticle(p, at, count, spread, spread, spread, speed, data, true);
+    }
+
     // ---------------------------------------------------------------- endings
 
     private void win() {
@@ -460,6 +578,8 @@ final class MolochBoss implements Listener {
 
     private void cleanup() {
         active = false;
+        dying = false;
+        if (deathTask != null) { deathTask.cancel(); deathTask = null; }
         if (boss != null && boss.isValid()) boss.remove();
         boss = null;
         for (UUID id : minions) { Entity e = Bukkit.getEntity(id); if (e != null) e.remove(); }
@@ -504,6 +624,18 @@ final class MolochBoss implements Listener {
         if (!isBoss(e.getEntity())) return;
         Player p = attacker(e);
         if (p != null) damage.merge(p.getUniqueId(), e.getFinalDamage(), Double::sum);
+    }
+
+    /** The killing blow doesn't kill him outright: it starts his death. Nothing hurts him while he dies. */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBossLethal(EntityDamageEvent e) {
+        if (!active || !isBoss(e.getEntity()) || !(e.getEntity() instanceof Warden w)) return;
+        if (dying) { e.setCancelled(true); return; }
+        if (w.getHealth() - e.getFinalDamage() > 0) return;
+        Player p = attacker(e);
+        if (p != null) damage.merge(p.getUniqueId(), w.getHealth(), Double::sum);
+        e.setCancelled(true);
+        startDeath(p);
     }
 
     /** He only hurts players. His sonic boom is his fiery breath: it burns, but it's capped so it can't one-shot people. */

@@ -131,6 +131,8 @@ boss:
   phase-3-wave: "wither_skeleton:2,blaze:2"
   # Moloch never gives players Darkness (the warden's blinding pulse).
   no-darkness: true
+  # When he dies he rises, burns and bursts apart over ten seconds, showering this much experience, like the ender dragon.
+  death-xp: 1500
   # If he strays this far from the dais he's pulled back.
   leash-radius: 26
   # Everyone who dealt at least this much damage is rewarded. %player% is each one.
