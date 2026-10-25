@@ -25,6 +25,7 @@ public final class Soulbound extends JavaPlugin {
     private PortalManager portals;
     private SummitDrums drums;
     private GodManager god;
+    private HeavenBuilder heaven;
 
     @Override
     public void onEnable() {
@@ -41,6 +42,7 @@ public final class Soulbound extends JavaPlugin {
         portals = new PortalManager(this, store, zones, captures);
         drums = new SummitDrums(this, zones);
         god = new GodManager(this, store);
+        heaven = new HeavenBuilder(this, store);
 
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(captures, this);
@@ -63,6 +65,7 @@ public final class Soulbound extends JavaPlugin {
         portals.start();
         drums.start();
         god.start();
+        heaven.start();
         if (zones.world() == null) getLogger().warning("Moloch's realm '" + zones.worldKey + "' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.");
         getLogger().info("Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.");
     }
@@ -72,6 +75,7 @@ public final class Soulbound extends JavaPlugin {
         if (sacrifices != null) sacrifices.stop();
         if (drums != null) drums.stop();
         if (god != null) god.stop();
+        if (heaven != null) heaven.stop();
         if (captures != null) captures.stop();
         if (boss != null) boss.stop();
         if (hunger != null) hunger.stop();
@@ -170,6 +174,11 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text(portals.buildGate(x, z), NamedTextColor.GREEN));
                 return true;
             }
+            case "heaven" -> {
+                if (!admin(sender)) return true;
+                sender.sendMessage(Component.text(heaven.rebuild(), NamedTextColor.GREEN));
+                return true;
+            }
             case "god" -> {
                 if (!admin(sender)) return true;
                 if (!(sender instanceof Player p)) { sender.sendMessage("Players only."); return true; }
@@ -227,7 +236,7 @@ public final class Soulbound extends JavaPlugin {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "reload") : List.of();
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "reload") : List.of();
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");

@@ -50,3 +50,7 @@ Moloch's realm replaces the Nether. Every Overworld portal leads to one arrival 
 ## God
 
 The ender dragon is replaced by God: a giant grey-bearded old man in white robes with a halo, flying where the (invisible) dragon flies and standing upright when it perches or dies. He has an old man's voice (the villager's, pitched down). Hits on his body pass half their damage to the dragon. The skin is `assets/soulbound/textures/entity/god.png` in the server pack.
+
+## Heaven (the End)
+
+With the Heaven data pack the End becomes God's realm: a golden sky with clouds below the islands, grass and cherry-blossom gardens on cloud-white islands, music from the cherry grove. The server pack retextures end stone as gold-veined marble, purpur as white-and-gold marble (End cities become temples), chorus as gold and the end crystals as holy relics. The plugin builds the Pearly Gates by the arrival platform and God's Throne with a ring of columns around the exit portal. Reset the End (delete `world_the_end`) for the new terrain.
