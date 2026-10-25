@@ -109,7 +109,7 @@ final class MolochBoss implements Listener {
     private int fightMinutes, ringEvery, breakSeconds, bloodMoonHours, deathXp;
     private boolean blockWardens, noDarkness, wavesOn;
     private double collapseAt, collapseHeal;
-    private int collapseSeconds, screamNausea;
+    private int collapseSeconds, screamNausea, screamWeakness;
     private double screamAt;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
@@ -141,6 +141,7 @@ final class MolochBoss implements Listener {
         wavesOn = c.getBoolean("boss.waves-enabled", false);
         screamAt = c.getDouble("boss.scream-at", 0.5);
         screamNausea = Math.max(1, c.getInt("boss.scream-nausea-seconds", 6));
+        screamWeakness = Math.max(0, c.getInt("boss.scream-weakness-seconds", 6));
         collapseAt = c.getDouble("boss.collapse-at", 0.25);
         collapseSeconds = Math.max(2, c.getInt("boss.collapse-seconds", 8));
         collapseHeal = c.getDouble("boss.collapse-heal", 0.15);
@@ -459,7 +460,7 @@ final class MolochBoss implements Listener {
 
     // ---------------------------------------------------------------- his scream
 
-    /** A scream that shakes the hall: everyone in the arena is left reeling with Nausea. */
+    /** A scream that shakes the hall: everyone in the arena is left reeling with Nausea and Weakness. */
     private void scream() {
         screamed = true;
         Location at = boss.getLocation(), head = at.clone().add(0, 2.9 * scale * 0.85, 0);
@@ -477,8 +478,10 @@ final class MolochBoss implements Listener {
                 }
             }, r * 3L);
         }
-        for (Player p : fighters())
+        for (Player p : fighters()) {
             p.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, screamNausea * 20, 0, false, false, true));
+            if (screamWeakness > 0) p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, screamWeakness * 20, 0, false, false, true));
+        }
         titleNear(at, Component.text("MOLOCH SCREAMS", NamedTextColor.DARK_RED, TextDecoration.BOLD),
                 Component.text("the hall spins around you", NamedTextColor.GRAY));
     }
