@@ -23,6 +23,7 @@ public final class Soulbound extends JavaPlugin {
     private MolochBoss boss;
     private SacrificeManager sacrifices;
     private PortalManager portals;
+    private SummitDrums drums;
 
     @Override
     public void onEnable() {
@@ -37,6 +38,7 @@ public final class Soulbound extends JavaPlugin {
         hunger = new HungerMeter(this, store);
         sacrifices = new SacrificeManager(this, store, captures, curses, hunger, zones);
         portals = new PortalManager(this, store, zones, captures);
+        drums = new SummitDrums(this, zones);
 
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(captures, this);
@@ -56,6 +58,7 @@ public final class Soulbound extends JavaPlugin {
         hunger.start();
         sacrifices.start();
         portals.start();
+        drums.start();
         if (zones.world() == null) getLogger().warning("Moloch's realm '" + zones.worldKey + "' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.");
         getLogger().info("Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.");
     }
@@ -63,6 +66,7 @@ public final class Soulbound extends JavaPlugin {
     @Override
     public void onDisable() {
         if (sacrifices != null) sacrifices.stop();
+        if (drums != null) drums.stop();
         if (captures != null) captures.stop();
         if (boss != null) boss.stop();
         if (hunger != null) hunger.stop();
@@ -196,6 +200,7 @@ public final class Soulbound extends JavaPlugin {
         boss.loadSettings();
         sacrifices.loadSettings();
         portals.loadSettings();
+        drums.loadSettings();
         leash.load();
         leash.registerRecipe();
     }
