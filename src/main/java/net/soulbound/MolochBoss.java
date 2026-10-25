@@ -10,6 +10,7 @@ import org.bukkit.Color;
 import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Registry;
@@ -24,6 +25,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Pose;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.SmallFireball;
 import org.bukkit.entity.Warden;
@@ -85,19 +87,29 @@ final class MolochBoss implements Listener {
     private double maxHp, savedHp;
     private long endsAt, bloodMoonUntil;
     private int phase, half, ringWindup = -1, respawns;
-    // his death: ten seconds of rising, burning and breaking apart, like the ender dragon's
+    // his death: ten seconds of rising, spinning and breaking into light, like the ender dragon's
     private static final int DEATH_TICKS = 200;
     private boolean dying;
     private int deathTicks;
     private BukkitTask deathTask;
-    private final List<Vector> beams = new ArrayList<>();
-    private static final Particle.DustOptions EMBER = new Particle.DustOptions(Color.fromRGB(255, 120, 20), 1.8f);
-    private static final Particle.DustOptions CORE = new Particle.DustOptions(Color.fromRGB(255, 230, 140), 1.3f);
+    private final List<Vector> rays = new ArrayList<>();
+    private final List<Double> rayLengths = new ArrayList<>();
+    private static final Particle.DustOptions RAY_WHITE = new Particle.DustOptions(Color.fromRGB(255, 255, 255), 2.2f);
+    private static final Particle.DustOptions RAY_PINK = new Particle.DustOptions(Color.fromRGB(255, 120, 255), 2.0f);
+    private static final Particle.DustOptions RAY_PURPLE = new Particle.DustOptions(Color.fromRGB(190, 40, 255), 1.7f);
+    // his collapse: once per fight, low on health, he crashes to the floor and feeds on everyone's strength
+    private boolean collapsed, collapsing;
+    private int collapseTicks;
+    private double healPerTick;
+    private BukkitTask collapseTask;
+    private Warden collapseBoss;
 
     // settings
     private double scale, baseHealth, perPlayer, boomCap, ringDamage, ringRadius, minDamage, leashRadius, extraPerPlayer;
     private int fightMinutes, ringEvery, breakSeconds, bloodMoonHours, deathXp;
-    private boolean blockWardens, noDarkness;
+    private boolean blockWardens, noDarkness, wavesOn;
+    private double collapseAt, collapseHeal;
+    private int collapseSeconds;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
 
@@ -125,6 +137,10 @@ final class MolochBoss implements Listener {
         blockWardens = c.getBoolean("boss.block-other-wardens", true);
         noDarkness = c.getBoolean("boss.no-darkness", true);
         deathXp = Math.max(0, c.getInt("boss.death-xp", 1500));
+        wavesOn = c.getBoolean("boss.waves-enabled", false);
+        collapseAt = c.getDouble("boss.collapse-at", 0.25);
+        collapseSeconds = Math.max(2, c.getInt("boss.collapse-seconds", 8));
+        collapseHeal = c.getDouble("boss.collapse-heal", 0.15);
         waves = c.isList("boss.waves") ? c.getStringList("boss.waves") : DEFAULT_WAVES;
         waveNames = c.isList("boss.wave-names") ? c.getStringList("boss.wave-names") : DEFAULT_WAVE_NAMES;
         breakSeconds = Math.max(2, c.getInt("boss.wave-break-seconds", 6));
@@ -173,10 +189,11 @@ final class MolochBoss implements Listener {
         active = true;
         bar = BossBar.bossBar(Component.text("Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD), 1f, BossBar.Color.RED, BossBar.Overlay.NOTCHED_20);
         Bukkit.broadcast(Component.text("MOLOCH STIRS.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text("Everyone to the arena under the pyramid. Fight through his servants, then bring him down within " + fightMinutes + " minutes.", NamedTextColor.RED));
+        Bukkit.broadcast(Component.text("Everyone to the arena under the pyramid. " + (wavesOn ? "Fight through his servants, then bring" : "Bring") + " him down within " + fightMinutes + " minutes.", NamedTextColor.RED));
         for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:awaken", 1f, 1f);
         wave = -1;
-        if (waves.isEmpty()) raiseMoloch();
+        collapsed = false; collapsing = false;
+        if (!wavesOn || waves.isEmpty()) raiseMoloch();
         else { stage = Stage.BREAK; breakHalves = 6; }
         return true;
     }
@@ -330,6 +347,11 @@ final class MolochBoss implements Listener {
         }
         savedHp = boss.getHealth();
         if (half % 40 == 0) respawns = 0;
+        if (collapsing) {   // lying on the floor, feeding: the collapse task does the rest
+            bar.progress((float) Math.max(0, Math.min(1, boss.getHealth() / maxHp)));
+            bar.name(Component.text("Moloch feeds  ·  " + CurseManager.clock((int) left), NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
+            return;
+        }
 
         // keep him in his hall
         Location b = boss.getLocation();
@@ -357,10 +379,13 @@ final class MolochBoss implements Listener {
         int now = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
         if (now > phase) {
             phase = now;
-            sayNear(c, phase == 2 ? "The furnace in Moloch's belly roars open! His cult answers the call." : "MOLOCH HUNGERS. Fire falls from the vault!", NamedTextColor.RED);
+            sayNear(c, phase == 2 ? "The furnace in Moloch's belly roars open!" + (wavesOn ? " His cult answers the call." : "") : "MOLOCH HUNGERS. Fire falls from the vault!", NamedTextColor.RED);
             playNear(c, "moloch:furnace", 1.5f, 1f);
-            spawnGroup(phase == 2 ? phase2Wave : phase3Wave, c);
+            if (wavesOn) spawnGroup(phase == 2 ? phase2Wave : phase3Wave, c);
         }
+
+        // low on health, he collapses (once a fight)
+        if (!collapsed && collapseAt > 0 && ratio <= collapseAt) { startCollapse(); return; }
 
         // drums, quicker each phase
         if (half % 29 == 1) playNear(c, "moloch:drums", 1f, phase == 1 ? 1f : phase == 2 ? 1.12f : 1.25f);
@@ -426,26 +451,108 @@ final class MolochBoss implements Listener {
         return out;
     }
 
+    // ---------------------------------------------------------------- his collapse
+
+    /** He freezes and crashes to the floor, then lies there feeding: healing, and draining everyone's hunger to nothing. */
+    private void startCollapse() {
+        collapsed = true;
+        collapsing = true;
+        collapseTicks = 0;
+        ringWindup = -1;
+        collapseBoss = boss;
+        healPerTick = maxHp * collapseHeal / (collapseSeconds * 20.0);
+        boss.setAI(false);
+        boss.setInvulnerable(true);
+        boss.setPose(Pose.SLEEPING, true);   // renders him lying flat on his side
+        Location at = boss.getLocation();
+        World w = at.getWorld();
+        w.playSound(at, "minecraft:entity.generic.explode", 3f, 0.5f);
+        w.playSound(at, "minecraft:entity.warden.death", 3f, 0.6f);
+        w.playSound(at, "minecraft:block.anvil.land", 2f, 0.5f);
+        fx(Particle.BLOCK, at.clone().add(0, 0.3, 0), 250, scale * 1.4, 0.15, Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
+        fx(Particle.CLOUD, at.clone().add(0, 0.5, 0), 80, scale * 1.2, 0.05, null);
+        for (Player p : fighters()) {   // the floor jolts under everyone's feet
+            if (p.getLocation().distanceSquared(at) < 16 * 16) p.setVelocity(p.getVelocity().setY(0.45));
+        }
+        titleNear(at, Component.text("MOLOCH COLLAPSES", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD),
+                Component.text("...and feeds on your strength", NamedTextColor.GRAY));
+        sayNear(at, "Moloch crashes to the floor and drinks the strength out of everyone in the hall!", NamedTextColor.DARK_PURPLE);
+        collapseTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickCollapse, 1L, 1L);
+    }
+
+    private void tickCollapse() {
+        if (!active || dying || boss == null || boss != collapseBoss || !boss.isValid()) { endCollapse(); return; }
+        collapseTicks++;
+        int total = collapseSeconds * 20;
+        double t = collapseTicks / (double) total;
+        boss.setHealth(Math.min(maxHp, boss.getHealth() + healPerTick));
+        savedHp = boss.getHealth();
+        Location core = boss.getLocation().add(0, 1.2, 0);
+
+        // everyone's hunger bar drains to nothing by the time he stands, and their souls stream into him
+        int food = (int) Math.floor(20 * (1 - t));
+        for (Player p : fighters()) {
+            if (p.getFoodLevel() > food) p.setFoodLevel(food);
+            p.setSaturation(0f);
+            if (collapseTicks % 3 == 0) {
+                Location eye = p.getEyeLocation();
+                Vector to = core.toVector().subtract(eye.toVector());
+                for (int i = 0; i < 3; i++)
+                    fx(Particle.SOUL, eye.clone().add(to.clone().multiply(rnd.nextDouble())), 1, 0.1, 0.01, null);
+            }
+        }
+        if (collapseTicks % 4 == 0) fx(Particle.SCULK_SOUL, core, 4, scale * 0.8, 0.02, null);
+        if (collapseTicks % 16 == 0) core.getWorld().playSound(core, "minecraft:entity.warden.heartbeat", 3f, 0.6f);
+        if (collapseTicks >= total) endCollapse();
+    }
+
+    /** He gets back up, healed, and the fight goes on. */
+    private void endCollapse() {
+        if (collapseTask != null) { collapseTask.cancel(); collapseTask = null; }
+        if (!collapsing) return;
+        collapsing = false;
+        Warden w = collapseBoss;
+        collapseBoss = null;
+        if (w == null || !w.isValid() || dying) return;
+        w.setPose(Pose.STANDING, false);
+        w.setAI(true);
+        w.setInvulnerable(false);
+        for (Player p : fighters()) { p.setFoodLevel(0); p.setSaturation(0f); }
+        w.getWorld().playSound(w.getLocation(), "minecraft:entity.warden.roar", 3f, 0.7f);
+        fx(Particle.SCULK_SOUL, w.getLocation().add(0, 3, 0), 40, scale, 0.05, null);
+        sayNear(w.getLocation(), "Moloch rises again, gorged on your strength!", NamedTextColor.DARK_RED);
+    }
+
     // ---------------------------------------------------------------- his death
 
     private void startDeath(Player killer) {
         dying = true;
         deathTicks = 0;
+        if (collapsing) endCollapse();
         Location c = zones.arenaCentre();
         boss.setAI(false);
         boss.setGravity(false);
         boss.setInvulnerable(true);
         boss.setSilent(true);
         boss.setHealth(1);
-        for (UUID id : minions) {   // his servants burn up with him
+        for (UUID id : minions) {   // any servants left vanish with him
             Entity m = Bukkit.getEntity(id);
             if (m == null) continue;
-            fx(Particle.LAVA, m.getLocation().add(0, 1, 0), 12, 0.4, 0, null);
+            fx(Particle.POOF, m.getLocation().add(0, 1, 0), 12, 0.4, 0.02, null);
             m.remove();
         }
         minions.clear();
-        beams.clear();
-        bar.name(Component.text("Moloch is falling", NamedTextColor.GOLD, TextDecoration.BOLD));
+        // the ender dragon's rays: fixed random directions that turn with him, appearing faster and faster
+        rays.clear();
+        rayLengths.clear();
+        Random r = new Random(432L);
+        for (int i = 0; i < 32; i++) {
+            Vector d = new Vector(r.nextDouble() * 2 - 1, r.nextDouble() * 2 - 1, r.nextDouble() * 2 - 1);
+            if (d.lengthSquared() < 1e-3) d = new Vector(0, 1, 0);
+            rays.add(d.normalize());
+            rayLengths.add(0.4 + r.nextDouble() * 0.6);
+        }
+        bar.name(Component.text("Moloch is falling", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
         bar.progress(0f);
         for (Player p : c.getWorld().getPlayers()) {
             if (p.getLocation().distanceSquared(c) < 200 * 200) p.playSound(c, "moloch:death", 6f, 1f);
@@ -456,76 +563,64 @@ final class MolochBoss implements Listener {
         deathTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickDeath, 1L, 1L);
     }
 
-    /** Every tick of his death: he rises and turns, beams of fire burst out of him, and he cracks apart from inside. */
+    /** Every tick of his death, as the ender dragon dies: he rises and spins while rays of light break out of him. */
     private void tickDeath() {
         if (boss == null || !boss.isValid()) { finishDeath(); return; }
         deathTicks++;
-        float t = deathTicks / (float) DEATH_TICKS;
-        Location at = boss.getLocation().add(0, 0.035, 0);
-        at.setYaw(at.getYaw() + 1.5f + 6f * t);
+        double t = deathTicks / (double) DEATH_TICKS;
+        float spin = (float) (6 + 10 * t);
+        Location at = boss.getLocation().add(0, 0.1, 0);
+        at.setYaw(at.getYaw() + spin);
         at.setPitch(0);
         boss.teleport(at);
-        Location core = at.clone().add(0, 2.9 * scale * 0.55, 0);
+        Location core = at.clone().add(0, 2.9 * scale * 0.5, 0);
 
-        // beams of fire, more and longer as he breaks apart
-        if (deathTicks % 12 == 1 && beams.size() < 16) {
-            Vector d = new Vector(rnd.nextGaussian(), rnd.nextGaussian() * 0.6 + 0.35, rnd.nextGaussian());
-            beams.add(d.normalize());
-        }
+        // rays of white light fading to purple, more of them and longer as he goes
+        double turn = Math.toRadians(spin);
+        for (Vector d : rays) d.rotateAroundY(turn);
         if (deathTicks % 2 == 0) {
-            double len = 4 + 18 * t, spin = Math.toRadians(1.2);
-            for (Vector d : beams) {
-                d.rotateAroundY(spin);
-                for (double r = 1.2; r < len; r += 0.7)
-                    fx(Particle.DUST, core.clone().add(d.clone().multiply(r)), 1, 0.05, 0, r < len * 0.35 ? CORE : EMBER);
+            int shown = Math.min(rays.size(), (int) ((t + t * t) / 2 * 60));
+            double reach = 4 + 14 * t;
+            for (int i = 0; i < shown; i++) {
+                Vector d = rays.get(i);
+                double len = reach * rayLengths.get(i);
+                for (double r = 0.8; r < len; r += 0.75) {
+                    double f = r / len;
+                    fx(Particle.DUST, core.clone().add(d.clone().multiply(r)), 1, 0.02, 0, f < 0.35 ? RAY_WHITE : f < 0.7 ? RAY_PINK : RAY_PURPLE);
+                }
             }
         }
 
-        // bursts inside him, coming faster
-        if (rnd.nextDouble() < 0.12 + 0.45 * t) {
-            double s = scale * 0.9;
-            fx(Particle.EXPLOSION, core.clone().add(rnd.nextGaussian() * s, rnd.nextGaussian() * s * 1.2, rnd.nextGaussian() * s), 1, 0, 0, null);
+        // the last second: he bursts, explosion after explosion
+        if (deathTicks >= DEATH_TICKS - 20) {
+            double s = 4 + scale;
+            fx(Particle.EXPLOSION_EMITTER, core.clone().add((rnd.nextDouble() - 0.5) * s, (rnd.nextDouble() - 0.5) * s, (rnd.nextDouble() - 0.5) * s), 1, 0, 0, null);
         }
-        if (deathTicks % 3 == 0) fx(Particle.FLAME, core, 6, scale * 0.6, 0.04, null);
-        if (deathTicks % 5 == 0) fx(Particle.LAVA, core, 3, scale * 0.5, 0, null);
-        if (deathTicks % 8 == 0) fx(Particle.LARGE_SMOKE, at.clone().add(0, 1, 0), 10, 2.5, 0.02, null);
 
-        // like the dragon, he showers experience as he goes
-        if (deathXp > 0 && deathTicks > DEATH_TICKS - 70 && deathTicks % 2 == 0) {
-            int each = Math.max(1, deathXp / 35);
-            at.getWorld().spawn(core, ExperienceOrb.class, o -> {
-                o.setExperience(each);
-                o.setVelocity(new Vector(rnd.nextGaussian() * 0.25, 0.3 + rnd.nextDouble() * 0.3, rnd.nextGaussian() * 0.25));
+        // experience pours out of him, as it does from the dragon
+        if (deathXp > 0 && deathTicks > 150 && deathTicks % 5 == 0) dropXp(core, (int) (deathXp * 0.08));
+        if (deathTicks >= DEATH_TICKS) {
+            if (deathXp > 0) dropXp(core, (int) (deathXp * 0.2));
+            finishDeath();
+        }
+    }
+
+    private void dropXp(Location at, int amount) {
+        while (amount > 0) {
+            int v = Math.min(amount, 50);
+            amount -= v;
+            at.getWorld().spawn(at, ExperienceOrb.class, o -> {
+                o.setExperience(v);
+                o.setVelocity(new Vector(rnd.nextGaussian() * 0.15, 0.2 + rnd.nextDouble() * 0.2, rnd.nextGaussian() * 0.15));
             });
         }
-
-        if (deathTicks >= DEATH_TICKS) finishDeath();
     }
 
-    /** The blast: he bursts apart and a shockwave throws everyone back (no damage, no broken blocks). */
     private void finishDeath() {
         if (deathTask != null) { deathTask.cancel(); deathTask = null; }
-        if (boss != null && boss.isValid()) {
-            Location at = boss.getLocation(), core = at.clone().add(0, 2.9 * scale * 0.55, 0);
-            World w = at.getWorld();
-            fx(Particle.EXPLOSION_EMITTER, core, 8, scale, 0, null);
-            fx(Particle.FLAME, core, 400, 0.5, 0.7, null);
-            fx(Particle.LAVA, core, 120, scale * 1.2, 0, null);
-            fx(Particle.LARGE_SMOKE, core, 160, scale, 0.12, null);
-            for (Beam b : List.of(new Beam(0, 1), new Beam(1, 0), new Beam(0, -1), new Beam(-1, 0)))
-                fx(Particle.FLAME, core.clone().add(b.x * 3, 0, b.z * 3), 60, 1, 0.3, null);
-            w.strikeLightningEffect(at);
-            for (Player p : w.getPlayers()) {
-                Vector d = p.getLocation().toVector().subtract(at.toVector()); d.setY(0);
-                if (d.length() > 24 || d.lengthSquared() < 1e-4) continue;
-                p.setVelocity(d.normalize().multiply(1.6 * (1 - d.length() / 30)).setY(0.6));
-            }
-            boss.remove();
-        }
+        if (boss != null && boss.isValid()) boss.remove();
         win();
     }
-
-    private record Beam(int x, int z) { }
 
     /** Particles everyone in the hall can see, however far back they stand. */
     private void fx(Particle p, Location at, int count, double spread, double speed, Object data) {
@@ -580,6 +675,9 @@ final class MolochBoss implements Listener {
         active = false;
         dying = false;
         if (deathTask != null) { deathTask.cancel(); deathTask = null; }
+        if (collapseTask != null) { collapseTask.cancel(); collapseTask = null; }
+        collapsing = false;
+        collapseBoss = null;
         if (boss != null && boss.isValid()) boss.remove();
         boss = null;
         for (UUID id : minions) { Entity e = Bukkit.getEntity(id); if (e != null) e.remove(); }
@@ -630,7 +728,7 @@ final class MolochBoss implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBossLethal(EntityDamageEvent e) {
         if (!active || !isBoss(e.getEntity()) || !(e.getEntity() instanceof Warden w)) return;
-        if (dying) { e.setCancelled(true); return; }
+        if (dying || collapsing) { e.setCancelled(true); return; }
         if (w.getHealth() - e.getFinalDamage() > 0) return;
         Player p = attacker(e);
         if (p != null) damage.merge(p.getUniqueId(), w.getHealth(), Double::sum);

@@ -112,6 +112,8 @@ boss:
   fire-ring-damage: 6
   fire-ring-radius: 8
   fire-ring-every-seconds: 20
+  # Waves of servants before he rises, and reinforcements during the fight. Off for now: he rises straight away.
+  waves-enabled: false
   # Before Moloch rises, waves of his servants pour in through the arena doorways. Clear one and the next comes.
   # Each wave is "mob:count,mob:count" (vanilla mob names). Add or remove lines for more or fewer waves.
   waves:
@@ -131,6 +133,11 @@ boss:
   phase-3-wave: "wither_skeleton:2,blaze:2"
   # Moloch never gives players Darkness (the warden's blinding pulse).
   no-darkness: true
+  # Once a fight, when he drops to this share of his health (0.25 = 25%), he crashes to the floor for a while:
+  # he can't be hurt, heals this share of his max health, and drains everyone in the arena's hunger bar to zero.
+  collapse-at: 0.25
+  collapse-seconds: 8
+  collapse-heal: 0.15
   # When he dies he rises, burns and bursts apart over ten seconds, showering this much experience, like the ender dragon.
   death-xp: 1500
   # If he strays this far from the dais he's pulled back.
