@@ -40,7 +40,7 @@ public final class Soulbound extends JavaPlugin {
         sacrifices = new SacrificeManager(this, store, captures, curses, hunger, zones);
         portals = new PortalManager(this, store, zones, captures);
         drums = new SummitDrums(this, zones);
-        god = new GodManager(this);
+        god = new GodManager(this, store);
 
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(captures, this);

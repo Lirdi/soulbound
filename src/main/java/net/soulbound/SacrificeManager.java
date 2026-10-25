@@ -178,6 +178,7 @@ final class SacrificeManager implements Listener {
     private void record(Player captor, Player victim) {
         String today = LocalDate.now().toString();
         store.set("sacrifice.victims." + victim.getUniqueId(), System.currentTimeMillis());
+        store.set("sacrifice.last-offered-by." + captor.getUniqueId(), System.currentTimeMillis());   // God remembers
         store.set("sacrifice.captors." + captor.getUniqueId(), today + ":" + (count("sacrifice.captors." + captor.getUniqueId()) + 1));
         store.set("sacrifice.server", today + ":" + (count("sacrifice.server") + 1));
         store.save();

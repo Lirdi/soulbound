@@ -252,3 +252,14 @@ god:
   flying-offset-back: 0.45
   flying-offset-down: 0.15
   standing-offset-down: 0.3
+  # His abilities, on top of the dragon's own fight. Roughly every this many seconds (quicker as he weakens) he either
+  # smites (a pillar of light finds you, then lightning strikes where it stands: move!) or calls Pillar of Salt
+  # (anyone looking at him is frozen for 3 seconds).
+  seconds-between-abilities: 11
+  smite-damage: 6
+  # At half health he dozes off for this long: double damage, but this much damage wakes him up furious.
+  nap-seconds: 8
+  nap-wake-damage: 30
+  # At 75% he judges: anyone who sacrificed a player to Moloch within this many days glows red as a SINNER,
+  # is smitten first and takes double smite damage.
+  sinner-days: 7
