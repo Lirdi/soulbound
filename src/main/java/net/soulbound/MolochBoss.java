@@ -107,7 +107,8 @@ final class MolochBoss implements Listener {
     private double savedHp, hpScale = 1, baseSpeed = 0.3;
     private long endsAt, bloodMoonUntil;
     private int phase, half, respawns, crowd = 1;
-    private boolean championsCalled, shieldUp, screamed, collapsed, collapsing, frenzy;
+    private boolean championsCalled, shieldUp, screamed, collapsed, collapsing, frenzy, emerging;
+    private static final int EMERGE_TICKS = 134;
 
     // his moves
     private Move move = Move.NONE, lastMove = Move.NONE;
@@ -242,7 +243,7 @@ final class MolochBoss implements Listener {
         w.getChunkAt(c).addPluginChunkTicket(plugin);
         damage.clear(); minions.clear(); champions.clear(); farTicks.clear(); lastSwing.clear();
         half = 0; respawns = 0; phase = 1; crowd = 1;
-        championsCalled = shieldUp = screamed = collapsed = collapsing = frenzy = dying = false;
+        championsCalled = shieldUp = screamed = collapsed = collapsing = frenzy = dying = emerging = false;
         move = lastMove = Move.NONE;
         wardLeft = 0; wardCooldown = 0; wardNext = wardEvery * 20; projDmg = allDmg = 0;
         endsAt = System.currentTimeMillis() + fightMinutes * 60_000L;
@@ -330,11 +331,41 @@ final class MolochBoss implements Listener {
         savedHp = REAL_HP;
         phase = 1;
         nextMoveIn = 100;
+        emerging = true;
         spawnBoss(savedHp);
-        fx(Particle.LAVA, c, 80, 3, 0, null);
+        // he claws his way up out of the floor of the dais (the warden's own emerging animation, about 7 seconds)
+        boss.setAI(false);
+        boss.setInvulnerable(true);
+        Location at = boss.getLocation();
         playNear(c, "moloch:awaken", 1.5f, 1f);
-        titleNear(c, Component.text("MOLOCH", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("has risen", NamedTextColor.RED));
-        Bukkit.broadcast(Component.text("MOLOCH HAS RISEN.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+        at.getWorld().playSound(at, "minecraft:entity.warden.emerge", 4f, 0.7f);
+        titleNear(c, Component.text("MOLOCH", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("rises from the deep", NamedTextColor.RED));
+        Warden rising = boss;
+        for (int t = 0; t <= EMERGE_TICKS; t += 10) {
+            final int tick = t;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!active || boss != rising || !rising.isValid()) return;
+                Location l = rising.getLocation();
+                fx(Particle.BLOCK, l.clone().add(0, 0.3, 0), 60, scale * 0.9, 0.15, Material.GILDED_BLACKSTONE.createBlockData());
+                fx(Particle.LARGE_SMOKE, l.clone().add(0, 0.5, 0), 10, scale * 0.8, 0.03, null);
+                if (tick % 40 == 0) {
+                    l.getWorld().playSound(l, "minecraft:block.basalt.break", 3f, 0.5f);
+                    for (Player p : fighters()) if (p.getLocation().distanceSquared(l) < 18 * 18 && p.isOnGround()) p.setVelocity(p.getVelocity().setY(0.25));
+                }
+            }, t);
+        }
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            emerging = false;
+            Warden up = boss;   // usually the same Moloch that started rising
+            if (!active || up == null || !up.isValid()) return;
+            up.setPose(Pose.STANDING, false);
+            up.setAI(true);
+            up.setInvulnerable(false);
+            Location l = up.getLocation();
+            l.getWorld().playSound(l, "minecraft:entity.warden.roar", 4f, 0.7f);
+            fx(Particle.LAVA, l, 80, 3, 0, null);
+            Bukkit.broadcast(Component.text("MOLOCH HAS RISEN.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+        }, EMERGE_TICKS);
     }
 
     private void spawnBoss(double health) {
@@ -349,6 +380,7 @@ final class MolochBoss implements Listener {
             wd.setPersistent(false);
             wd.setRemoveWhenFarAway(false);
             wd.addScoreboardTag(TAG);
+            if (emerging) wd.setPose(Pose.EMERGING, true);
         });
         AttributeInstance sp = boss.getAttribute(Attribute.MOVEMENT_SPEED);
         if (sp != null) { baseSpeed = sp.getBaseValue(); if (frenzy) sp.setBaseValue(baseSpeed * frenzySpeed); }
@@ -436,7 +468,7 @@ final class MolochBoss implements Listener {
         double ratio = boss.getHealth() / REAL_HP;
         bar.progress((float) Math.max(0, Math.min(1, ratio)));
         updateBar(left);
-        if (collapsing) return;
+        if (collapsing || emerging) return;
 
         // champions gone: his shield breaks
         if (shieldUp && championsLeft() == 0) {
@@ -513,7 +545,8 @@ final class MolochBoss implements Listener {
         String state;
         NamedTextColor col = NamedTextColor.DARK_RED;
         BossBar.Color bc = BossBar.Color.RED;
-        if (collapsing) { state = "FEEDING"; col = NamedTextColor.DARK_PURPLE; bc = BossBar.Color.PURPLE; }
+        if (emerging) { state = "RISING"; col = NamedTextColor.DARK_RED; }
+        else if (collapsing) { state = "FEEDING"; col = NamedTextColor.DARK_PURPLE; bc = BossBar.Color.PURPLE; }
         else if (move == Move.STUN) { state = "STUNNED · STRIKE NOW"; col = NamedTextColor.GOLD; bc = BossBar.Color.YELLOW; }
         else if (shieldUp) { state = "shielded by " + champions.size() + " champion" + (champions.size() == 1 ? "" : "s"); col = NamedTextColor.GOLD; bc = BossBar.Color.YELLOW; }
         else if (wardLeft > 0) { state = "SOULFIRE WARD · arrows burn"; col = NamedTextColor.AQUA; bc = BossBar.Color.BLUE; }
@@ -528,7 +561,7 @@ final class MolochBoss implements Listener {
     private void tickFast() {
         if (!active || stage != Stage.BOSS || dying || boss == null || !boss.isValid()) return;
         fastTicks++;
-        if (collapsing) return;
+        if (collapsing || emerging) return;
         tickWard();
         if (shieldUp && fastTicks % 10 == 0) tethers();
         trackCampers();
@@ -1466,7 +1499,7 @@ final class MolochBoss implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBossLethal(EntityDamageEvent e) {
         if (!active || !isBoss(e.getEntity()) || !(e.getEntity() instanceof Warden w)) return;
-        if (dying || collapsing) { e.setCancelled(true); return; }
+        if (dying || collapsing || emerging) { e.setCancelled(true); return; }
         if (w.getHealth() - e.getFinalDamage() > 0) return;
         Player p = attacker(e);
         if (p != null) damage.merge(p.getUniqueId(), w.getHealth() / hpScale, Double::sum);
