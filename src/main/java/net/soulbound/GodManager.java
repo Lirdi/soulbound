@@ -105,6 +105,7 @@ final class GodManager implements Listener {
     private boolean enabled, flyingPose;
     private double scale, hitShare, flyBack, flyDown, standDown, sitOffset, smiteDamage, napWake, sinnerDays;
     private int napSeconds;
+    private double hpBase, hpPerFighter, toughness = 1;   // toughness: the share of damage that gets through, for the crowd
 
     // the fight
     private UUID fightDragon;
@@ -143,6 +144,8 @@ final class GodManager implements Listener {
         flyDown = c.getDouble("god.flying-offset-down", 0.15);
         standDown = c.getDouble("god.standing-offset-down", 0.3);
         sitOffset = c.getDouble("god.throne-sit-offset", 0.0);
+        hpBase = c.getDouble("god.effective-health-base", 600);
+        hpPerFighter = c.getDouble("god.effective-health-per-fighter", 500);
         smiteDamage = c.getDouble("god.smite-damage", 6);
         napSeconds = Math.max(3, c.getInt("god.nap-seconds", 7));
         napWake = c.getDouble("god.nap-wake-damage", 30);
@@ -338,8 +341,9 @@ final class GodManager implements Listener {
         if (ed.getDamager() instanceof Projectile) ed.getDamager().remove();
         EnderDragon d = dragonOf(e.getEntity().getUniqueId());
         if (d == null || !d.isValid() || d.getPhase() == EnderDragon.Phase.DYING || d.getHealth() <= 0) return;
-        double amount = e.getDamage() * hitShare * (napping ? 2 : 1);
-        onHurtBy(p, amount);
+        double raw = e.getDamage() * hitShare * (napping ? 2 : 1);
+        onHurtBy(p, raw);
+        double amount = raw * toughness;
         if (d.getHealth() - amount <= 0) d.damage(d.getHealth() * 4 + 10, p);   // the killing blow goes through the dragon, so the kill counts
         else {
             d.setHealth(d.getHealth() - amount);
@@ -357,6 +361,7 @@ final class GodManager implements Listener {
         if (p == null) return;
         if (napping) e.setDamage(e.getDamage() * 2);
         onHurtBy(p, e.getDamage());
+        e.setDamage(e.getDamage() * toughness);   // scaled to the crowd
     }
 
     private void onHurtBy(Player p, double amount) {
@@ -435,6 +440,7 @@ final class GodManager implements Listener {
         emptyTicks = 0;
         hadFighters = true;
 
+        toughness = Math.min(1, 200.0 / (hpBase + hpPerFighter * f.size()));   // the dragon has 200 health: he lasts as if he had more
         double r = healthShare(d);
         int now = Math.max(1, Math.min(7, 1 + (int) Math.floor((1 - r) * 7)));
         if (now > day) newDay(now, d, g, f);
@@ -446,8 +452,11 @@ final class GodManager implements Listener {
         if (--nextAbility <= 0) { ability(f, d, g); nextAbility = gap(); }
     }
 
+    /** His damage grows through the week: +12% a day. */
+    private double fury() { return 1 + 0.12 * Math.max(0, day - 1); }
+
     private int gap() {
-        return switch (day) { case 1 -> 160; case 6 -> 90; default -> 130; };
+        return switch (day) { case 1 -> 140; case 2, 3 -> 120; case 4, 5 -> 105; case 6 -> 75; default -> 120; };
     }
 
     private void newFight(EnderDragon d) {
@@ -658,7 +667,7 @@ final class GodManager implements Listener {
             fx(Particle.END_ROD, m.at.clone().add(0, 0.5, 0), 40, 0.6, 0.15);
             for (Player q : w.getPlayers()) {
                 if (q.getLocation().distanceSquared(m.at) > 2.8 * 2.8 || q.isDead()) continue;
-                q.damage(smiteDamage * (sinners.contains(q.getUniqueId()) ? 2 : 1), d);
+                q.damage(fury() * smiteDamage * (sinners.contains(q.getUniqueId()) ? 2 : 1), d);
                 q.setFireTicks(60);
             }
         }
@@ -915,7 +924,7 @@ final class GodManager implements Listener {
         l.getWorld().spawnParticle(Particle.EXPLOSION, l, 1, 0, 0, 0, 0, null, true);
         l.getWorld().playSound(l, "minecraft:block.anvil.land", 2f, 0.7f);
         EnderDragon d = dragon();
-        for (Player p : l.getWorld().getPlayers()) if (p.getLocation().distanceSquared(l) < 3 * 3) { if (d != null) p.damage(6, d); else p.damage(6); }
+        for (Player p : l.getWorld().getPlayers()) if (p.getLocation().distanceSquared(l) < 3 * 3) { if (d != null) p.damage(10 * fury(), d); else p.damage(10 * fury()); }
         e.getEntity().remove();
     }
 
@@ -938,6 +947,7 @@ final class GodManager implements Listener {
             Vector out = p.getLocation().toVector().subtract(c.toVector()); out.setY(0);
             if (out.lengthSquared() < 1e-3) out = new Vector(1, 0, 0);
             p.setVelocity(out.normalize().multiply(2.2).setY(0.7));
+            if (dragon() != null) p.damage(4 * fury(), dragon());
             p.playSound(p.getLocation(), "minecraft:entity.generic.explode", 1f, 0.6f);
         }
     }
