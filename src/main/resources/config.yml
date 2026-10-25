@@ -103,6 +103,12 @@ hunger:
   # At least this much warning before he rises.
   min-notice-hours: 6
 
+  # The Hunger bar: a boss bar filling towards his awakening. Always shown in his realm; whenever it grows
+  # (a sacrifice or offering) everyone online sees it fill up for a few seconds.
+  bar:
+    enabled: true
+    always-for-everyone: false
+    popup-seconds: 8
 # ---------------------------------------------------------------- portals
 
 # Moloch's realm takes the Nether's place. Keep allow-nether=true in server.properties so portals still work.

@@ -1,5 +1,6 @@
 package net.soulbound;
 
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -20,6 +21,9 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.List;
 import java.util.Locale;
 
@@ -32,8 +36,16 @@ final class HungerMeter implements Listener {
     private final Store store;
     private double value;
     private long awakenAt;
-    private BukkitTask task;
+    private BukkitTask task, barTask;
     private int lastScore = Integer.MIN_VALUE;
+
+    // the Hunger bar: always shown in his realm, and to everyone for a few seconds whenever it grows
+    private BossBar bar;
+    private final Set<UUID> viewers = new HashSet<>();
+    private double shown = -1, gained;
+    private long popupUntil, lastSound;
+    private boolean barEnabled, barEverywhere;
+    private int popupSeconds;
 
     // settings
     private double perSacrifice, perOfferPoint;
@@ -59,6 +71,9 @@ final class HungerMeter implements Listener {
         objective = c.getString("hunger.datapack-objective", "sacrifice.offer");
         try { zone = ZoneId.of(c.getString("hunger.timezone", "Europe/London")); } catch (Exception ex) { zone = ZoneId.of("Europe/London"); }
         minNoticeHours = c.getInt("hunger.min-notice-hours", 6);
+        barEnabled = c.getBoolean("hunger.bar.enabled", true);
+        barEverywhere = c.getBoolean("hunger.bar.always-for-everyone", false);
+        popupSeconds = Math.max(2, c.getInt("hunger.bar.popup-seconds", 8));
         slots.clear();
         for (String s : c.getStringList("hunger.awakening-slots")) {
             try {
@@ -69,15 +84,30 @@ final class HungerMeter implements Listener {
         if (slots.isEmpty()) slots.add(new Slot(DayOfWeek.SATURDAY, LocalTime.of(20, 0)));
     }
 
-    void start() { task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickSecond, 40L, 20L); }
-    void stop() { if (task != null) task.cancel(); persist(); }
+    void start() {
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickSecond, 40L, 20L);
+        barTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickBar, 40L, 2L);
+    }
+
+    void stop() {
+        if (task != null) task.cancel();
+        if (barTask != null) barTask.cancel();
+        hideAll();
+        persist();
+    }
 
     double value() { return value; }
     long awakenAt() { return awakenAt; }
 
     void addSacrifice() { add(perSacrifice); }
 
-    void set(double v) { value = Math.max(0, Math.min(100, v)); persist(); if (value >= 100 && awakenAt == 0) book(); }
+    void set(double v) {
+        double before = value;
+        value = Math.max(0, Math.min(100, v));
+        if (value > before) popup(value - before);
+        persist();
+        if (value >= 100 && awakenAt == 0) book();
+    }
 
     /** After a fight: back to sleep. */
     void reset() { value = 0; awakenAt = 0; persist(); }
@@ -90,6 +120,7 @@ final class HungerMeter implements Listener {
         double before = value;
         value = Math.min(100, value + amount);
         announceCrossings(before, value);
+        popup(value - before);
         persist();
         if (value >= 100 && awakenAt == 0) book();
     }
@@ -143,6 +174,53 @@ final class HungerMeter implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         if (awakenAt > 0) e.getPlayer().sendMessage(Component.text("Moloch rises " + whenText() + ".", NamedTextColor.RED));
+    }
+
+    // ---------------------------------------------------------------- the Hunger bar
+
+    /** Show everyone the bar for a few seconds, filling up by this much. */
+    private void popup(double amount) {
+        if (amount <= 0) return;
+        long now = System.currentTimeMillis();
+        gained = now < popupUntil ? gained + amount : amount;
+        popupUntil = now + popupSeconds * 1000L;
+        if (amount >= 5 && now - lastSound > 4000) {   // a sacrifice, not just a nugget of gold: everyone hears it
+            lastSound = now;
+            for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:furnace", 0.35f, 0.8f);
+        }
+    }
+
+    private void tickBar() {
+        if (!barEnabled || plugin.boss().active()) { hideAll(); return; }   // the fight has its own bar
+        if (bar == null) bar = BossBar.bossBar(Component.empty(), 0f, BossBar.Color.RED, BossBar.Overlay.NOTCHED_10);
+        // fill smoothly towards the real value, so a sacrifice visibly pours in
+        if (shown < 0) shown = value;
+        double d = value - shown;
+        shown = Math.abs(d) < 0.15 ? value : shown + Math.signum(d) * Math.max(0.15, Math.abs(d) * 0.12);
+        bar.progress((float) Math.max(0, Math.min(1, shown / 100)));
+        long now = System.currentTimeMillis();
+        boolean popping = now < popupUntil;
+        Component name;
+        if (awakenAt > 0) {
+            name = Component.text("MOLOCH STIRS  ·  he rises " + whenText(), NamedTextColor.DARK_RED, TextDecoration.BOLD);
+            bar.color(BossBar.Color.RED);
+        } else {
+            String extra = popping && gained > 0 ? "  (+" + Math.round(gained) + ")" : "";
+            name = Component.text("Moloch's Hunger  ·  " + Math.round(shown) + "%" + extra, popping ? NamedTextColor.RED : NamedTextColor.DARK_RED);
+            bar.color(popping ? BossBar.Color.YELLOW : BossBar.Color.RED);
+        }
+        bar.name(name);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            boolean see = barEverywhere || popping || plugin.zones().inRealm(p.getLocation());
+            if (see && viewers.add(p.getUniqueId())) p.showBossBar(bar);
+            if (!see && viewers.remove(p.getUniqueId())) p.hideBossBar(bar);
+        }
+    }
+
+    private void hideAll() {
+        if (bar == null) return;
+        for (UUID id : viewers) { Player p = Bukkit.getPlayer(id); if (p != null) p.hideBossBar(bar); }
+        viewers.clear();
     }
 
     private void persist() {
