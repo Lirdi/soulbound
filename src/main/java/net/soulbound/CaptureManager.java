@@ -53,7 +53,7 @@ import java.util.UUID;
 final class CaptureManager implements Listener {
     static final String ANCHOR_TAG = "soulbound_anchor";
 
-    enum End { STRUGGLE, BROKEN, TIMEOUT, LET_GO, DEATH, QUIT, MOVED, SHUTDOWN }
+    enum End { STRUGGLE, BROKEN, TIMEOUT, LET_GO, DEATH, QUIT, MOVED, SHUTDOWN, SACRIFICED }
 
     private final Soulbound plugin;
     private final LeashItem leash;
@@ -69,7 +69,7 @@ final class CaptureManager implements Listener {
     private double maxHealth, captorBreakDamage, slack, snapDistance, spawnSafeRadius;
     private int durationTicks, strugglePresses, immunitySeconds;
     private boolean requireLead, captorSlowness, broadcast, killOnLogout;
-    private List<String> disabledWorlds = new ArrayList<>();
+    private List<String> disabledWorlds = new ArrayList<>(), allowedCommands = new ArrayList<>();
 
     CaptureManager(Soulbound plugin, LeashItem leash) {
         this.plugin = plugin;
@@ -92,6 +92,8 @@ final class CaptureManager implements Listener {
         disabledWorlds = c.getStringList("safety.disabled-worlds");
         spawnSafeRadius = c.getDouble("safety.spawn-safe-radius", 48);
         killOnLogout = "kill".equalsIgnoreCase(c.getString("logout.captive", "kill"));
+        allowedCommands = new ArrayList<>();
+        for (String s : c.getStringList("capture.captive-allowed-commands")) allowedCommands.add(s.toLowerCase(java.util.Locale.ROOT));
     }
 
     void start() {
@@ -106,6 +108,14 @@ final class CaptureManager implements Listener {
 
     boolean isCaptive(Player p) { return byCaptive.containsKey(p.getUniqueId()); }
     Capture heldBy(Player captor) { return byCaptor.get(captor.getUniqueId()); }
+    List<Capture> all() { return new ArrayList<>(byCaptive.values()); }
+    boolean isActive(Capture cap) { return byCaptive.get(cap.captive) == cap; }
+
+    /** Move a captive somewhere (the sacrifice uses this), past the teleport guard. */
+    void moveCaptive(Player victim, Location to) {
+        Capture cap = byCaptive.get(victim.getUniqueId());
+        if (cap != null) teleportCaptive(cap, victim, to.clone());
+    }
 
     // ---------------------------------------------------------------- starting a capture
 
@@ -173,6 +183,13 @@ final class CaptureManager implements Listener {
         if (captor == null || victim == null) { end(cap, End.QUIT); return; }
         if (captor.isDead() || victim.isDead()) { end(cap, End.DEATH); return; }
         if (!captor.getWorld().equals(victim.getWorld())) { end(cap, End.MOVED); return; }
+        // the clock stands still at the temple and during the ritual, so the climb isn't a race against it
+        if (cap.ritual || plugin.zones().inTemple(victim.getLocation())) cap.endsAt++;
+        if (cap.ritual) {
+            Rabbit ra = cap.anchor;
+            if (ra != null && ra.isValid() && !ra.isLeashed()) ra.setLeashHolder(captor);
+            return;
+        }
         if (tick >= cap.endsAt) { end(cap, End.TIMEOUT); return; }
         if (requireLead && !leash.captures(captor.getInventory().getItemInMainHand())
                 && !leash.captures(captor.getInventory().getItemInOffHand())) { end(cap, End.LET_GO); return; }
@@ -294,6 +311,7 @@ final class CaptureManager implements Listener {
                 if (victim != null) victim.sendActionBar(Component.text(cn + " let you go.", NamedTextColor.GREEN));
                 if (captor != null) captor.sendActionBar(Component.text("You let " + vn + " go.", NamedTextColor.GRAY));
             }
+            case SACRIFICED -> { }
             case QUIT, DEATH, MOVED, SHUTDOWN -> {
                 if (victim != null && why != End.SHUTDOWN) victim.sendActionBar(Component.text("The lead falls away.", NamedTextColor.GRAY));
                 if (captor != null && why != End.SHUTDOWN) captor.sendActionBar(Component.text("The lead falls away.", NamedTextColor.GRAY));
@@ -307,7 +325,7 @@ final class CaptureManager implements Listener {
     public void onSneak(PlayerToggleSneakEvent e) {
         if (!e.isSneaking()) return;
         Capture cap = byCaptive.get(e.getPlayer().getUniqueId());
-        if (cap == null) return;
+        if (cap == null || cap.ritual) return;
         cap.struggles++;
         sound(e.getPlayer().getLocation(), "minecraft:entity.item.break", 0.4f, 1.6f);
         if (cap.struggles >= strugglePresses) end(cap, End.STRUGGLE);
@@ -410,6 +428,18 @@ final class CaptureManager implements Listener {
     public void onGlide(EntityToggleGlideEvent e) {
         if (!e.isGliding() || !(e.getEntity() instanceof Player p)) return;
         if (byCaptive.containsKey(p.getUniqueId()) || byCaptor.containsKey(p.getUniqueId())) e.setCancelled(true);
+    }
+
+    /** Captives can only message, report and look things up: no teleports, no escape commands. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onCommand(org.bukkit.event.player.PlayerCommandPreprocessEvent e) {
+        if (!byCaptive.containsKey(e.getPlayer().getUniqueId())) return;
+        String cmd = e.getMessage().substring(1).split("\\s+")[0].toLowerCase(java.util.Locale.ROOT);
+        int colon = cmd.indexOf(':');
+        if (colon >= 0) cmd = cmd.substring(colon + 1);
+        if (allowedCommands.contains(cmd)) return;
+        e.setCancelled(true);
+        e.getPlayer().sendActionBar(Component.text("You're on a lead. You can only message, report or struggle.", NamedTextColor.RED));
     }
 
     // ---------------------------------------------------------------- the invisible anchor

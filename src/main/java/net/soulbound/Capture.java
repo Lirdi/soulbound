@@ -9,7 +9,7 @@ import java.util.UUID;
 final class Capture {
     final UUID captor;
     final UUID captive;
-    final long endsAt;
+    long endsAt;
     final long startedAt;
     final BossBar captorBar;
     final BossBar captiveBar;
@@ -17,6 +17,8 @@ final class Capture {
     Rabbit anchor;
     int struggles;
     double captorDamage;
+    /** Being held in the fire pit for the sacrifice. */
+    boolean ritual;
 
     Capture(UUID captor, UUID captive, long startedAt, long endsAt, BossBar captorBar, BossBar captiveBar) {
         this.captor = captor;

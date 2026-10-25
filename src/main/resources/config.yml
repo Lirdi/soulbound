@@ -30,6 +30,8 @@ capture:
   captor-slowness: true
   # Announce captures and escapes in chat to everyone.
   broadcast: true
+  # The only commands a captive can use (everything else is blocked, so no /home or /spawn escapes).
+  captive-allowed-commands: [msg, tell, w, r, reply, me, report, helpop, rules, list, ping, moloch]
 
 safety:
   # No captures at all in these worlds.
@@ -40,3 +42,92 @@ safety:
 logout:
   # What happens if the captive logs out: "kill" (they die where they stand) or "release".
   captive: kill
+
+# ---------------------------------------------------------------- Moloch
+
+moloch:
+  # Moloch's realm, as the data pack names it.
+  world: "sacrifice:sacrifice"
+  # The fire in the summit pit is at this height.
+  pit-y: 125
+  # The temple grounds (plaza and moat): a capture's timer stands still in here.
+  temple-radius: 110
+  # The battle arena under the pyramid: where Moloch rises (the top of the dais).
+  arena:
+    x: 0.5
+    y: 62
+    z: 0.5
+    radius: 34
+
+sacrifice:
+  # How long the ritual in the fire pit takes. Hitting the captor hard enough in that time breaks it.
+  ritual-seconds: 10
+  # The same player can't be sacrificed again for this long.
+  victim-cooldown-hours: 48
+  # Each player can sacrifice this many people a day.
+  per-captor-per-day: 1
+  # The whole server: this many sacrifices a day.
+  server-per-day: 3
+  # Players with less playtime than this can't sacrifice or be sacrificed.
+  new-player-hours: 5
+  # What the captor gets. %player% is the captor.
+  captor-reward-commands:
+    - "effect give %player% minecraft:strength 600 1"
+    - "effect give %player% minecraft:regeneration 60 1"
+    - "xp add %player% 15 levels"
+
+curse:
+  # Moloch's Curse on the sacrificed: Weakness and Mining Fatigue for this many minutes of play.
+  minutes: 45
+  # Slowness too, for the first part of it.
+  slowness-minutes: 10
+  # Curses stack, up to this.
+  max-minutes: 180
+
+hunger:
+  # Moloch's Hunger fills from 0 to 100. A full meter books his awakening.
+  per-sacrifice: 12
+  # Each point of the data pack's offering total (gold ingot 1, mob 3, gold block 5) adds this much.
+  per-offering-point: 0.5
+  datapack-objective: "sacrifice.offer"
+  # He only rises at one of these times, so everyone can be there. Days in English, 24-hour clock.
+  awakening-slots:
+    - "FRIDAY 20:00"
+    - "SATURDAY 20:00"
+  timezone: "Europe/London"
+  # At least this much warning before he rises.
+  min-notice-hours: 6
+
+boss:
+  # Moloch is a warden this many times normal size.
+  scale: 3.0
+  # His health: this much, plus more for each player in his realm when he wakes (the game caps it at 1024).
+  base-health: 300
+  health-per-player: 150
+  # How long players have to bring him down.
+  fight-minutes: 30
+  # His sonic boom is capped at this much damage, and sets players alight.
+  sonic-boom-max-damage: 8
+  # The fire ring: a roar, then a blast around his feet.
+  fire-ring-damage: 6
+  fire-ring-radius: 8
+  fire-ring-every-seconds: 20
+  # Cultists stream in from the doorways once he's below two thirds health.
+  cultists-every-seconds: 45
+  cultists-per-wave: 3
+  max-cultists: 8
+  # If he strays this far from the dais he's pulled back.
+  leash-radius: 26
+  # Everyone who dealt at least this much damage is rewarded. %player% is each one.
+  reward-min-damage: 10
+  reward-commands:
+    - "give %player% minecraft:diamond 4"
+    - "xp add %player% 30 levels"
+  # Extra for whoever dealt the most damage.
+  top-damage-commands:
+    - "give %player% minecraft:netherite_ingot 1"
+    - "give %player% minecraft:enchanted_golden_apple 1"
+  # If he survives the fight: a blood moon over his realm (stronger mobs) for this long.
+  blood-moon-hours: 24
+  # No other wardens: ancient-city shriekers summon nothing. /summon still works for testing.
+  block-other-wardens: true

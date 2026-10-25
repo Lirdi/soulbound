@@ -2,13 +2,16 @@ name: Soulbound
 version: '${version}'
 main: net.soulbound.Soulbound
 api-version: '26.3'
-description: Capture weakened players with a lead.
+description: Capture, sacrifice and Moloch himself.
 authors: [Lirdi]
 commands:
   soulbound:
     description: Release your captive, or reload the config.
     usage: /soulbound <release|give|reload>
     aliases: [sb]
+  moloch:
+    description: Moloch's state, and admin controls for his awakening.
+    usage: /moloch [awaken|stop|hunger|curse|uncurse|reload]
 permissions:
   soulbound.capture:
     description: Can capture weakened players with a lead.
