@@ -172,9 +172,10 @@ final class MolochBoss implements Listener {
         half++;
         Location c = zones.arenaCentre();
         if (c == null) return;
+        if (System.currentTimeMillis() >= endsAt) { lose(); return; }
         if (boss == null || !boss.isValid()) {
-            if (boss != null && boss.isDead()) return;   // the death event finishes it
-            spawnBoss(savedHp);                          // he dug away or was unloaded: he rises again where he was
+            if (boss != null && boss.getHealth() <= 0) return;   // killed: the death event finishes it
+            spawnBoss(savedHp);                                  // he dug away or was unloaded: he rises again as he was
             c.getWorld().spawnParticle(Particle.LAVA, c, 40, 2, 1, 2, 0);
         }
         savedHp = boss.getHealth();
@@ -243,8 +244,6 @@ final class MolochBoss implements Listener {
                 f.setShooter(boss);
             });
         }
-
-        if (System.currentTimeMillis() >= endsAt) lose();
     }
 
     private void spawnCultist(Location c) {
