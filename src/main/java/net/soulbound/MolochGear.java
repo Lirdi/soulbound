@@ -190,8 +190,29 @@ final class MolochGear implements Listener {
         fireTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickFurnaces, 40L, 3L);
     }
 
-    /** The furnace in the breastplate really burns: little flames flicker out of it. */
+    private static final int FRAMES = 6;
+    private int frame;
+
+    /** Point a worn piece at one frame of the burning furnace (the armour's own pixels flicker). */
+    private void setFrame(Player p, ItemStack it, EquipmentSlot slot, int f) {
+        ItemMeta m = it.getItemMeta();
+        EquippableComponent eq = m.getEquippable();
+        NamespacedKey want = new NamespacedKey("soulbound", "moloch_f" + f);
+        if (want.equals(eq.getModel())) return;
+        eq.setModel(want);
+        m.setEquippable(eq);
+        it.setItemMeta(m);
+        p.getInventory().setItem(slot, it);
+    }
+
+    /** The furnace in the breastplate really burns: its pixels flicker frame by frame, and little flames lick out of it. */
     private void tickFurnaces() {
+        frame = (frame + 1) % FRAMES;
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            ItemStack chest = p.getInventory().getChestplate(), feet = p.getInventory().getBoots();
+            if (pieceOf(chest) == Piece.CHESTPLATE) setFrame(p, chest, EquipmentSlot.CHEST, frame);
+            if (pieceOf(feet) == Piece.BOOTS) setFrame(p, feet, EquipmentSlot.FEET, (frame + 3) % FRAMES);
+        }
         for (Player p : Bukkit.getOnlinePlayers()) {
             if (pieceOf(p.getInventory().getChestplate()) != Piece.CHESTPLATE || p.isInvisible() || p.isDead()) continue;
             AttributeInstance sc = p.getAttribute(Attribute.SCALE);
