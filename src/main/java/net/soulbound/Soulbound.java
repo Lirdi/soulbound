@@ -24,6 +24,7 @@ public final class Soulbound extends JavaPlugin {
     private SacrificeManager sacrifices;
     private PortalManager portals;
     private SummitDrums drums;
+    private GodManager god;
 
     @Override
     public void onEnable() {
@@ -39,6 +40,7 @@ public final class Soulbound extends JavaPlugin {
         sacrifices = new SacrificeManager(this, store, captures, curses, hunger, zones);
         portals = new PortalManager(this, store, zones, captures);
         drums = new SummitDrums(this, zones);
+        god = new GodManager(this);
 
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(captures, this);
@@ -47,6 +49,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(boss, this);
         pm.registerEvents(sacrifices, this);
         pm.registerEvents(portals, this);
+        pm.registerEvents(god, this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
@@ -59,6 +62,7 @@ public final class Soulbound extends JavaPlugin {
         sacrifices.start();
         portals.start();
         drums.start();
+        god.start();
         if (zones.world() == null) getLogger().warning("Moloch's realm '" + zones.worldKey + "' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.");
         getLogger().info("Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.");
     }
@@ -67,6 +71,7 @@ public final class Soulbound extends JavaPlugin {
     public void onDisable() {
         if (sacrifices != null) sacrifices.stop();
         if (drums != null) drums.stop();
+        if (god != null) god.stop();
         if (captures != null) captures.stop();
         if (boss != null) boss.stop();
         if (hunger != null) hunger.stop();
@@ -201,6 +206,7 @@ public final class Soulbound extends JavaPlugin {
         sacrifices.loadSettings();
         portals.loadSettings();
         drums.loadSettings();
+        god.loadSettings();
         leash.load();
         leash.registerRecipe();
     }

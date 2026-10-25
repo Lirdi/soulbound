@@ -46,3 +46,7 @@ Built for Paper 26.3.
 ## Portals
 
 Moloch's realm replaces the Nether. Every Overworld portal leads to one arrival point at the start of the Sacred Way, facing the temple. The Exit Gate behind it (built automatically, unbreakable) is the only way out, and returns each player to the portal they came through. Portals can't be lit in the realm, mobs and items can't use portals, and a captor brings their captive through with them (a captive can't use a portal alone). Admin: `/moloch gate [here]`, `/moloch setarrival`.
+
+## God
+
+The ender dragon is replaced by God: a giant grey-bearded old man in white robes with a halo, flying where the (invisible) dragon flies and standing upright when it perches or dies. He has an old man's voice (the villager's, pitched down). Hits on his body pass half their damage to the dragon. The skin is `assets/soulbound/textures/entity/god.png` in the server pack.

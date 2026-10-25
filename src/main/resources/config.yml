@@ -234,3 +234,18 @@ boss:
   wave-extra-per-player: 0.5
   phase-2-wave: "vindicator:3"
   phase-3-wave: "wither_skeleton:2,blaze:2"
+
+# ---------------------------------------------------------------- God
+
+# The ender dragon becomes God: a giant old man with a grey beard in white robes, flying where the dragon flies.
+# (The resource pack makes the dragon invisible, gives it an old man's voice and names it God.)
+god:
+  enabled: true
+  # How big he is (1 = player size, up to 16).
+  scale: 9
+  # Hits on his body pass this share of their damage on to the dragon (the dragon's own hitbox still takes full hits).
+  body-hit-damage: 0.5
+  # Where the figure sits relative to the dragon, as shares of his height. Adjust if he looks out of place.
+  flying-offset-back: 0.45
+  flying-offset-down: 0.15
+  standing-offset-down: 0.3
