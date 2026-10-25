@@ -22,6 +22,7 @@ public final class Soulbound extends JavaPlugin {
     private HungerMeter hunger;
     private MolochBoss boss;
     private SacrificeManager sacrifices;
+    private PortalManager portals;
 
     @Override
     public void onEnable() {
@@ -35,6 +36,7 @@ public final class Soulbound extends JavaPlugin {
         boss = new MolochBoss(this, store, zones);
         hunger = new HungerMeter(this, store);
         sacrifices = new SacrificeManager(this, store, captures, curses, hunger, zones);
+        portals = new PortalManager(this, store, zones, captures);
 
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(captures, this);
@@ -42,6 +44,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(hunger, this);
         pm.registerEvents(boss, this);
         pm.registerEvents(sacrifices, this);
+        pm.registerEvents(portals, this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
@@ -52,6 +55,7 @@ public final class Soulbound extends JavaPlugin {
         boss.start();
         hunger.start();
         sacrifices.start();
+        portals.start();
         if (zones.world() == null) getLogger().warning("Moloch's realm '" + zones.worldKey + "' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.");
         getLogger().info("Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.");
     }
@@ -146,6 +150,24 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text("Cursed " + t.getName() + " for " + mins + " minutes.", NamedTextColor.GREEN));
                 return true;
             }
+            case "gate" -> {
+                if (!admin(sender)) return true;
+                int x = getConfig().getInt("portals.gate.x", 0), z = getConfig().getInt("portals.gate.z", -120);
+                if (args.length > 1 && args[1].equalsIgnoreCase("here")) {
+                    if (!(sender instanceof Player p) || !zones.inRealm(p.getLocation())) { sender.sendMessage(Component.text("Stand in Moloch's realm to use /moloch gate here.", NamedTextColor.RED)); return true; }
+                    x = p.getLocation().getBlockX(); z = p.getLocation().getBlockZ();
+                    getConfig().set("portals.gate.x", x); getConfig().set("portals.gate.z", z); saveConfig();
+                }
+                sender.sendMessage(Component.text(portals.buildGate(x, z), NamedTextColor.GREEN));
+                return true;
+            }
+            case "setarrival" -> {
+                if (!admin(sender)) return true;
+                if (!(sender instanceof Player p) || !zones.inRealm(p.getLocation())) { sender.sendMessage(Component.text("Stand where players should arrive, in Moloch's realm, facing the way they should face.", NamedTextColor.RED)); return true; }
+                portals.setArrival(p.getLocation());
+                sender.sendMessage(Component.text("Portals now lead here.", NamedTextColor.GREEN));
+                return true;
+            }
             case "reload" -> {
                 if (!admin(sender)) return true;
                 reload();
@@ -159,7 +181,7 @@ public final class Soulbound extends JavaPlugin {
                 if (sender instanceof Player p && curses.secondsLeft(p) > 0)
                     sender.sendMessage(Component.text("You're cursed for " + CurseManager.clock(curses.secondsLeft(p)) + " more.", NamedTextColor.DARK_PURPLE));
                 if (sender.hasPermission("soulbound.admin"))
-                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | reload", NamedTextColor.GRAY));
+                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | gate [here] | setarrival | reload", NamedTextColor.GRAY));
                 return true;
             }
         }
@@ -173,6 +195,7 @@ public final class Soulbound extends JavaPlugin {
         hunger.loadSettings();
         boss.loadSettings();
         sacrifices.loadSettings();
+        portals.loadSettings();
         leash.load();
         leash.registerRecipe();
     }
@@ -187,7 +210,7 @@ public final class Soulbound extends JavaPlugin {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "reload") : List.of();
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "reload") : List.of();
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");

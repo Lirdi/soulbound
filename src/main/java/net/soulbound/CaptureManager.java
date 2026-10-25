@@ -111,6 +111,29 @@ final class CaptureManager implements Listener {
     List<Capture> all() { return new ArrayList<>(byCaptive.values()); }
     boolean isActive(Capture cap) { return byCaptive.get(cap.captive) == cap; }
 
+    /** Captors walking through a portal right now: their capture survives the change of world. */
+    private final Set<UUID> portalCarry = new HashSet<>();
+
+    /**
+     * A player steps through a portal: take them to {@code to}, and if they're holding a captive, the captive comes
+     * too, still bound (the lead's anchor is left behind and re-tied on the other side).
+     */
+    boolean carryThrough(Player captor, Location to) {
+        Capture cap = byCaptor.get(captor.getUniqueId());
+        portalCarry.add(captor.getUniqueId());
+        boolean ok;
+        try { ok = captor.teleport(to); } finally { portalCarry.remove(captor.getUniqueId()); }
+        if (!ok || cap == null || !isActive(cap)) return ok;
+        Player victim = Bukkit.getPlayer(cap.captive);
+        if (victim == null) return true;
+        if (cap.anchor != null) { if (cap.anchor.isValid()) { victim.removePassenger(cap.anchor); cap.anchor.remove(); } cap.anchor = null; }
+        Vector back = to.getDirection().setY(0);
+        Location behind = to.clone();
+        if (back.lengthSquared() > 1e-4) behind.subtract(back.normalize().multiply(1.5));
+        teleportCaptive(cap, victim, behind);
+        return true;
+    }
+
     /** Move a captive somewhere (the sacrifice uses this), past the teleport guard. */
     void moveCaptive(Player victim, Location to) {
         Capture cap = byCaptive.get(victim.getUniqueId());
@@ -381,6 +404,7 @@ final class CaptureManager implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCaptorTeleported(PlayerTeleportEvent e) {
         Capture cap = byCaptor.get(e.getPlayer().getUniqueId());
+        if (portalCarry.contains(e.getPlayer().getUniqueId())) return;
         if (cap != null && e.getFrom().getWorld() != null && e.getTo() != null
                 && (!e.getFrom().getWorld().equals(e.getTo().getWorld()) || e.getFrom().distance(e.getTo()) > snapDistance)) end(cap, End.MOVED);
     }

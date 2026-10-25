@@ -100,6 +100,24 @@ hunger:
   # At least this much warning before he rises.
   min-notice-hours: 6
 
+# ---------------------------------------------------------------- portals
+
+# Moloch's realm takes the Nether's place. Keep allow-nether=true in server.properties so portals still work.
+portals:
+  enabled: true
+  # Every Overworld portal leads here: the start of the Sacred Way, facing the temple (yaw 0 = facing south, towards it).
+  # Stand somewhere in the realm and run /moloch setarrival to move it.
+  arrival:
+    x: 0.5
+    y: 61
+    z: -113.5
+    yaw: 0
+  # The Exit Gate, the only way back out, a few steps behind the arrival point. It's built by itself the first time
+  # the plugin starts with the realm loaded. /moloch gate rebuilds it; /moloch gate here moves it to where you stand.
+  gate:
+    x: 0
+    z: -120
+
 boss:
   # Moloch is a warden this many times normal size.
   scale: 3.0

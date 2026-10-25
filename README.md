@@ -42,3 +42,7 @@ Pick one:
 Upload `Soulbound-0.2.1.jar` to your server's `plugins` folder and restart.
 
 Built for Paper 26.3.
+
+## Portals
+
+Moloch's realm replaces the Nether. Every Overworld portal leads to one arrival point at the start of the Sacred Way, facing the temple. The Exit Gate behind it (built automatically, unbreakable) is the only way out, and returns each player to the portal they came through. Portals can't be lit in the realm, mobs and items can't use portals, and a captor brings their captive through with them (a captive can't use a portal alone). Admin: `/moloch gate [here]`, `/moloch setarrival`.
