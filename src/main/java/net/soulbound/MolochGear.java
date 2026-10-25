@@ -59,7 +59,7 @@ final class MolochGear implements Listener {
     private final NamespacedKey pieceKey, hornsKey, sizeKey;
     private final Set<UUID> empowered = new HashSet<>();
     private final Random rnd = new Random();
-    private BukkitTask task;
+    private BukkitTask task, fireTask;
     private double setScale, dropChance;
 
     MolochGear(Soulbound plugin, Store store) {
@@ -185,9 +185,28 @@ final class MolochGear implements Listener {
 
     // ---------------------------------------------------------------- the set bonus
 
-    void start() { task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickSets, 40L, 20L); }
+    void start() {
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickSets, 40L, 20L);
+        fireTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickFurnaces, 40L, 3L);
+    }
+
+    /** The furnace in the breastplate really burns: little flames flicker out of it. */
+    private void tickFurnaces() {
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (pieceOf(p.getInventory().getChestplate()) != Piece.CHESTPLATE || p.isInvisible() || p.isDead()) continue;
+            AttributeInstance sc = p.getAttribute(Attribute.SCALE);
+            double s = sc != null ? sc.getValue() : 1;
+            double yaw = Math.toRadians(p.getBodyYaw());
+            double fx = -Math.sin(yaw), fz = Math.cos(yaw);
+            double up = (p.isSneaking() ? 1.0 : 1.15) * s;
+            org.bukkit.Location at = p.getLocation().add(fx * 0.2 * s, up, fz * 0.2 * s);
+            p.getWorld().spawnParticle(Particle.SMALL_FLAME, at, 1, 0.05 * s, 0.07 * s, 0.05 * s, 0.006);
+            if (Bukkit.getCurrentTick() % 9 == 0) p.getWorld().spawnParticle(Particle.SMOKE, at.clone().add(0, 0.15 * s, 0), 1, 0.03, 0.02, 0.03, 0.01);
+        }
+    }
     void stop() {
         if (task != null) task.cancel();
+        if (fireTask != null) fireTask.cancel();
         for (UUID id : empowered) { Player p = Bukkit.getPlayer(id); if (p != null) shrink(p); }
         empowered.clear();
     }
