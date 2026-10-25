@@ -170,6 +170,12 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text(portals.buildGate(x, z), NamedTextColor.GREEN));
                 return true;
             }
+            case "god" -> {
+                if (!admin(sender)) return true;
+                if (!(sender instanceof Player p)) { sender.sendMessage("Players only."); return true; }
+                sender.sendMessage(Component.text(god.test(p), NamedTextColor.GREEN));
+                return true;
+            }
             case "setarrival" -> {
                 if (!admin(sender)) return true;
                 if (!(sender instanceof Player p) || !zones.inRealm(p.getLocation())) { sender.sendMessage(Component.text("Stand where players should arrive, in Moloch's realm, facing the way they should face.", NamedTextColor.RED)); return true; }
@@ -221,7 +227,7 @@ public final class Soulbound extends JavaPlugin {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "reload") : List.of();
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "reload") : List.of();
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");

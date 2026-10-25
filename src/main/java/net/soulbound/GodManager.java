@@ -42,7 +42,7 @@ final class GodManager implements Listener {
     private BukkitTask task;
     private int tick;
 
-    private boolean enabled;
+    private boolean enabled, flyingPose;
     private double scale, hitShare, flyBack, flyDown, standDown;
 
     GodManager(Soulbound plugin) {
@@ -53,6 +53,7 @@ final class GodManager implements Listener {
     void loadSettings() {
         FileConfiguration c = plugin.getConfig();
         enabled = c.getBoolean("god.enabled", true);
+        flyingPose = c.getBoolean("god.flying-pose", false);
         scale = Math.max(1, Math.min(16, c.getDouble("god.scale", 9)));
         hitShare = c.getDouble("god.body-hit-damage", 0.5);
         flyBack = c.getDouble("god.flying-offset-back", 0.45);
@@ -110,19 +111,40 @@ final class GodManager implements Listener {
 
     private void spawnGod(EnderDragon d) {
         Location l = d.getLocation();
+        Entity g = summon(l.clone().subtract(0, height() * 0.5, 0), TAG);
+        if (g == null) {
+            plugin.getLogger().warning("Couldn't create God for the dragon at " + l.getBlockX() + " " + l.getBlockY() + " " + l.getBlockZ()
+                    + ". Check the console just above this line for the summon error.");
+            return;
+        }
+        g.setPersistent(false);
+        godOf.put(d.getUniqueId(), g.getUniqueId());
+        plugin.getLogger().info("God has appeared in " + l.getWorld().getName() + " (" + g.getType().getKey() + ").");
+    }
+
+    /** Summon a God figure at a spot, with the given tag. Null if the summon didn't work. */
+    Entity summon(Location at, String tag) {
         String cmd = String.format(java.util.Locale.ROOT,
                 "execute in %s run summon minecraft:mannequin %.2f %.2f %.2f {Tags:[\"%s\",\"%s_new\"],profile:{texture:\"soulbound:entity/god\",model:\"wide\"},"
                         + "immovable:1b,hide_description:1b,NoGravity:1b,Silent:1b,attributes:[{id:\"minecraft:scale\",base:%.2f},{id:\"minecraft:max_health\",base:1000}],Health:1000.0f}",
-                l.getWorld().getKey().asString(), l.getX(), l.getY() - height() * 0.5, l.getZ(), TAG, TAG, scale);
+                at.getWorld().getKey().asString(), at.getX(), at.getY(), at.getZ(), tag, tag, scale);
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd);
-        for (Entity e : l.getWorld().getNearbyEntities(l, 8, height() + 8, 8)) {
-            if (!e.getScoreboardTags().contains(TAG + "_new")) continue;
-            e.removeScoreboardTag(TAG + "_new");
-            e.setPersistent(false);
-            godOf.put(d.getUniqueId(), e.getUniqueId());
-            return;
+        for (Entity e : at.getWorld().getNearbyEntities(at, 8, height() + 8, 8)) {
+            if (!e.getScoreboardTags().contains(tag + "_new")) continue;
+            e.removeScoreboardTag(tag + "_new");
+            return e;
         }
-        plugin.getLogger().warning("Couldn't create God for the dragon at " + l.getBlockX() + " " + l.getBlockY() + " " + l.getBlockZ() + ".");
+        return null;
+    }
+
+    /** Admin test: a standing God right here, no dragon, to check the skin and size. */
+    String test(Player p) {
+        Location at = p.getLocation().add(p.getLocation().getDirection().setY(0).normalize().multiply(scale * 1.5 + 3));
+        at.setYaw(p.getLocation().getYaw() + 180);
+        Entity g = summon(at, TAG + "_test");
+        if (g == null) return "The summon failed. The server console shows why (look for a red error just before this).";
+        g.setRotation(at.getYaw(), 0);
+        return "God summoned in front of you (" + g.getType().getKey() + "). Remove him with /kill @e[tag=" + TAG + "_test]";
     }
 
     /** Keep God where the dragon is: flying face-forward through the sky, or standing upright when it perches or dies. */
@@ -137,7 +159,7 @@ final class GodManager implements Listener {
         }
         heading.put(id, dir);
         EnderDragon.Phase ph = d.getPhase();
-        boolean standing = switch (ph) {
+        boolean standing = !flyingPose || switch (ph) {
             case LAND_ON_PORTAL, BREATH_ATTACK, SEARCH_FOR_BREATH_ATTACK_TARGET, ROAR_BEFORE_ATTACK, HOVER, DYING -> true;
             default -> false;
         };
