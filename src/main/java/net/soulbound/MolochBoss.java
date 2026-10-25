@@ -114,6 +114,7 @@ final class MolochBoss implements Listener {
     private int moveTick, nextMoveIn = 100;
     private Vector moveDir;
     private Location moveTarget, lastPos;
+    private Vector leapV;
     private Player victim;
     private final Set<UUID> moveHit = new HashSet<>();
     private final Map<UUID, Integer> farTicks = new HashMap<>(), lastSwing = new HashMap<>();
@@ -336,7 +337,7 @@ final class MolochBoss implements Listener {
     }
 
     private void spawnBoss(double health) {
-        Location c = zones.arenaCentre();
+        Location c = dais();
         boss = c.getWorld().spawn(c, Warden.class, wd -> {
             set(wd, Attribute.SCALE, scale);
             set(wd, Attribute.MAX_HEALTH, REAL_HP);
@@ -359,6 +360,9 @@ final class MolochBoss implements Listener {
         AttributeInstance i = e.getAttribute(a);
         if (i != null) i.setBaseValue(v);
     }
+
+    /** On top of the dais (the arena point is the floor level of the hall; the dais is a block higher). */
+    private Location dais() { return zones.arenaCentre().add(0, 1.05, 0); }
 
     /** Health he'd need to last as long with this many fighters, and the damage factor that gives it. */
     private double effectiveHp() { return hpBase + hpPerFighter * crowd; }
@@ -444,7 +448,7 @@ final class MolochBoss implements Listener {
         // keep him in his hall (not mid-move: the charge and leap move him on purpose)
         Location b = boss.getLocation();
         if (move == Move.NONE && (Math.max(Math.abs(b.getX() - c.getX()), Math.abs(b.getZ() - c.getZ())) > leashRadius || b.getY() < c.getY() - 4 || b.getY() > c.getY() + 30))
-            boss.teleport(c);
+            boss.teleport(dais());
 
         // players only: forget anything else he's angry at, and hunt the nearest player
         for (int i = 0; i < 8; i++) {
@@ -723,6 +727,8 @@ final class MolochBoss implements Listener {
             if (moveTick == 24) launch(at, moveTarget);
             return;
         }
+        // the first tick of a jump is slowed by ground friction: put the arc back on course once he's airborne
+        if (moveTick == 25 && leapV != null) boss.setVelocity(new Vector(leapV.getX() * 0.91, (leapV.getY() - 0.08) * 0.98, leapV.getZ() * 0.91));
         if (moveTick % 2 == 0) fx(Particle.CLOUD, at.clone().add(0, 1, 0), 3, 0.8, 0.01, null);
         if ((moveTick > 30 && boss.isOnGround()) || moveTick > 24 + 70) {
             slam(boss.getLocation());
@@ -741,6 +747,7 @@ final class MolochBoss implements Listener {
         c = y;
         Vector d = to.toVector().subtract(from.toVector());
         Vector v = new Vector(d.getX() / geo, (d.getY() - c) / s, d.getZ() / geo);
+        leapV = v.clone();
         boss.setVelocity(v);
         from.getWorld().playSound(from, "minecraft:entity.ravager.roar", 3f, 0.5f);
         fx(Particle.BLOCK, from.clone().add(0, 0.2, 0), 120, 2, 0.2, Material.POLISHED_BLACKSTONE.createBlockData());
@@ -770,7 +777,7 @@ final class MolochBoss implements Listener {
         Location c = zones.arenaCentre(), out = l.clone();
         out.setX(Math.max(c.getX() - 26, Math.min(c.getX() + 26, out.getX())));
         out.setZ(Math.max(c.getZ() - 26, Math.min(c.getZ() + 26, out.getZ())));
-        out.setY(c.getY());
+        out.setY(c.getY() - 1);   // the hall floor
         return out;
     }
 
