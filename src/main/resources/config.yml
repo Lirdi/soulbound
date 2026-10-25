@@ -101,51 +101,72 @@ hunger:
 boss:
   # Moloch is a warden this many times normal size.
   scale: 3.0
-  # His health: this much, plus more for each player in his realm when he wakes (the game caps it at 1024).
-  base-health: 300
-  health-per-player: 150
   # How long players have to bring him down.
   fight-minutes: 30
+
+  # --- scaling to the crowd (live: recounted every half second from who's fighting in the arena) ---
+  # How much health he effectively has: base + this much per fighter in the hall. 1 fighter = 1500, 5 = 4300, 15 = 11300.
+  # (His real health is always the game's cap of 1024; the scaling works by shrinking the damage he takes.)
+  effective-health-base: 800
+  effective-health-per-fighter: 700
+  # His moves come quicker with bigger crowds (5% per extra fighter, up to 40% faster). Base gap between moves:
+  seconds-between-moves: 7
+
+  # --- his normal attacks ---
+  # His punch (the vanilla warden hits for 30, which one-shots most players).
+  melee-damage: 14
   # His sonic boom is capped at this much damage, and sets players alight.
   sonic-boom-max-damage: 8
-  # The fire ring: a roar, then a blast around his feet.
+
+  # --- no bow cheese ---
+  # Arrows, tridents and other projectiles only ever do this share of their damage.
+  projectile-damage: 0.5
+  # The Soulfire Ward: for this long, projectiles burn up and he throws a fireball back at the shooter.
+  # It comes up every so often, and straight away when most of the recent damage is coming from bows.
+  ward-seconds: 8
+  ward-every-seconds: 35
+  # The chain pull: anyone further than this from him can be hooked and dragged in (always, after 10 seconds hanging back).
+  chain-range: 14
+
+  # --- his moves ---
+  # The fire ring: a roar and a smoke warning, then a blast around his feet.
   fire-ring-damage: 6
   fire-ring-radius: 8
-  fire-ring-every-seconds: 20
-  # Waves of servants before he rises, and reinforcements during the fight. Off for now: he rises straight away.
-  waves-enabled: false
-  # Before Moloch rises, waves of his servants pour in through the arena doorways. Clear one and the next comes.
-  # Each wave is "mob:count,mob:count" (vanilla mob names). Add or remove lines for more or fewer waves.
-  waves:
-    - "vindicator:4"
-    - "blaze:3,magma_cube:2"
-    - "wither_skeleton:3,piglin_brute:1"
-  wave-names:
-    - "The cult rises"
-    - "Fire from below"
-    - "His honour guard"
-  # Pause between waves.
-  wave-break-seconds: 6
-  # Each extra fighter in the arena adds this share of every wave (0.5 = half as many again per extra player).
-  wave-extra-per-player: 0.5
-  # Reinforcements once Moloch drops to two thirds, then one third, of his health.
-  phase-2-wave: "vindicator:3"
-  phase-3-wave: "wither_skeleton:2,blaze:2"
-  # Moloch never gives players Darkness (the warden's blinding pulse).
-  no-darkness: true
-  # Once a fight, at this share of his health (0.5 = 50%) he screams, giving everyone in the arena Nausea and Weakness (0 turns Weakness off).
+  # The bull charge: he marks his line on the floor, then charges down it. If he hits a pillar or wall he topples, stunned.
+  charge-damage: 12
+  stun-seconds: 5
+  stun-damage-multiplier: 2.0
+  # The leap (from 75%): a red ring marks where he'll land, then he slams down.
+  slam-damage: 12
+  slam-radius: 6
+  # Furnace breath (from 75%): a cone of fire that sweeps after its target. Damage every half second inside it.
+  breath-damage: 3
+  breath-range: 14
+
+  # --- the turning points ---
+  # 75%: his champions, piglin brutes in gold armour with golden axes. While any live he takes only this share of damage.
+  champions: 2
+  champions-per-extra-fighter: 0.5
+  champions-max: 8
+  champion-health: 60
+  champion-shield: 0.4
+  # 50%: he screams, giving everyone in the arena Nausea and Weakness (0 turns Weakness off). Fire starts to rain.
   scream-at: 0.5
   scream-nausea-seconds: 6
   scream-weakness-seconds: 6
-  # Once a fight, when he drops to this share of his health (0.25 = 25%), he crashes to the floor for a while:
-  # he can't be hurt, heals this share of his max health, and drains everyone in the arena's hunger bar to zero.
+  # 25%: he crashes to the floor for a while: he can't be hurt, heals this share of his health, and drains everyone's hunger to zero.
   collapse-at: 0.25
   collapse-seconds: 8
   collapse-heal: 0.15
-  # When he dies he rises, burns and bursts apart over ten seconds, showering this much experience, like the ender dragon.
+  # After the collapse he's in a frenzy: this much faster, with his moves coming quicker.
+  frenzy-speed: 1.3
+
+  # When he dies he rises and breaks into light like the ender dragon, showering this much experience.
   death-xp: 1500
   # If he strays this far from the dais he's pulled back.
   leash-radius: 26
+  # Moloch never gives players Darkness (the warden's blinding pulse).
+  no-darkness: true
   # Everyone who dealt at least this much damage is rewarded. %player% is each one.
   reward-min-damage: 10
   reward-commands:
@@ -159,3 +180,18 @@ boss:
   blood-moon-hours: 24
   # No other wardens: ancient-city shriekers summon nothing. /summon still works for testing.
   block-other-wardens: true
+
+  # --- optional servant waves before he rises (off) ---
+  waves-enabled: false
+  waves:
+    - "vindicator:4"
+    - "blaze:3,magma_cube:2"
+    - "wither_skeleton:3,piglin_brute:1"
+  wave-names:
+    - "The cult rises"
+    - "Fire from below"
+    - "His honour guard"
+  wave-break-seconds: 6
+  wave-extra-per-player: 0.5
+  phase-2-wave: "vindicator:3"
+  phase-3-wave: "wither_skeleton:2,blaze:2"

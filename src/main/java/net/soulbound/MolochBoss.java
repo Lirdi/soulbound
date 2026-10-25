@@ -18,12 +18,14 @@ import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
+import org.bukkit.entity.PiglinBrute;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Pose;
 import org.bukkit.entity.Projectile;
@@ -38,9 +40,14 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.bukkit.event.entity.EntityTargetEvent;
+import org.bukkit.event.player.PlayerAnimationEvent;
+import org.bukkit.event.player.PlayerAnimationType;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.time.Duration;
@@ -56,26 +63,39 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Moloch's awakening, fought in the arena under the pyramid by everyone together:
- * first waves of his servants pour in through the doorways, then Moloch himself rises on the dais.
- * Kill him in time and everyone who hurt him is rewarded; fail and he goes back to sleep fed,
- * and a blood moon hangs over his realm. He only ever fights players, and never blinds them.
+ * Moloch's awakening, fought in the arena under the pyramid by everyone together.
+ *
+ * He scales live with the number of fighters in the hall. Between his normal warden attacks he picks moves:
+ * the bull charge (dodge it into a pillar and he topples over, stunned and open), the leap slam, furnace breath,
+ * the fire ring and the chain pull (for anyone hanging back). Arrows only ever do half damage, and his Soulfire Ward
+ * burns them and throws fire back, more so when people lean on bows. At 75% his golden champions shield him,
+ * at 50% he screams, at 25% he collapses and feeds, and below that he's in a frenzy. He dies like the ender dragon.
  */
 final class MolochBoss implements Listener {
     static final String TAG = "moloch_boss", MINION = "moloch_minion";
 
     private enum Stage { WAVE, BREAK, BOSS }
+    private enum Move { NONE, RING, CHARGE, LEAP, BREATH, CHAIN, STUN }
 
     private static final List<String> DEFAULT_WAVES = List.of("vindicator:4", "blaze:3,magma_cube:2", "wither_skeleton:3,piglin_brute:1");
     private static final List<String> DEFAULT_WAVE_NAMES = List.of("The cult rises", "Fire from below", "His honour guard");
     private static final double[][] DOORS = {{30, 12}, {30, -12}, {-30, 12}, {-30, -12}, {12, 30}, {-12, 30}, {12, -30}, {-12, -30}};
+    private static final double REAL_HP = 1024;   // the game's cap: his real health; crowd scaling works through damage instead
+
+    private static final Particle.DustOptions RAY_WHITE = new Particle.DustOptions(Color.fromRGB(255, 255, 255), 2.2f);
+    private static final Particle.DustOptions RAY_PINK = new Particle.DustOptions(Color.fromRGB(255, 120, 255), 2.0f);
+    private static final Particle.DustOptions RAY_PURPLE = new Particle.DustOptions(Color.fromRGB(190, 40, 255), 1.7f);
+    private static final Particle.DustOptions WARN = new Particle.DustOptions(Color.fromRGB(200, 20, 10), 1.6f);
+    private static final Particle.DustOptions CHAIN = new Particle.DustOptions(Color.fromRGB(95, 95, 105), 1.4f);
+    private static final Particle.DustOptions GOLD = new Particle.DustOptions(Color.fromRGB(255, 196, 40), 1.4f);
 
     private final Soulbound plugin;
     private final Store store;
     private final Zones zones;
     private final Random rnd = new Random();
-    private BukkitTask task;
+    private BukkitTask task, fastTask;
 
+    // the fight
     private boolean active;
     private Stage stage;
     private int wave, waveTotal, breakHalves;
@@ -83,34 +103,44 @@ final class MolochBoss implements Listener {
     private BossBar bar, moonBar;
     private final Set<UUID> barViewers = new HashSet<>(), moonViewers = new HashSet<>();
     private final Map<UUID, Double> damage = new HashMap<>();
-    private final Set<UUID> minions = new HashSet<>();
-    private double maxHp, savedHp;
+    private final Set<UUID> minions = new HashSet<>(), champions = new HashSet<>();
+    private double savedHp, hpScale = 1, baseSpeed = 0.3;
     private long endsAt, bloodMoonUntil;
-    private int phase, half, ringWindup = -1, respawns;
-    // his death: ten seconds of rising, spinning and breaking into light, like the ender dragon's
-    private static final int DEATH_TICKS = 200;
+    private int phase, half, respawns, crowd = 1;
+    private boolean championsCalled, shieldUp, screamed, collapsed, collapsing, frenzy;
+
+    // his moves
+    private Move move = Move.NONE, lastMove = Move.NONE;
+    private int moveTick, nextMoveIn = 100;
+    private Vector moveDir;
+    private Location moveTarget, lastPos;
+    private Player victim;
+    private final Set<UUID> moveHit = new HashSet<>();
+    private final Map<UUID, Integer> farTicks = new HashMap<>(), lastSwing = new HashMap<>();
+    private boolean synthetic;
+    private int fastTicks;
+
+    // the Soulfire Ward and how much of the damage is coming from bows
+    private int wardLeft, wardCooldown, wardNext;
+    private double projDmg, allDmg;
+
+    // his collapse and death
+    private int collapseTicks, deathTicks;
+    private double healPerTick;
+    private BukkitTask collapseTask, deathTask;
+    private Warden collapseBoss;
     private boolean dying;
-    private int deathTicks;
-    private BukkitTask deathTask;
+    private static final int DEATH_TICKS = 200;
     private final List<Vector> rays = new ArrayList<>();
     private final List<Double> rayLengths = new ArrayList<>();
-    private static final Particle.DustOptions RAY_WHITE = new Particle.DustOptions(Color.fromRGB(255, 255, 255), 2.2f);
-    private static final Particle.DustOptions RAY_PINK = new Particle.DustOptions(Color.fromRGB(255, 120, 255), 2.0f);
-    private static final Particle.DustOptions RAY_PURPLE = new Particle.DustOptions(Color.fromRGB(190, 40, 255), 1.7f);
-    // his collapse: once per fight, low on health, he crashes to the floor and feeds on everyone's strength
-    private boolean collapsed, collapsing, screamed;
-    private int collapseTicks;
-    private double healPerTick;
-    private BukkitTask collapseTask;
-    private Warden collapseBoss;
 
     // settings
-    private double scale, baseHealth, perPlayer, boomCap, ringDamage, ringRadius, minDamage, leashRadius, extraPerPlayer;
-    private int fightMinutes, ringEvery, breakSeconds, bloodMoonHours, deathXp;
+    private double scale, hpBase, hpPerFighter, boomCap, meleeDamage, ringDamage, ringRadius, minDamage, leashRadius, extraPerPlayer;
+    private double chargeDamage, slamDamage, slamRadius, breathDamage, breathRange, chainRange, stunMultiplier, projectileMultiplier;
+    private double championShield, champBase, champPerFighter, champHealth, frenzySpeed, screamAt, collapseAt, collapseHeal, moveGap;
+    private int fightMinutes, breakSeconds, bloodMoonHours, deathXp, stunSeconds, wardSeconds, wardEvery, champMax;
+    private int screamNausea, screamWeakness, collapseSeconds;
     private boolean blockWardens, noDarkness, wavesOn;
-    private double collapseAt, collapseHeal;
-    private int collapseSeconds, screamNausea, screamWeakness;
-    private double screamAt;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
 
@@ -123,13 +153,31 @@ final class MolochBoss implements Listener {
     void loadSettings() {
         FileConfiguration c = plugin.getConfig();
         scale = c.getDouble("boss.scale", 3.0);
-        baseHealth = c.getDouble("boss.base-health", 300);
-        perPlayer = c.getDouble("boss.health-per-player", 150);
+        hpBase = c.getDouble("boss.effective-health-base", 800);
+        hpPerFighter = c.getDouble("boss.effective-health-per-fighter", 700);
         fightMinutes = c.getInt("boss.fight-minutes", 30);
+        meleeDamage = c.getDouble("boss.melee-damage", 14);
         boomCap = c.getDouble("boss.sonic-boom-max-damage", 8);
+        projectileMultiplier = c.getDouble("boss.projectile-damage", 0.5);
+        moveGap = Math.max(2, c.getDouble("boss.seconds-between-moves", 7));
         ringDamage = c.getDouble("boss.fire-ring-damage", 6);
         ringRadius = c.getDouble("boss.fire-ring-radius", 8);
-        ringEvery = Math.max(5, c.getInt("boss.fire-ring-every-seconds", 20));
+        chargeDamage = c.getDouble("boss.charge-damage", 12);
+        stunSeconds = Math.max(1, c.getInt("boss.stun-seconds", 5));
+        stunMultiplier = c.getDouble("boss.stun-damage-multiplier", 2.0);
+        slamDamage = c.getDouble("boss.slam-damage", 12);
+        slamRadius = c.getDouble("boss.slam-radius", 6);
+        breathDamage = c.getDouble("boss.breath-damage", 3);
+        breathRange = c.getDouble("boss.breath-range", 14);
+        chainRange = c.getDouble("boss.chain-range", 14);
+        wardSeconds = Math.max(2, c.getInt("boss.ward-seconds", 8));
+        wardEvery = Math.max(10, c.getInt("boss.ward-every-seconds", 35));
+        championShield = c.getDouble("boss.champion-shield", 0.4);
+        champBase = c.getDouble("boss.champions", 2);
+        champPerFighter = c.getDouble("boss.champions-per-extra-fighter", 0.5);
+        champMax = c.getInt("boss.champions-max", 8);
+        champHealth = c.getDouble("boss.champion-health", 60);
+        frenzySpeed = c.getDouble("boss.frenzy-speed", 1.3);
         leashRadius = c.getDouble("boss.leash-radius", 26);
         minDamage = c.getDouble("boss.reward-min-damage", 10);
         participantCommands = c.getStringList("boss.reward-commands");
@@ -138,13 +186,13 @@ final class MolochBoss implements Listener {
         blockWardens = c.getBoolean("boss.block-other-wardens", true);
         noDarkness = c.getBoolean("boss.no-darkness", true);
         deathXp = Math.max(0, c.getInt("boss.death-xp", 1500));
-        wavesOn = c.getBoolean("boss.waves-enabled", false);
         screamAt = c.getDouble("boss.scream-at", 0.5);
         screamNausea = Math.max(1, c.getInt("boss.scream-nausea-seconds", 6));
         screamWeakness = Math.max(0, c.getInt("boss.scream-weakness-seconds", 6));
         collapseAt = c.getDouble("boss.collapse-at", 0.25);
         collapseSeconds = Math.max(2, c.getInt("boss.collapse-seconds", 8));
         collapseHeal = c.getDouble("boss.collapse-heal", 0.15);
+        wavesOn = c.getBoolean("boss.waves-enabled", false);
         waves = c.isList("boss.waves") ? c.getStringList("boss.waves") : DEFAULT_WAVES;
         waveNames = c.isList("boss.wave-names") ? c.getStringList("boss.wave-names") : DEFAULT_WAVE_NAMES;
         breakSeconds = Math.max(2, c.getInt("boss.wave-break-seconds", 6));
@@ -153,12 +201,16 @@ final class MolochBoss implements Listener {
         phase3Wave = c.getString("boss.phase-3-wave", "wither_skeleton:2,blaze:2");
     }
 
-    void start() { task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickHalf, 10L, 10L); }
+    void start() {
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickHalf, 10L, 10L);
+        fastTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickFast, 1L, 1L);
+    }
 
     void stop() {
         if (task != null) task.cancel();
+        if (fastTask != null) fastTask.cancel();
         if (active && dying) win();   // he was already dying: the players won
-        else if (active) {   // a restart mid-fight: tidy up, and wake him again as soon as the server's back
+        else if (active) {            // a restart mid-fight: tidy up, and wake him again as soon as the server's back
             cleanup();
             plugin.hunger().awakenNow();
         }
@@ -186,9 +238,11 @@ final class MolochBoss implements Listener {
         World w = zones.world();
         Location c = zones.arenaCentre();
         w.getChunkAt(c).addPluginChunkTicket(plugin);
-        damage.clear();
-        minions.clear();
-        half = 0; respawns = 0; ringWindup = -1; phase = 1;
+        damage.clear(); minions.clear(); champions.clear(); farTicks.clear(); lastSwing.clear();
+        half = 0; respawns = 0; phase = 1; crowd = 1;
+        championsCalled = shieldUp = screamed = collapsed = collapsing = frenzy = dying = false;
+        move = lastMove = Move.NONE;
+        wardLeft = 0; wardCooldown = 0; wardNext = wardEvery * 20; projDmg = allDmg = 0;
         endsAt = System.currentTimeMillis() + fightMinutes * 60_000L;
         active = true;
         bar = BossBar.bossBar(Component.text("Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD), 1f, BossBar.Color.RED, BossBar.Overlay.NOTCHED_20);
@@ -196,20 +250,18 @@ final class MolochBoss implements Listener {
         Bukkit.broadcast(Component.text("Everyone to the arena under the pyramid. " + (wavesOn ? "Fight through his servants, then bring" : "Bring") + " him down within " + fightMinutes + " minutes.", NamedTextColor.RED));
         for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:awaken", 1f, 1f);
         wave = -1;
-        collapsed = false; collapsing = false; screamed = false;
         if (!wavesOn || waves.isEmpty()) raiseMoloch();
         else { stage = Stage.BREAK; breakHalves = 6; }
         return true;
     }
 
-    // ---------------------------------------------------------------- waves
+    // ---------------------------------------------------------------- waves (optional, off by default)
 
     private void startWave(int i) {
         wave = i;
         stage = Stage.WAVE;
         Location c = zones.arenaCentre();
-        int spawned = spawnGroup(waves.get(i), c);
-        waveTotal = Math.max(1, spawned);
+        waveTotal = Math.max(1, spawnGroup(waves.get(i), c));
         String name = i < waveNames.size() ? waveNames.get(i) : "Wave " + (i + 1);
         titleNear(c, Component.text("Wave " + (i + 1) + " of " + waves.size(), NamedTextColor.RED, TextDecoration.BOLD), Component.text(name, NamedTextColor.GOLD));
         playNear(c, "moloch:drums", 1f, 1f);
@@ -232,9 +284,7 @@ final class MolochBoss implements Listener {
     }
 
     private void spawnMinion(EntityType type, Location c) {
-        double[] d = DOORS[rnd.nextInt(DOORS.length)];
-        Location at = new Location(c.getWorld(), c.getX() + d[0] + rnd.nextDouble() - 0.5, c.getY() - 1, c.getZ() + d[1] + rnd.nextDouble() - 0.5);
-        Entity e = c.getWorld().spawnEntity(at, type);
+        Entity e = c.getWorld().spawnEntity(doorSpot(c, rnd.nextInt(DOORS.length)), type);
         tagMinion(e);
         String name = switch (type.getKey().getKey()) {
             case "vindicator", "pillager", "evoker" -> "Cultist of Moloch";
@@ -245,6 +295,11 @@ final class MolochBoss implements Listener {
             default -> null;
         };
         if (name != null) e.customName(Component.text(name, NamedTextColor.DARK_RED));
+    }
+
+    private Location doorSpot(Location c, int i) {
+        double[] d = DOORS[i % DOORS.length];
+        return new Location(c.getWorld(), c.getX() + d[0] + rnd.nextDouble() - 0.5, c.getY() - 1, c.getZ() + d[1] + rnd.nextDouble() - 0.5);
     }
 
     private void tagMinion(Entity e) {
@@ -259,18 +314,22 @@ final class MolochBoss implements Listener {
         return minions.size();
     }
 
+    private int championsLeft() {
+        champions.removeIf(id -> { Entity e = Bukkit.getEntity(id); return e == null || !e.isValid() || e.isDead(); });
+        return champions.size();
+    }
+
     // ---------------------------------------------------------------- Moloch rises
 
     private void raiseMoloch() {
         stage = Stage.BOSS;
-        World w = zones.world();
         Location c = zones.arenaCentre();
-        int fighters = Math.max(1, Math.max(fighters().size(), w.getPlayers().size()));
-        maxHp = Math.min(1024, baseHealth + perPlayer * fighters);
-        savedHp = maxHp;
-        phase = 1; ringWindup = -1;
+        crowd = Math.max(1, fighters().size());
+        savedHp = REAL_HP;
+        phase = 1;
+        nextMoveIn = 100;
         spawnBoss(savedHp);
-        w.spawnParticle(Particle.LAVA, c, 80, 3, 2, 3, 0);
+        fx(Particle.LAVA, c, 80, 3, 0, null);
         playNear(c, "moloch:awaken", 1.5f, 1f);
         titleNear(c, Component.text("MOLOCH", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("has risen", NamedTextColor.RED));
         Bukkit.broadcast(Component.text("MOLOCH HAS RISEN.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
@@ -280,15 +339,20 @@ final class MolochBoss implements Listener {
         Location c = zones.arenaCentre();
         boss = c.getWorld().spawn(c, Warden.class, wd -> {
             set(wd, Attribute.SCALE, scale);
-            set(wd, Attribute.MAX_HEALTH, maxHp);
+            set(wd, Attribute.MAX_HEALTH, REAL_HP);
             set(wd, Attribute.KNOCKBACK_RESISTANCE, 1.0);
+            set(wd, Attribute.ATTACK_DAMAGE, meleeDamage);
             wd.customName(Component.text("Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD));
             wd.setCustomNameVisible(true);
             wd.setPersistent(false);
             wd.setRemoveWhenFarAway(false);
             wd.addScoreboardTag(TAG);
         });
-        boss.setHealth(Math.max(1, Math.min(maxHp, health)));
+        AttributeInstance sp = boss.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (sp != null) { baseSpeed = sp.getBaseValue(); if (frenzy) sp.setBaseValue(baseSpeed * frenzySpeed); }
+        boss.setMaximumNoDamageTicks(0);   // a crowd can all land their hits; scaling keeps it fair
+        boss.setHealth(Math.max(1, Math.min(REAL_HP, health)));
+        move = Move.NONE;
     }
 
     private static void set(LivingEntity e, Attribute a, double v) {
@@ -296,7 +360,10 @@ final class MolochBoss implements Listener {
         if (i != null) i.setBaseValue(v);
     }
 
-    // ---------------------------------------------------------------- every half second
+    /** Health he'd need to last as long with this many fighters, and the damage factor that gives it. */
+    private double effectiveHp() { return hpBase + hpPerFighter * crowd; }
+
+    // ---------------------------------------------------------------- every half second: control, phases, the bar
 
     private void tickHalf() {
         tickBloodMoon();
@@ -334,32 +401,49 @@ final class MolochBoss implements Listener {
 
     private void tickMoloch(Location c, long left) {
         if (boss == null || !boss.isValid()) {
-            if (boss != null && boss.getHealth() <= 0) return;   // killed: the death event finishes it
+            if (boss != null && boss.getHealth() <= 0) return;
             if (c.getWorld().getDifficulty() == Difficulty.PEACEFUL) {
                 Bukkit.broadcast(Component.text("Moloch can't exist on Peaceful difficulty. The awakening is called off; set /difficulty normal and try again.", NamedTextColor.RED));
                 abort();
                 return;
             }
-            if (++respawns > 20) {   // something keeps removing him: stop rather than loop forever
+            if (++respawns > 20) {
                 plugin.getLogger().warning("Moloch keeps vanishing straight after he spawns (another plugin removing mobs, or mob limits?). Stopping the fight.");
                 Bukkit.broadcast(Component.text("Moloch couldn't hold his form. The awakening is called off.", NamedTextColor.RED));
                 abort();
                 return;
             }
-            spawnBoss(savedHp);                                  // he dug away or was unloaded: he rises again as he was
-            c.getWorld().spawnParticle(Particle.LAVA, c, 40, 2, 1, 2, 0);
+            if (collapsing) endCollapse();
+            spawnBoss(savedHp);   // he dug away or was unloaded: he rises again as he was
+            fx(Particle.LAVA, c, 40, 2, 0, null);
         }
         savedHp = boss.getHealth();
         if (half % 40 == 0) respawns = 0;
-        if (collapsing) {   // lying on the floor, feeding: the collapse task does the rest
-            bar.progress((float) Math.max(0, Math.min(1, boss.getHealth() / maxHp)));
-            bar.name(Component.text("Moloch feeds  ·  " + CurseManager.clock((int) left), NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
-            return;
+
+        // live scaling: every half second, count who's actually fighting in the hall
+        List<Player> fighters = fighters();
+        crowd = Math.max(1, fighters.size());
+        hpScale = REAL_HP / effectiveHp();
+
+        // how much of the recent damage came from bows: it fades, so the ward reacts to what's happening now
+        projDmg *= 0.93; allDmg *= 0.93;
+
+        double ratio = boss.getHealth() / REAL_HP;
+        bar.progress((float) Math.max(0, Math.min(1, ratio)));
+        updateBar(left);
+        if (collapsing) return;
+
+        // champions gone: his shield breaks
+        if (shieldUp && championsLeft() == 0) {
+            shieldUp = false;
+            playNear(c, "minecraft:item.shield.break", 2f, 0.6f);
+            playNear(c, "minecraft:block.bell.use", 2f, 0.5f);
+            titleNear(c, Component.empty(), Component.text("His champions are dead. Moloch's guard is broken!", NamedTextColor.GOLD));
         }
 
-        // keep him in his hall
+        // keep him in his hall (not mid-move: the charge and leap move him on purpose)
         Location b = boss.getLocation();
-        if (Math.max(Math.abs(b.getX() - c.getX()), Math.abs(b.getZ() - c.getZ())) > leashRadius || b.getY() < c.getY() - 4 || b.getY() > c.getY() + 30)
+        if (move == Move.NONE && (Math.max(Math.abs(b.getX() - c.getX()), Math.abs(b.getZ() - c.getZ())) > leashRadius || b.getY() < c.getY() - 4 || b.getY() > c.getY() + 30))
             boss.teleport(c);
 
         // players only: forget anything else he's angry at, and hunt the nearest player
@@ -369,56 +453,25 @@ final class MolochBoss implements Listener {
             boss.clearAnger(angry);
         }
         if (boss.getTarget() != null && !(boss.getTarget() instanceof Player)) boss.setTarget(null);
-        List<Player> fighters = fighters();
         if (!fighters.isEmpty()) {
             Player near = fighters.stream().min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(boss.getLocation()))).get();
-            boss.setAnger(near, 100);   // always hunting, so he never digs back down
+            boss.setAnger(near, 100);
         }
 
-        bar.progress((float) Math.max(0, Math.min(1, boss.getHealth() / maxHp)));
-        bar.name(Component.text("Moloch  ·  " + CurseManager.clock((int) left), NamedTextColor.DARK_RED, TextDecoration.BOLD));
-
-        // phases: reinforcements at two thirds and one third
-        double ratio = boss.getHealth() / maxHp;
-        int now = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
-        if (now > phase) {
-            phase = now;
-            sayNear(c, phase == 2 ? "The furnace in Moloch's belly roars open!" + (wavesOn ? " His cult answers the call." : "") : "MOLOCH HUNGERS. Fire falls from the vault!", NamedTextColor.RED);
-            playNear(c, "moloch:furnace", 1.5f, 1f);
-            if (wavesOn) spawnGroup(phase == 2 ? phase2Wave : phase3Wave, c);
-        }
-
-        // at half health he screams, and the whole hall reels (once a fight)
+        // the turning points of the fight
+        int now = ratio > 0.75 ? 1 : ratio > 0.5 ? 2 : ratio > collapseAt ? 3 : 4;
+        if (now > phase) phase = now;
+        if (!championsCalled && ratio <= 0.75) summonChampions();
         if (!screamed && screamAt > 0 && ratio <= screamAt) scream();
-
-        // low on health, he collapses (once a fight)
         if (!collapsed && collapseAt > 0 && ratio <= collapseAt) { startCollapse(); return; }
+        if (collapsed && !frenzy) startFrenzy();
 
         // drums, quicker each phase
-        if (half % 29 == 1) playNear(c, "moloch:drums", 1f, phase == 1 ? 1f : phase == 2 ? 1.12f : 1.25f);
+        if (half % 29 == 1) playNear(c, "moloch:drums", 1f, 1f + 0.08f * (phase - 1));
 
-        // the fire ring: a roar, then a blast around his feet
-        int every = (int) Math.round(ringEvery * 2 * (phase == 3 ? 0.7 : 1.0));
-        if (ringWindup < 0 && half % every == 0) {
-            ringWindup = 4;
-            boss.getWorld().playSound(boss.getLocation(), "minecraft:entity.warden.roar", 2f, 0.8f);
-            ring(boss.getLocation(), Particle.SMOKE);
-        } else if (ringWindup > 0 && --ringWindup == 0) {
-            ringWindup = -1;
-            Location at = boss.getLocation();
-            ring(at, Particle.FLAME);
-            at.getWorld().playSound(at, "minecraft:entity.generic.explode", 2f, 0.6f);
-            for (Player p : fighters) {
-                Vector d = p.getLocation().toVector().subtract(at.toVector()); d.setY(0);
-                if (d.length() > ringRadius) continue;
-                p.damage(ringDamage, boss);
-                p.setFireTicks(60);
-                if (d.lengthSquared() > 1e-4) p.setVelocity(d.normalize().multiply(1.2).setY(0.5));
-            }
-        }
-
-        // fire rain in the last phase
-        if (phase == 3 && half % 6 == 0) for (Player p : fighters) {
+        // fire rain once he's below half
+        int rainEvery = frenzy ? 4 : 6;
+        if (phase >= 3 && half % rainEvery == 0) for (Player p : fighters) {
             Location from = p.getLocation().add(rnd.nextDouble() * 6 - 3, 14, rnd.nextDouble() * 6 - 3);
             p.getWorld().spawn(from, SmallFireball.class, f -> {
                 f.setDirection(new Vector(0, -1, 0));
@@ -428,39 +481,498 @@ final class MolochBoss implements Listener {
         }
     }
 
-    /** Servants that wander out of the hall are sent back to a doorway. */
-    private void keepMinionsIn(Location c) {
-        if (half % 4 != 0) return;
-        for (UUID id : new ArrayList<>(minions)) {
-            Entity e = Bukkit.getEntity(id);
-            if (e == null || !e.isValid()) continue;
-            Location l = e.getLocation();
-            if (Math.max(Math.abs(l.getX() - c.getX()), Math.abs(l.getZ() - c.getZ())) > 33 || l.getY() < c.getY() - 6) {
-                double[] d = DOORS[rnd.nextInt(DOORS.length)];
-                e.teleport(new Location(c.getWorld(), c.getX() + d[0], c.getY() - 1, c.getZ() + d[1]));
+    private void updateBar(long left) {
+        String state;
+        NamedTextColor col = NamedTextColor.DARK_RED;
+        BossBar.Color bc = BossBar.Color.RED;
+        if (collapsing) { state = "FEEDING"; col = NamedTextColor.DARK_PURPLE; bc = BossBar.Color.PURPLE; }
+        else if (move == Move.STUN) { state = "STUNNED · STRIKE NOW"; col = NamedTextColor.GOLD; bc = BossBar.Color.YELLOW; }
+        else if (shieldUp) { state = "shielded by " + champions.size() + " champion" + (champions.size() == 1 ? "" : "s"); col = NamedTextColor.GOLD; bc = BossBar.Color.YELLOW; }
+        else if (wardLeft > 0) { state = "SOULFIRE WARD · arrows burn"; col = NamedTextColor.AQUA; bc = BossBar.Color.BLUE; }
+        else if (frenzy) state = "FRENZY";
+        else state = crowd + " fighter" + (crowd == 1 ? "" : "s");
+        bar.color(bc);
+        bar.name(Component.text("Moloch  ·  " + state + "  ·  " + CurseManager.clock((int) left), col, TextDecoration.BOLD));
+    }
+
+    // ---------------------------------------------------------------- every tick: his moves and his ward
+
+    private void tickFast() {
+        if (!active || stage != Stage.BOSS || dying || boss == null || !boss.isValid()) return;
+        fastTicks++;
+        if (collapsing) return;
+        tickWard();
+        if (shieldUp && fastTicks % 10 == 0) tethers();
+        trackCampers();
+
+        switch (move) {
+            case NONE -> {
+                Player camper = camper();
+                if (camper != null && nextMoveIn < 60) { startChain(camper); break; }
+                if (--nextMoveIn <= 0) pickMove();
+            }
+            case RING -> tickRing();
+            case CHARGE -> tickCharge();
+            case LEAP -> tickLeap();
+            case BREATH -> tickBreath();
+            case CHAIN -> tickChain();
+            case STUN -> tickStun();
+        }
+    }
+
+    private void pickMove() {
+        List<Player> f = fighters();
+        if (f.isEmpty()) { nextMoveIn = 20; return; }
+        Map<Move, Integer> w = new HashMap<>();
+        w.put(Move.CHARGE, 3);
+        w.put(Move.RING, 2);
+        if (phase >= 2) { w.put(Move.LEAP, 3); w.put(Move.BREATH, 3); }
+        Player far = farthest(f);
+        if (far != null && far.getLocation().distance(boss.getLocation()) > chainRange) w.put(Move.CHAIN, 3);
+        w.remove(lastMove);   // never the same move twice in a row
+        int total = w.values().stream().mapToInt(Integer::intValue).sum(), roll = rnd.nextInt(Math.max(1, total));
+        Move pick = Move.CHARGE;
+        for (Map.Entry<Move, Integer> e : w.entrySet()) { roll -= e.getValue(); if (roll < 0) { pick = e.getKey(); break; } }
+        Player any = f.get(rnd.nextInt(f.size()));
+        switch (pick) {
+            case RING -> startRing();
+            case CHARGE -> startCharge(any);
+            case LEAP -> startLeap(far != null && rnd.nextBoolean() ? far : any);
+            case BREATH -> startBreath(any);
+            case CHAIN -> startChain(far);
+            default -> startCharge(any);
+        }
+    }
+
+    /** Begin a move: he stops in his tracks (his body still has physics), facing his victim. */
+    private void beginMove(Move m, Player target) {
+        move = m;
+        lastMove = m;
+        moveTick = 0;
+        victim = target;
+        moveHit.clear();
+        boss.setAware(false);
+        boss.setVelocity(new Vector(0, boss.getVelocity().getY(), 0));
+        if (target != null) face(target.getLocation());
+    }
+
+    private void endMove() {
+        boolean wasStun = move == Move.STUN;
+        move = Move.NONE;
+        victim = null;
+        if (boss != null && boss.isValid()) {
+            if (wasStun) boss.setPose(Pose.STANDING, false);
+            boss.setAware(true);
+        }
+        double crowdFactor = Math.max(0.6, 1 / (1 + 0.05 * (crowd - 1)));
+        double phaseFactor = frenzy ? 0.6 : phase >= 3 ? 0.85 : 1.0;
+        nextMoveIn = (int) Math.max(40, moveGap * 20 * crowdFactor * phaseFactor);
+    }
+
+    private void face(Location at) {
+        Vector d = at.toVector().subtract(boss.getLocation().toVector());
+        float yaw = (float) Math.toDegrees(Math.atan2(-d.getX(), d.getZ()));
+        boss.setRotation(yaw, 0);
+    }
+
+    // ---- the fire ring: a roar, a warning ring of smoke, then a blast around his feet
+
+    private void startRing() {
+        beginMove(Move.RING, null);
+        boss.getWorld().playSound(boss.getLocation(), "minecraft:entity.warden.roar", 3f, 0.8f);
+    }
+
+    private void tickRing() {
+        moveTick++;
+        Location at = boss.getLocation();
+        if (moveTick < 40) {
+            if (moveTick % 8 == 0) ring(at, Particle.SMOKE, ringRadius);
+            return;
+        }
+        ring(at, Particle.FLAME, ringRadius);
+        ring(at, Particle.FLAME, ringRadius * 0.6);
+        at.getWorld().playSound(at, "minecraft:entity.generic.explode", 2f, 0.6f);
+        for (Player p : fighters()) {
+            Vector d = p.getLocation().toVector().subtract(at.toVector()); d.setY(0);
+            if (d.length() > ringRadius) continue;
+            p.damage(ringDamage, boss);
+            p.setFireTicks(60);
+            if (d.lengthSquared() > 1e-4) p.setVelocity(d.normalize().multiply(1.2).setY(0.5));
+        }
+        endMove();
+    }
+
+    // ---- the bull charge: he scrapes the floor, shows his line, then thunders straight down it.
+    //      Anything in the way is trampled. Dodge, and if he slams into a pillar or wall he topples over, stunned.
+
+    private void startCharge(Player target) {
+        beginMove(Move.CHARGE, target);
+        Vector d = target.getLocation().toVector().subtract(boss.getLocation().toVector()); d.setY(0);
+        moveDir = d.lengthSquared() < 1e-3 ? new Vector(1, 0, 0) : d.normalize();
+        Location at = boss.getLocation();
+        at.getWorld().playSound(at, "minecraft:entity.ravager.roar", 3f, 0.6f);
+        at.getWorld().playSound(at, "minecraft:entity.warden.angry", 3f, 0.7f);
+    }
+
+    private void tickCharge() {
+        moveTick++;
+        Location at = boss.getLocation();
+        if (moveTick <= 30) {   // the warning: hooves scraping, and his path marked on the floor
+            if (moveTick % 4 == 0) for (double r = 2; r < 28; r += 1.0)
+                fx(Particle.DUST, at.clone().add(moveDir.clone().multiply(r)).add(0, 0.25, 0), 1, 0.05, 0, WARN);
+            if (moveTick % 8 == 0) {
+                at.getWorld().playSound(at, "minecraft:entity.ravager.step", 2f, 0.5f);
+                fx(Particle.BLOCK, at.clone().add(0, 0.2, 0), 20, 1.2, 0.1, Material.POLISHED_BLACKSTONE.createBlockData());
+            }
+            if (moveTick == 30) lastPos = at.clone();
+            return;
+        }
+        // charging
+        if (moveTick > 33) {
+            double moved = Math.hypot(at.getX() - lastPos.getX(), at.getZ() - lastPos.getZ());
+            Location c = zones.arenaCentre();
+            boolean atWall = Math.max(Math.abs(at.getX() - c.getX()), Math.abs(at.getZ() - c.getZ())) > 31;
+            if (moved < 0.25 || atWall) { startStun(); return; }
+        }
+        lastPos = at.clone();
+        boss.setVelocity(moveDir.clone().multiply(0.85).setY(Math.min(0, boss.getVelocity().getY())));
+        face(at.clone().add(moveDir));
+        if (moveTick % 2 == 0) {
+            fx(Particle.CLOUD, at.clone().add(0, 0.3, 0), 6, 1.2, 0.02, null);
+            fx(Particle.BLOCK, at.clone().add(0, 0.2, 0), 10, 1.0, 0.1, Material.POLISHED_BLACKSTONE.createBlockData());
+        }
+        if (moveTick % 6 == 0) at.getWorld().playSound(at, "minecraft:entity.ravager.step", 3f, 0.6f);
+        double reach = 0.7 * scale + 0.7, height = 2.9 * scale;
+        for (Player p : fighters()) {
+            if (moveHit.contains(p.getUniqueId())) continue;
+            Location pl = p.getLocation();
+            if (Math.hypot(pl.getX() - at.getX(), pl.getZ() - at.getZ()) > reach || pl.getY() < at.getY() - 1 || pl.getY() > at.getY() + height) continue;
+            moveHit.add(p.getUniqueId());
+            p.damage(chargeDamage, boss);
+            Vector side = new Vector(-moveDir.getZ(), 0, moveDir.getX());
+            if (side.dot(pl.toVector().subtract(at.toVector())) < 0) side.multiply(-1);
+            p.setVelocity(side.multiply(1.2).add(moveDir.clone().multiply(0.8)).setY(0.7));
+            p.getWorld().playSound(pl, "minecraft:entity.player.attack.knockback", 2f, 0.6f);
+        }
+        if (moveTick >= 30 + 45) { boss.setVelocity(new Vector(0, 0, 0)); endMove(); }
+    }
+
+    // ---- stunned: he crashes over onto his side, dazed. Everyone's hits do double damage.
+
+    private void startStun() {
+        move = Move.STUN;
+        moveTick = 0;
+        boss.setVelocity(new Vector(0, 0, 0));
+        wardLeft = 0;   // the blow knocks his ward out too
+        Location at = boss.getLocation();
+        World w = at.getWorld();
+        float yaw = Math.round(at.getYaw() / 90f) * 90f;   // lie square to the hall, so his body is easy to hit
+        boss.setRotation(yaw, 0);
+        boss.setPose(Pose.SLEEPING, true);
+        w.playSound(at, "minecraft:block.anvil.land", 3f, 0.5f);
+        w.playSound(at, "minecraft:entity.generic.explode", 3f, 0.7f);
+        w.playSound(at, "minecraft:entity.ravager.stunned", 3f, 0.6f);
+        fx(Particle.BLOCK, at.clone().add(moveDir.clone().multiply(2)).add(0, 2, 0), 200, 2, 0.2, Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
+        fx(Particle.CLOUD, at.clone().add(0, 0.5, 0), 60, 2.5, 0.05, null);
+        for (Player p : fighters()) p.showTitle(Title.title(Component.empty(), Component.text("MOLOCH IS DOWN! Strike him!", NamedTextColor.GOLD, TextDecoration.BOLD),
+                Title.Times.times(Duration.ofMillis(100), Duration.ofMillis(1500), Duration.ofMillis(400))));
+    }
+
+    private void tickStun() {
+        moveTick++;
+        Location at = boss.getLocation();
+        if (moveTick % 4 == 0) {   // stars circling his head
+            double a = moveTick * 0.35;
+            for (int i = 0; i < 4; i++) {
+                double ang = a + i * Math.PI / 2;
+                fx(Particle.ENCHANTED_HIT, at.clone().add(Math.cos(ang) * 2.2, 2.6, Math.sin(ang) * 2.2), 2, 0.1, 0, null);
             }
         }
-    }
-
-    private void ring(Location at, Particle p) {
-        for (int i = 0; i < 48; i++) {
-            double a = i * Math.PI * 2 / 48;
-            at.getWorld().spawnParticle(p, at.clone().add(Math.cos(a) * ringRadius, 0.3, Math.sin(a) * ringRadius), 2, 0.1, 0.1, 0.1, 0.01);
+        if (moveTick >= stunSeconds * 20) {
+            at.getWorld().playSound(at, "minecraft:entity.warden.roar", 3f, 0.7f);
+            endMove();
         }
     }
 
-    private List<Player> fighters() {
-        List<Player> out = new ArrayList<>();
-        World w = zones.world();
-        if (w == null) return out;
-        for (Player p : w.getPlayers())
-            if ((p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) && !p.isDead() && zones.inArena(p.getLocation())) out.add(p);
+    /** His lying body, as a cross of two boxes (he lies along one of them; this way it never matters which). */
+    private boolean hitsLyingBody(Player p) {
+        Location at = boss.getLocation();
+        double len = 2.9 * scale, half = 0.45 * scale + 0.3, h = 0.9 * scale + 0.3;
+        BoundingBox a = new BoundingBox(at.getX() - len, at.getY(), at.getZ() - half, at.getX() + len, at.getY() + h, at.getZ() + half);
+        BoundingBox b = new BoundingBox(at.getX() - half, at.getY(), at.getZ() - len, at.getX() + half, at.getY() + h, at.getZ() + len);
+        Location eye = p.getEyeLocation();
+        Vector o = eye.toVector(), d = eye.getDirection();
+        return a.rayTrace(o, d, 5.0) != null || b.rayTrace(o, d, 5.0) != null;
+    }
+
+    // ---- the leap: he crouches while a ring marks where he'll land, launches himself across the hall and slams down
+
+    private void startLeap(Player target) {
+        beginMove(Move.LEAP, target);
+        moveTarget = clampToHall(target.getLocation());
+        boss.getWorld().playSound(boss.getLocation(), "minecraft:entity.warden.sonic_charge", 3f, 0.6f);
+    }
+
+    private void tickLeap() {
+        moveTick++;
+        Location at = boss.getLocation();
+        if (moveTick <= 24) {
+            if (moveTick <= 14 && victim != null && victim.isValid()) moveTarget = clampToHall(victim.getLocation());
+            if (moveTick % 3 == 0) ring(moveTarget, Particle.DUST, slamRadius, WARN);
+            if (moveTick % 8 == 0) fx(Particle.BLOCK, at.clone().add(0, 0.2, 0), 20, 1.2, 0.1, Material.POLISHED_BLACKSTONE.createBlockData());
+            if (moveTick == 24) launch(at, moveTarget);
+            return;
+        }
+        if (moveTick % 2 == 0) fx(Particle.CLOUD, at.clone().add(0, 1, 0), 3, 0.8, 0.01, null);
+        if ((moveTick > 30 && boss.isOnGround()) || moveTick > 24 + 70) {
+            slam(boss.getLocation());
+            endMove();
+        }
+    }
+
+    /** Throw him on a ballistic arc that lands on the target, worked out with the game's own air physics. */
+    private void launch(Location from, Location to) {
+        int t = 22;
+        double geo = 0, k = 1;
+        for (int i = 0; i < t; i++) { geo += k; k *= 0.91; }          // horizontal: speed x 0.91 each tick
+        double s = 0, c = 0, vy = 0, y = 0, kk = 1;
+        for (int i = 0; i < t; i++) { s += kk; kk *= 0.98; }            // vertical: (v - 0.08) x 0.98 each tick
+        for (int i = 0; i < t; i++) { y += vy; vy = (vy - 0.08) * 0.98; }
+        c = y;
+        Vector d = to.toVector().subtract(from.toVector());
+        Vector v = new Vector(d.getX() / geo, (d.getY() - c) / s, d.getZ() / geo);
+        boss.setVelocity(v);
+        from.getWorld().playSound(from, "minecraft:entity.ravager.roar", 3f, 0.5f);
+        fx(Particle.BLOCK, from.clone().add(0, 0.2, 0), 120, 2, 0.2, Material.POLISHED_BLACKSTONE.createBlockData());
+    }
+
+    private void slam(Location at) {
+        World w = at.getWorld();
+        w.playSound(at, "minecraft:entity.generic.explode", 3f, 0.5f);
+        w.playSound(at, "minecraft:block.anvil.land", 3f, 0.4f);
+        fx(Particle.BLOCK, at.clone().add(0, 0.3, 0), 300, slamRadius * 0.6, 0.25, Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
+        fx(Particle.CLOUD, at.clone().add(0, 0.5, 0), 80, slamRadius * 0.5, 0.08, null);
+        for (int i = 0; i < 6; i++) fx(Particle.EXPLOSION, at.clone().add(rnd.nextGaussian() * 2, 0.5, rnd.nextGaussian() * 2), 1, 0, 0, null);
+        for (Player p : fighters()) {
+            Vector d = p.getLocation().toVector().subtract(at.toVector());
+            double dist = Math.hypot(d.getX(), d.getZ());
+            if (dist > slamRadius * 2 || Math.abs(d.getY()) > 6) continue;
+            Vector out = new Vector(d.getX(), 0, d.getZ());
+            out = out.lengthSquared() < 1e-3 ? new Vector(0, 0, 0) : out.normalize();
+            if (dist <= slamRadius) {
+                p.damage(slamDamage * (1 - 0.5 * dist / slamRadius), boss);
+                p.setVelocity(out.multiply(0.8).setY(1.0));
+            } else p.setVelocity(out.multiply(0.4).setY(0.45));   // the floor jolts further out
+        }
+    }
+
+    private Location clampToHall(Location l) {
+        Location c = zones.arenaCentre(), out = l.clone();
+        out.setX(Math.max(c.getX() - 26, Math.min(c.getX() + 26, out.getX())));
+        out.setZ(Math.max(c.getZ() - 26, Math.min(c.getZ() + 26, out.getZ())));
+        out.setY(c.getY());
         return out;
     }
 
-    // ---------------------------------------------------------------- his scream
+    // ---- furnace breath: the furnace in his belly roars up and he breathes a cone of fire, sweeping after his victim
 
-    /** A scream that shakes the hall: everyone in the arena is left reeling with Nausea and Weakness. */
+    private void startBreath(Player target) {
+        beginMove(Move.BREATH, target);
+        Vector d = target.getEyeLocation().toVector().subtract(mouth().toVector());
+        moveDir = d.lengthSquared() < 1e-3 ? new Vector(1, 0, 0) : d.normalize();
+        playNear(boss.getLocation(), "moloch:furnace", 2f, 1.1f);
+    }
+
+    private Location mouth() { return boss.getLocation().add(0, 2.9 * scale * 0.8, 0); }
+
+    private void tickBreath() {
+        moveTick++;
+        Location m = mouth();
+        if (moveTick <= 20) {
+            if (moveTick % 3 == 0) fx(Particle.LARGE_SMOKE, m, 6, 0.6, 0.03, null);
+            return;
+        }
+        // sweep slowly after the victim
+        if (victim != null && victim.isValid()) {
+            Vector want = victim.getEyeLocation().toVector().subtract(m.toVector());
+            if (want.lengthSquared() > 1e-3) {
+                want.normalize();
+                moveDir = moveDir.clone().multiply(0.94).add(want.multiply(0.06)).normalize();
+            }
+        }
+        face(m.clone().add(moveDir));
+        Location start = m.clone().add(moveDir.clone().multiply(1.5));
+        for (int i = 0; i < 14; i++) {   // flames fired down the cone
+            Vector v = moveDir.clone().add(new Vector(rnd.nextGaussian(), rnd.nextGaussian(), rnd.nextGaussian()).multiply(0.16)).normalize();
+            start.getWorld().spawnParticle(Particle.FLAME, start, 0, v.getX(), v.getY(), v.getZ(), 0.55 + rnd.nextDouble() * 0.35, null, true);
+        }
+        if (moveTick % 3 == 0) {
+            Vector v = moveDir.clone().add(new Vector(rnd.nextGaussian(), rnd.nextGaussian(), rnd.nextGaussian()).multiply(0.2));
+            start.getWorld().spawnParticle(Particle.LARGE_SMOKE, start, 0, v.getX(), v.getY(), v.getZ(), 0.4, null, true);
+        }
+        if (moveTick % 6 == 0) start.getWorld().playSound(start, "minecraft:entity.blaze.shoot", 2f, 0.5f);
+        if (moveTick % 10 == 0) for (Player p : fighters()) {
+            Vector to = p.getEyeLocation().toVector().subtract(m.toVector());
+            double dist = to.length();
+            if (dist > breathRange || dist < 0.1) continue;
+            if (to.normalize().dot(moveDir) < Math.cos(Math.toRadians(25))) continue;
+            p.damage(breathDamage, boss);
+            p.setFireTicks(Math.max(p.getFireTicks(), 80));
+        }
+        if (moveTick >= 20 + 50) endMove();
+    }
+
+    // ---- the chain pull: anyone who keeps their distance is hooked and dragged to his feet
+
+    private void startChain(Player target) {
+        if (target == null) { endMove(); return; }
+        beginMove(Move.CHAIN, target);
+        Location at = boss.getLocation();
+        at.getWorld().playSound(at, "minecraft:block.chain.place", 3f, 0.5f);
+        at.getWorld().playSound(at, "minecraft:entity.fishing_bobber.throw", 3f, 0.4f);
+        target.sendActionBar(Component.text("Moloch's chain is coming for you!", NamedTextColor.RED));
+    }
+
+    private void tickChain() {
+        moveTick++;
+        if (victim == null || !victim.isValid() || victim.isDead() || !zones.inArena(victim.getLocation())) { endMove(); return; }
+        Location from = boss.getLocation().add(0, 2.9 * scale * 0.6, 0), to = victim.getLocation().add(0, 1, 0);
+        Vector d = to.toVector().subtract(from.toVector());
+        double dist = d.length();
+        face(victim.getLocation());
+        if (moveTick % 2 == 0) {   // the chain snaking out to them
+            double reach = Math.min(dist, dist * moveTick / 16.0);
+            Vector u = d.clone().normalize();
+            for (double r = 1; r < reach; r += 0.6) fx(Particle.DUST, from.clone().add(u.clone().multiply(r)), 1, 0.02, 0, CHAIN);
+        }
+        if (moveTick == 16) {
+            Vector pull = from.toVector().subtract(to.toVector());
+            double strength = Math.min(2.4, 0.6 + dist * 0.07);
+            victim.setVelocity(pull.normalize().multiply(strength).setY(0.45));
+            victim.damage(3, boss);
+            victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, false, false, true));
+            victim.getWorld().playSound(victim.getLocation(), "minecraft:entity.fishing_bobber.retrieve", 3f, 0.5f);
+            victim.getWorld().playSound(victim.getLocation(), "minecraft:block.chain.break", 3f, 0.5f);
+            victim.sendActionBar(Component.text("Moloch drags you to him!", NamedTextColor.DARK_RED));
+            farTicks.remove(victim.getUniqueId());
+        }
+        if (moveTick >= 22) endMove();
+    }
+
+    /** Who's been hanging back out of his reach the longest (10+ seconds), if anyone. */
+    private Player camper() {
+        UUID worst = null; int most = 200;
+        for (Map.Entry<UUID, Integer> e : farTicks.entrySet()) if (e.getValue() >= most) { most = e.getValue(); worst = e.getKey(); }
+        Player p = worst == null ? null : Bukkit.getPlayer(worst);
+        return p != null && zones.inArena(p.getLocation()) ? p : null;
+    }
+
+    private void trackCampers() {
+        if (fastTicks % 10 != 0) return;
+        Set<UUID> seen = new HashSet<>();
+        for (Player p : fighters()) {
+            seen.add(p.getUniqueId());
+            if (p.getLocation().distance(boss.getLocation()) > chainRange + 2) farTicks.merge(p.getUniqueId(), 10, Integer::sum);
+            else farTicks.remove(p.getUniqueId());
+        }
+        farTicks.keySet().retainAll(seen);
+    }
+
+    private Player farthest(List<Player> f) {
+        return f.stream().max(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(boss.getLocation()))).orElse(null);
+    }
+
+    // ---- the Soulfire Ward: a shell of soul flame that burns arrows to ash and throws fire back at the archer
+
+    private void tickWard() {
+        if (wardCooldown > 0) wardCooldown--;
+        if (wardLeft > 0) {
+            if (--wardLeft == 0) playNear(boss.getLocation(), "minecraft:block.fire.extinguish", 2f, 0.6f);
+            if (fastTicks % 3 == 0) {
+                Location at = boss.getLocation();
+                double r = 0.6 * scale + 1.2, h = 2.9 * scale;
+                for (int ring = 0; ring < 3; ring++) for (int i = 0; i < 10; i++) {
+                    double a = fastTicks * 0.15 * (ring % 2 == 0 ? 1 : -1) + i * Math.PI / 5;
+                    fx(Particle.SOUL_FIRE_FLAME, at.clone().add(Math.cos(a) * r, h * (0.2 + 0.3 * ring), Math.sin(a) * r), 1, 0, 0, null);
+                }
+            }
+            return;
+        }
+        if (move == Move.STUN) return;
+        boolean archers = allDmg > 20 && projDmg / allDmg > 0.5;   // he notices when most of the damage is arrows
+        if (--wardNext <= 0 || (archers && wardCooldown == 0)) raiseWard();
+    }
+
+    private void raiseWard() {
+        wardLeft = wardSeconds * 20;
+        wardNext = wardEvery * 20;
+        wardCooldown = 20 * 20;
+        Location at = boss.getLocation();
+        at.getWorld().playSound(at, "minecraft:block.beacon.activate", 3f, 0.5f);
+        at.getWorld().playSound(at, "minecraft:item.firecharge.use", 3f, 0.5f);
+        for (Player p : fighters()) p.sendActionBar(Component.text("Moloch raises his Soulfire Ward: arrows burn to ash!", NamedTextColor.AQUA));
+    }
+
+    // ---------------------------------------------------------------- the turning points
+
+    /** 75%: his golden champions march in through the doorways, and while any live he's shielded. */
+    private void summonChampions() {
+        championsCalled = true;
+        Location c = zones.arenaCentre();
+        World w = c.getWorld();
+        int n = (int) Math.min(champMax, Math.round(champBase + champPerFighter * (crowd - 1)));
+        int offset = rnd.nextInt(DOORS.length);
+        for (int i = 0; i < n; i++) {
+            Location at = doorSpot(c, offset + i * Math.max(1, DOORS.length / Math.max(1, n)));
+            PiglinBrute b = w.spawn(at, PiglinBrute.class, pb -> {
+                pb.setImmuneToZombification(true);
+                EntityEquipment eq = pb.getEquipment();
+                if (eq != null) {
+                    eq.setHelmet(new ItemStack(Material.GOLDEN_HELMET));
+                    ItemStack chest = new ItemStack(Material.GOLDEN_CHESTPLATE);
+                    chest.addUnsafeEnchantment(Enchantment.PROTECTION, 2);
+                    eq.setChestplate(chest);
+                    eq.setLeggings(new ItemStack(Material.GOLDEN_LEGGINGS));
+                    eq.setBoots(new ItemStack(Material.GOLDEN_BOOTS));
+                    ItemStack axe = new ItemStack(Material.GOLDEN_AXE);
+                    axe.addUnsafeEnchantment(Enchantment.SHARPNESS, 2);
+                    eq.setItemInMainHand(axe);
+                    eq.setHelmetDropChance(0f); eq.setChestplateDropChance(0f); eq.setLeggingsDropChance(0f);
+                    eq.setBootsDropChance(0f); eq.setItemInMainHandDropChance(0f);
+                }
+                set(pb, Attribute.MAX_HEALTH, champHealth);
+                pb.setHealth(champHealth);
+                pb.customName(Component.text("Champion of Moloch", NamedTextColor.GOLD, TextDecoration.BOLD));
+                pb.setCustomNameVisible(true);
+            });
+            tagMinion(b);
+            champions.add(b.getUniqueId());
+            fx(Particle.DUST, at.clone().add(0, 1, 0), 50, 0.7, 0, GOLD);
+            w.playSound(at, "minecraft:item.armor.equip_gold", 2f, 0.8f);
+        }
+        shieldUp = n > 0;
+        playNear(c, "minecraft:block.bell.resonate", 3f, 0.6f);
+        playNear(c, "minecraft:entity.piglin_brute.angry", 3f, 0.7f);
+        titleNear(c, Component.text("THE CHAMPIONS OF MOLOCH", NamedTextColor.GOLD, TextDecoration.BOLD),
+                Component.text("while they live, he is shielded", NamedTextColor.YELLOW));
+        sayNear(c, "His gilded champions march in. Kill them to break his shield!", NamedTextColor.GOLD);
+    }
+
+    /** Golden threads from each champion to Moloch, so everyone can see what's shielding him. */
+    private void tethers() {
+        Location to = boss.getLocation().add(0, 2.9 * scale * 0.5, 0);
+        for (UUID id : champions) {
+            Entity e = Bukkit.getEntity(id);
+            if (e == null || !e.isValid()) continue;
+            Location from = e.getLocation().add(0, 1.2, 0);
+            Vector d = to.toVector().subtract(from.toVector());
+            double len = d.length();
+            d.normalize();
+            for (double r = 0.8; r < len; r += 1.2) fx(Particle.DUST, from.clone().add(d.clone().multiply(r)), 1, 0.02, 0, GOLD);
+        }
+    }
+
+    /** 50%: a scream that shakes the hall, leaving everyone reeling with Nausea and Weakness. */
     private void scream() {
         screamed = true;
         Location at = boss.getLocation(), head = at.clone().add(0, 2.9 * scale * 0.85, 0);
@@ -469,7 +981,7 @@ final class MolochBoss implements Listener {
         w.playSound(head, "minecraft:entity.ghast.scream", 4f, 0.5f);
         w.playSound(head, "minecraft:entity.ravager.roar", 4f, 0.6f);
         fx(Particle.SONIC_BOOM, head, 1, 0, 0, null);
-        for (int ring = 1; ring <= 3; ring++) {   // the shockwave rolls out across the hall
+        for (int ring = 1; ring <= 3; ring++) {
             final int r = ring;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 for (int i = 0; i < 24; i++) {
@@ -486,19 +998,18 @@ final class MolochBoss implements Listener {
                 Component.text("the hall spins around you", NamedTextColor.GRAY));
     }
 
-    // ---------------------------------------------------------------- his collapse
-
-    /** He freezes and crashes to the floor, then lies there feeding: healing, and draining everyone's hunger to nothing. */
+    /** 25%: he freezes and crashes to the floor, then lies there feeding: healing, and draining everyone's hunger to nothing. */
     private void startCollapse() {
+        if (move != Move.NONE) endMove();
         collapsed = true;
         collapsing = true;
         collapseTicks = 0;
-        ringWindup = -1;
         collapseBoss = boss;
-        healPerTick = maxHp * collapseHeal / (collapseSeconds * 20.0);
+        wardLeft = 0;
+        healPerTick = REAL_HP * collapseHeal / (collapseSeconds * 20.0);
         boss.setAI(false);
         boss.setInvulnerable(true);
-        boss.setPose(Pose.SLEEPING, true);   // renders him lying flat on his side
+        boss.setPose(Pose.SLEEPING, true);
         Location at = boss.getLocation();
         World w = at.getWorld();
         w.playSound(at, "minecraft:entity.generic.explode", 3f, 0.5f);
@@ -506,9 +1017,7 @@ final class MolochBoss implements Listener {
         w.playSound(at, "minecraft:block.anvil.land", 2f, 0.5f);
         fx(Particle.BLOCK, at.clone().add(0, 0.3, 0), 250, scale * 1.4, 0.15, Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
         fx(Particle.CLOUD, at.clone().add(0, 0.5, 0), 80, scale * 1.2, 0.05, null);
-        for (Player p : fighters()) {   // the floor jolts under everyone's feet
-            if (p.getLocation().distanceSquared(at) < 16 * 16) p.setVelocity(p.getVelocity().setY(0.45));
-        }
+        for (Player p : fighters()) if (p.getLocation().distanceSquared(at) < 16 * 16) p.setVelocity(p.getVelocity().setY(0.45));
         titleNear(at, Component.text("MOLOCH COLLAPSES", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD),
                 Component.text("...and feeds on your strength", NamedTextColor.GRAY));
         sayNear(at, "Moloch crashes to the floor and drinks the strength out of everyone in the hall!", NamedTextColor.DARK_PURPLE);
@@ -520,11 +1029,9 @@ final class MolochBoss implements Listener {
         collapseTicks++;
         int total = collapseSeconds * 20;
         double t = collapseTicks / (double) total;
-        boss.setHealth(Math.min(maxHp, boss.getHealth() + healPerTick));
+        boss.setHealth(Math.min(REAL_HP, boss.getHealth() + healPerTick));
         savedHp = boss.getHealth();
         Location core = boss.getLocation().add(0, 1.2, 0);
-
-        // everyone's hunger bar drains to nothing by the time he stands, and their souls stream into him
         int food = (int) Math.floor(20 * (1 - t));
         for (Player p : fighters()) {
             if (p.getFoodLevel() > food) p.setFoodLevel(food);
@@ -532,8 +1039,7 @@ final class MolochBoss implements Listener {
             if (collapseTicks % 3 == 0) {
                 Location eye = p.getEyeLocation();
                 Vector to = core.toVector().subtract(eye.toVector());
-                for (int i = 0; i < 3; i++)
-                    fx(Particle.SOUL, eye.clone().add(to.clone().multiply(rnd.nextDouble())), 1, 0.1, 0.01, null);
+                for (int i = 0; i < 3; i++) fx(Particle.SOUL, eye.clone().add(to.clone().multiply(rnd.nextDouble())), 1, 0.1, 0.01, null);
             }
         }
         if (collapseTicks % 4 == 0) fx(Particle.SCULK_SOUL, core, 4, scale * 0.8, 0.02, null);
@@ -541,7 +1047,6 @@ final class MolochBoss implements Listener {
         if (collapseTicks >= total) endCollapse();
     }
 
-    /** He gets back up, healed, and the fight goes on. */
     private void endCollapse() {
         if (collapseTask != null) { collapseTask.cancel(); collapseTask = null; }
         if (!collapsing) return;
@@ -556,15 +1061,65 @@ final class MolochBoss implements Listener {
         w.getWorld().playSound(w.getLocation(), "minecraft:entity.warden.roar", 3f, 0.7f);
         fx(Particle.SCULK_SOUL, w.getLocation().add(0, 3, 0), 40, scale, 0.05, null);
         sayNear(w.getLocation(), "Moloch rises again, gorged on your strength!", NamedTextColor.DARK_RED);
+        nextMoveIn = 60;
     }
 
-    // ---------------------------------------------------------------- his death
+    /** After the collapse: faster, and his moves come quicker. */
+    private void startFrenzy() {
+        frenzy = true;
+        AttributeInstance sp = boss.getAttribute(Attribute.MOVEMENT_SPEED);
+        if (sp != null) sp.setBaseValue(baseSpeed * frenzySpeed);
+        sayNear(boss.getLocation(), "Moloch is in a FRENZY!", NamedTextColor.RED);
+    }
+
+    // ---------------------------------------------------------------- helpers for the fight
+
+    /** Servants that wander out of the hall are sent back to a doorway. */
+    private void keepMinionsIn(Location c) {
+        if (half % 4 != 0) return;
+        for (UUID id : new ArrayList<>(minions)) {
+            Entity e = Bukkit.getEntity(id);
+            if (e == null || !e.isValid()) continue;
+            Location l = e.getLocation();
+            if (Math.max(Math.abs(l.getX() - c.getX()), Math.abs(l.getZ() - c.getZ())) > 33 || l.getY() < c.getY() - 6)
+                e.teleport(doorSpot(c, rnd.nextInt(DOORS.length)));
+        }
+    }
+
+    private void ring(Location at, Particle p, double radius) { ring(at, p, radius, null); }
+
+    private void ring(Location at, Particle p, double radius, Object data) {
+        int n = (int) Math.max(24, radius * 6);
+        for (int i = 0; i < n; i++) {
+            double a = i * Math.PI * 2 / n;
+            fx(p, at.clone().add(Math.cos(a) * radius, 0.3, Math.sin(a) * radius), data == null ? 2 : 1, 0.08, 0.01, data);
+        }
+    }
+
+    private List<Player> fighters() {
+        List<Player> out = new ArrayList<>();
+        World w = zones.world();
+        if (w == null) return out;
+        for (Player p : w.getPlayers())
+            if ((p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) && !p.isDead() && zones.inArena(p.getLocation())) out.add(p);
+        return out;
+    }
+
+    /** Particles everyone in the hall can see, however far back they stand. */
+    private void fx(Particle p, Location at, int count, double spread, double speed, Object data) {
+        at.getWorld().spawnParticle(p, at, count, spread, spread, spread, speed, data, true);
+    }
+
+    // ---------------------------------------------------------------- his death, as the ender dragon dies
 
     private void startDeath(Player killer) {
         dying = true;
         deathTicks = 0;
         if (collapsing) endCollapse();
+        move = Move.NONE;
+        wardLeft = 0;
         Location c = zones.arenaCentre();
+        boss.setPose(Pose.STANDING, false);
         boss.setAI(false);
         boss.setGravity(false);
         boss.setInvulnerable(true);
@@ -577,7 +1132,7 @@ final class MolochBoss implements Listener {
             m.remove();
         }
         minions.clear();
-        // the ender dragon's rays: fixed random directions that turn with him, appearing faster and faster
+        champions.clear();
         rays.clear();
         rayLengths.clear();
         Random r = new Random(432L);
@@ -587,18 +1142,18 @@ final class MolochBoss implements Listener {
             rays.add(d.normalize());
             rayLengths.add(0.4 + r.nextDouble() * 0.6);
         }
+        bar.color(BossBar.Color.PURPLE);
         bar.name(Component.text("Moloch is falling", NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
         bar.progress(0f);
         for (Player p : c.getWorld().getPlayers()) {
             if (p.getLocation().distanceSquared(c) < 200 * 200) p.playSound(c, "moloch:death", 6f, 1f);
-            else p.playSound(p.getLocation(), "moloch:death", 0.5f, 1f);   // the whole realm hears him fall
+            else p.playSound(p.getLocation(), "moloch:death", 0.5f, 1f);
         }
         titleNear(c, Component.text("MOLOCH FALLS", NamedTextColor.GOLD, TextDecoration.BOLD),
                 Component.text(killer != null ? "struck down by " + killer.getName() : "", NamedTextColor.YELLOW));
         deathTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickDeath, 1L, 1L);
     }
 
-    /** Every tick of his death, as the ender dragon dies: he rises and spins while rays of light break out of him. */
     private void tickDeath() {
         if (boss == null || !boss.isValid()) { finishDeath(); return; }
         deathTicks++;
@@ -609,8 +1164,6 @@ final class MolochBoss implements Listener {
         at.setPitch(0);
         boss.teleport(at);
         Location core = at.clone().add(0, 2.9 * scale * 0.5, 0);
-
-        // rays of white light fading to purple, more of them and longer as he goes
         double turn = Math.toRadians(spin);
         for (Vector d : rays) d.rotateAroundY(turn);
         if (deathTicks % 2 == 0) {
@@ -625,14 +1178,10 @@ final class MolochBoss implements Listener {
                 }
             }
         }
-
-        // the last second: he bursts, explosion after explosion
         if (deathTicks >= DEATH_TICKS - 20) {
             double s = 4 + scale;
             fx(Particle.EXPLOSION_EMITTER, core.clone().add((rnd.nextDouble() - 0.5) * s, (rnd.nextDouble() - 0.5) * s, (rnd.nextDouble() - 0.5) * s), 1, 0, 0, null);
         }
-
-        // experience pours out of him, as it does from the dragon
         if (deathXp > 0 && deathTicks > 150 && deathTicks % 5 == 0) dropXp(core, (int) (deathXp * 0.08));
         if (deathTicks >= DEATH_TICKS) {
             if (deathXp > 0) dropXp(core, (int) (deathXp * 0.2));
@@ -655,11 +1204,6 @@ final class MolochBoss implements Listener {
         if (deathTask != null) { deathTask.cancel(); deathTask = null; }
         if (boss != null && boss.isValid()) boss.remove();
         win();
-    }
-
-    /** Particles everyone in the hall can see, however far back they stand. */
-    private void fx(Particle p, Location at, int count, double spread, double speed, Object data) {
-        at.getWorld().spawnParticle(p, at, count, spread, spread, spread, speed, data, true);
     }
 
     // ---------------------------------------------------------------- endings
@@ -688,7 +1232,7 @@ final class MolochBoss implements Listener {
 
     private void lose() {
         Location c = zones.arenaCentre();
-        if (boss != null && boss.isValid()) boss.getWorld().spawnParticle(Particle.LAVA, boss.getLocation(), 60, 2, 2, 2, 0);
+        if (boss != null && boss.isValid()) fx(Particle.LAVA, boss.getLocation(), 60, 2, 0, null);
         cleanup();
         plugin.hunger().reset();
         bloodMoonUntil = System.currentTimeMillis() + bloodMoonHours * 3600_000L;
@@ -709,6 +1253,8 @@ final class MolochBoss implements Listener {
     private void cleanup() {
         active = false;
         dying = false;
+        move = Move.NONE;
+        wardLeft = 0;
         if (deathTask != null) { deathTask.cancel(); deathTask = null; }
         if (collapseTask != null) { collapseTask.cancel(); collapseTask = null; }
         collapsing = false;
@@ -717,6 +1263,7 @@ final class MolochBoss implements Listener {
         boss = null;
         for (UUID id : minions) { Entity e = Bukkit.getEntity(id); if (e != null) e.remove(); }
         minions.clear();
+        champions.clear();
         hideAll(bar, barViewers);
         Location c = zones.arenaCentre();
         if (c != null) c.getWorld().getChunkAt(c).removePluginChunkTicket(plugin);
@@ -745,36 +1292,94 @@ final class MolochBoss implements Listener {
 
     // ---------------------------------------------------------------- events
 
-    /** Only players can hurt him: no lava, void, suffocation, minions or command cheese. */
+    /**
+     * Every hit on him. Only players can hurt him. Then: his Soulfire Ward burns arrows and throws fire back,
+     * arrows do half damage anyway, his champions shield him, he takes double while stunned, and the whole thing
+     * is scaled to the crowd in the hall.
+     */
     @EventHandler(priority = EventPriority.HIGH)
     public void onBossHurt(EntityDamageEvent e) {
         if (!isBoss(e.getEntity())) return;
-        if (attacker(e) == null) e.setCancelled(true);
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onBossHurtRecord(EntityDamageEvent e) {
-        if (!isBoss(e.getEntity())) return;
         Player p = attacker(e);
-        if (p != null) damage.merge(p.getUniqueId(), e.getFinalDamage(), Double::sum);
+        if (p == null) { e.setCancelled(true); return; }
+        boolean projectile = e instanceof EntityDamageByEntityEvent ed && ed.getDamager() instanceof Projectile;
+        if (projectile && wardLeft > 0) {
+            e.setCancelled(true);
+            Entity arrow = ((EntityDamageByEntityEvent) e).getDamager();
+            fx(Particle.SOUL_FIRE_FLAME, arrow.getLocation(), 12, 0.3, 0.05, null);
+            arrow.getWorld().playSound(arrow.getLocation(), "minecraft:block.fire.extinguish", 1.5f, 1.2f);
+            arrow.remove();
+            reflect(p);
+            return;
+        }
+        // while he lies stunned, his real hitbox is tiny: hits come through the swing check below instead
+        if (move == Move.STUN && !synthetic && !projectile) { e.setCancelled(true); return; }
+        double m = hpScale;
+        if (projectile) m *= projectileMultiplier;
+        if (shieldUp) m *= championShield;
+        if (move == Move.STUN) m *= stunMultiplier;
+        e.setDamage(e.getDamage() * m);
+        allDmg += e.getDamage() / hpScale;
+        if (projectile) projDmg += e.getDamage() / hpScale;
     }
 
-    /** The killing blow doesn't kill him outright: it starts his death. Nothing hurts him while he dies. */
+    /** A fireball thrown back at an archer who shot into his ward. */
+    private void reflect(Player at) {
+        Location from = boss.getLocation().add(0, 2.9 * scale * 0.6, 0);
+        Vector d = at.getEyeLocation().toVector().subtract(from.toVector());
+        if (d.lengthSquared() < 1e-3) return;
+        d.normalize();
+        Location spawn = from.clone().add(d.clone().multiply(0.6 * scale + 1.5));
+        boss.getWorld().spawn(spawn, SmallFireball.class, f -> {
+            f.setDirection(d);
+            f.setVelocity(d.clone().multiply(1.2));
+            f.setIsIncendiary(false);
+            f.setShooter(boss);
+        });
+    }
+
+    /** While he's toppled over, a swing at his lying body lands (his real hitbox shrinks when he lies down). */
+    @EventHandler
+    public void onSwing(PlayerAnimationEvent e) {
+        if (e.getAnimationType() != PlayerAnimationType.ARM_SWING || move != Move.STUN || boss == null || !boss.isValid()) return;
+        Player p = e.getPlayer();
+        if ((p.getGameMode() != GameMode.SURVIVAL && p.getGameMode() != GameMode.ADVENTURE) || !zones.inArena(p.getLocation())) return;
+        int last = lastSwing.getOrDefault(p.getUniqueId(), -100);
+        if (fastTicks - last < 8 || !hitsLyingBody(p)) return;
+        lastSwing.put(p.getUniqueId(), fastTicks);
+        AttributeInstance a = p.getAttribute(Attribute.ATTACK_DAMAGE);
+        double cd = p.getAttackCooldown();
+        double dmg = (a != null ? a.getValue() : 1) * (0.2 + 0.8 * cd * cd);
+        synthetic = true;
+        try { boss.damage(dmg, p); } finally { synthetic = false; }
+        fx(Particle.CRIT, p.getEyeLocation().add(p.getEyeLocation().getDirection().multiply(2.5)), 8, 0.3, 0.1, null);
+    }
+
+    /** The killing blow doesn't kill him outright: it starts his death. Nothing hurts him while he dies or feeds. */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onBossLethal(EntityDamageEvent e) {
         if (!active || !isBoss(e.getEntity()) || !(e.getEntity() instanceof Warden w)) return;
         if (dying || collapsing) { e.setCancelled(true); return; }
         if (w.getHealth() - e.getFinalDamage() > 0) return;
         Player p = attacker(e);
-        if (p != null) damage.merge(p.getUniqueId(), w.getHealth(), Double::sum);
+        if (p != null) damage.merge(p.getUniqueId(), w.getHealth() / hpScale, Double::sum);
         e.setCancelled(true);
         startDeath(p);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBossHurtRecord(EntityDamageEvent e) {
+        if (!isBoss(e.getEntity())) return;
+        Player p = attacker(e);
+        if (p != null) damage.merge(p.getUniqueId(), e.getFinalDamage() / hpScale, Double::sum);
     }
 
     /** He only hurts players. His sonic boom is his fiery breath: it burns, but it's capped so it can't one-shot people. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBossHits(EntityDamageByEntityEvent e) {
-        if (!isBoss(e.getDamager())) return;
+        Entity src = e.getDamager();
+        if (src instanceof Projectile pr && pr.getShooter() instanceof Entity sh) src = sh;
+        if (!isBoss(src)) return;
         if (!(e.getEntity() instanceof Player)) { e.setCancelled(true); return; }
         if (e.getCause() == EntityDamageEvent.DamageCause.SONIC_BOOM) {
             e.setDamage(Math.min(e.getDamage(), boomCap));
@@ -811,7 +1416,7 @@ final class MolochBoss implements Listener {
         if (!isBoss(e.getEntity())) return;
         e.getDrops().clear();
         e.setDroppedExp(0);
-        if (active) win();
+        if (active && !dying) win();
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -823,7 +1428,6 @@ final class MolochBoss implements Listener {
                 return;
             }
         }
-        // magma cubes that split during a wave are still his servants
         if (active && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SLIME_SPLIT && zones.inArena(e.getLocation())) tagMinion(e.getEntity());
         if (bloodMoon() && e.getEntity() instanceof Monster m && zones.inRealm(m.getLocation())) {
             m.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, PotionEffect.INFINITE_DURATION, 0, true, false));
@@ -872,6 +1476,7 @@ final class MolochBoss implements Listener {
     String status() {
         if (!active) return bloodMoon() ? "asleep (blood moon for " + CurseManager.clock((int) ((bloodMoonUntil - System.currentTimeMillis()) / 1000)) + ")" : "asleep";
         if (stage != Stage.BOSS) return "stirring: wave " + Math.max(1, wave + 1) + " of " + waves.size();
-        return "AWAKE, " + (boss != null ? Math.round(boss.getHealth()) : 0) + "/" + Math.round(maxHp) + " health";
+        double hp = boss != null ? boss.getHealth() / hpScale : 0;
+        return "AWAKE, " + Math.round(hp) + "/" + Math.round(effectiveHp()) + " health against " + crowd + " fighter" + (crowd == 1 ? "" : "s");
     }
 }
