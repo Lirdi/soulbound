@@ -26,6 +26,7 @@ public final class Soulbound extends JavaPlugin {
     private SummitDrums drums;
     private GodManager god;
     private HeavenBuilder heaven;
+    private HaloItem halo;
 
     @Override
     public void onEnable() {
@@ -41,6 +42,7 @@ public final class Soulbound extends JavaPlugin {
         sacrifices = new SacrificeManager(this, store, captures, curses, hunger, zones);
         portals = new PortalManager(this, store, zones, captures);
         drums = new SummitDrums(this, zones);
+        halo = new HaloItem(this, store);
         god = new GodManager(this, store);
         heaven = new HeavenBuilder(this, store);
 
@@ -53,6 +55,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(portals, this);
         pm.registerEvents(god, this);
         pm.registerEvents(heaven, this);
+        pm.registerEvents(halo, this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
@@ -67,6 +70,7 @@ public final class Soulbound extends JavaPlugin {
         drums.start();
         god.start();
         heaven.start();
+        halo.start();
         if (zones.world() == null) getLogger().warning("Moloch's realm '" + zones.worldKey + "' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.");
         getLogger().info("Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.");
     }
@@ -77,6 +81,7 @@ public final class Soulbound extends JavaPlugin {
         if (drums != null) drums.stop();
         if (god != null) god.stop();
         if (heaven != null) heaven.stop();
+        if (halo != null) halo.stop();
         if (captures != null) captures.stop();
         if (boss != null) boss.stop();
         if (hunger != null) hunger.stop();
@@ -87,6 +92,7 @@ public final class Soulbound extends JavaPlugin {
     Zones zones() { return zones; }
     HungerMeter hunger() { return hunger; }
     MolochBoss boss() { return boss; }
+    HaloItem halo() { return halo; }
 
     // ---------------------------------------------------------------- commands
 
@@ -179,6 +185,14 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text(portals.buildGate(x, z), NamedTextColor.GREEN));
                 return true;
             }
+            case "halo" -> {
+                if (!admin(sender)) return true;
+                Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : (sender instanceof Player p ? p : null);
+                if (t == null) { sender.sendMessage(Component.text("/moloch halo <player>", NamedTextColor.GRAY)); return true; }
+                halo.give(t, null);
+                sender.sendMessage(Component.text("Gave " + t.getName() + " a Halo.", NamedTextColor.GREEN));
+                return true;
+            }
             case "heaven" -> {
                 if (!admin(sender)) return true;
                 sender.sendMessage(Component.text(heaven.rebuild(), NamedTextColor.GREEN));
@@ -242,7 +256,7 @@ public final class Soulbound extends JavaPlugin {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "reload") : List.of();
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "halo", "reload") : List.of();
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");

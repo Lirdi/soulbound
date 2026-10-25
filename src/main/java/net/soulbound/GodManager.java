@@ -121,6 +121,7 @@ final class GodManager implements Listener {
     private final Set<UUID> sinners = new HashSet<>(), greeted = new HashSet<>(), angels = new HashSet<>();
     private final Map<Location, Integer> thorns = new HashMap<>();
     private final Map<UUID, Long> choiceCooldown = new HashMap<>();
+    private final Map<UUID, Double> damageBy = new HashMap<>();
 
     /** A smite on its way: follows its target for a moment, then locks on and strikes. */
     private static final class Mark {
@@ -365,6 +366,7 @@ final class GodManager implements Listener {
     }
 
     private void onHurtBy(Player p, double amount) {
+        damageBy.merge(p.getUniqueId(), amount, Double::sum);
         if (peaceful) { strikeFirst(p); return; }
         if (napping) {
             napDamage += amount;
@@ -415,6 +417,7 @@ final class GodManager implements Listener {
                 if (napping) wake(false);
                 if (seated()) rise(d, false);
                 store.set("god.defeated-once", true); store.save();
+                awardHalo();
                 say("Well... I suppose you've grown up.");
                 Bukkit.getScheduler().runTaskLater(plugin, () -> say("Don't tell Moloch."), 60L);
                 clearSinners();
@@ -1022,6 +1025,17 @@ final class GodManager implements Listener {
         nextAbility = 60;
     }
 
+    /** Whoever hurt him most takes his halo. */
+    private void awardHalo() {
+        UUID top = damageBy.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
+        if (top == null) return;
+        String name = Bukkit.getOfflinePlayer(top).getName();
+        if (name == null) name = "someone";
+        plugin.halo().award(top, name);
+        String n = name;
+        Bukkit.getScheduler().runTaskLater(plugin, () -> Bukkit.broadcast(Component.text(n + " struck God the hardest, and takes his Halo.", NamedTextColor.GOLD, TextDecoration.BOLD)), 100L);
+    }
+
     // ---------------------------------------------------------------- tidying up
 
     private void endFight() {
@@ -1031,7 +1045,7 @@ final class GodManager implements Listener {
         thorns.clear();
         clearSinners();
         clearAngels();
-        marks.clear(); frozen.clear(); frozenUntil.clear(); saltImmune.clear(); greeted.clear();
+        marks.clear(); frozen.clear(); frozenUntil.clear(); saltImmune.clear(); greeted.clear(); damageBy.clear();
         fightDragon = null;
         peaceful = true;
         judged = lowSaid = deathSaid = hadFighters = idleSaid = false;
