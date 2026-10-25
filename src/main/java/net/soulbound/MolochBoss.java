@@ -66,7 +66,7 @@ final class MolochBoss implements Listener {
     private final Set<UUID> minions = new HashSet<>();
     private double maxHp, savedHp;
     private long endsAt, bloodMoonUntil;
-    private int phase, half, ringWindup = -1;
+    private int phase, half, ringWindup = -1, respawns;
 
     // settings
     private double scale, baseHealth, perPlayer, boomCap, ringDamage, ringRadius, minDamage, leashRadius;
@@ -117,18 +117,27 @@ final class MolochBoss implements Listener {
 
     // ---------------------------------------------------------------- the awakening
 
-    /** Start the fight. False if Moloch's realm isn't loaded. */
+    /** Why the fight can't start right now, or null if it can. */
+    String cantBegin() {
+        World w = zones.world();
+        if (w == null || zones.arenaCentre() == null) return "Moloch's realm (" + zones.worldKey + ") isn't loaded.";
+        if (w.getDifficulty() == org.bukkit.Difficulty.PEACEFUL) return "The difficulty is Peaceful, and Peaceful deletes hostile mobs, Moloch too. Run /difficulty normal first.";
+        return null;
+    }
+
+    /** Start the fight. False if it can't start (see cantBegin). */
     boolean begin() {
         if (active) return true;
+        String no = cantBegin();
+        if (no != null) { plugin.getLogger().warning("Moloch can't rise: " + no); return false; }
         World w = zones.world();
         Location c = zones.arenaCentre();
-        if (w == null || c == null) return false;
         w.getChunkAt(c).addPluginChunkTicket(plugin);
         int fighters = Math.max(1, w.getPlayers().size());
         maxHp = Math.min(1024, baseHealth + perPlayer * fighters);
         savedHp = maxHp;
         damage.clear();
-        phase = 1; half = 0; ringWindup = -1;
+        phase = 1; half = 0; ringWindup = -1; respawns = 0;
         endsAt = System.currentTimeMillis() + fightMinutes * 60_000L;
         active = true;
         bar = BossBar.bossBar(Component.text("Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD), 1f, BossBar.Color.RED, BossBar.Overlay.NOTCHED_20);
@@ -175,10 +184,22 @@ final class MolochBoss implements Listener {
         if (System.currentTimeMillis() >= endsAt) { lose(); return; }
         if (boss == null || !boss.isValid()) {
             if (boss != null && boss.getHealth() <= 0) return;   // killed: the death event finishes it
+            if (c.getWorld().getDifficulty() == org.bukkit.Difficulty.PEACEFUL) {
+                Bukkit.broadcast(Component.text("Moloch can't exist on Peaceful difficulty. The awakening is called off; set /difficulty normal and try again.", NamedTextColor.RED));
+                abort();
+                return;
+            }
+            if (++respawns > 20) {   // something keeps removing him: stop rather than loop forever
+                plugin.getLogger().warning("Moloch keeps vanishing straight after he spawns (another plugin removing mobs, or mob limits?). Stopping the fight.");
+                Bukkit.broadcast(Component.text("Moloch couldn't hold his form. The awakening is called off.", NamedTextColor.RED));
+                abort();
+                return;
+            }
             spawnBoss(savedHp);                                  // he dug away or was unloaded: he rises again as he was
             c.getWorld().spawnParticle(Particle.LAVA, c, 40, 2, 1, 2, 0);
         }
         savedHp = boss.getHealth();
+        if (half % 40 == 0) respawns = 0;   // a dig-away now and then is fine; only a constant loop is a problem
 
         // keep him in his hall
         Location b = boss.getLocation();

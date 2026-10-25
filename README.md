@@ -39,6 +39,6 @@ Pick one:
 - **GitHub (nothing to install):** put this folder in a GitHub repository. GitHub builds it automatically; open the **Actions** tab, then the latest run, and download **Soulbound-jar**.
 - **Windows PC:** install Java 25 (Eclipse Temurin), then double-click `BUILD-ON-WINDOWS.bat`. The jar appears in `build\libs`.
 
-Upload `Soulbound-0.2.0.jar` to your server's `plugins` folder and restart.
+Upload `Soulbound-0.2.1.jar` to your server's `plugins` folder and restart.
 
 Built for Paper 26.3.

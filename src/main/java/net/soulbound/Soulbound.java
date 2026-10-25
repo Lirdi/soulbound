@@ -118,7 +118,9 @@ public final class Soulbound extends JavaPlugin {
             case "awaken" -> {
                 if (!admin(sender)) return true;
                 if (boss.active()) { sender.sendMessage(Component.text("He's already awake.", NamedTextColor.GRAY)); return true; }
-                if (!boss.begin()) sender.sendMessage(Component.text("Moloch's realm isn't loaded.", NamedTextColor.RED));
+                String no = boss.cantBegin();
+                if (no != null) { sender.sendMessage(Component.text(no, NamedTextColor.RED)); return true; }
+                boss.begin();
                 return true;
             }
             case "stop" -> {
