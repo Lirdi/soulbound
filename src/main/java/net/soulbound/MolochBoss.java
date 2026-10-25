@@ -98,7 +98,7 @@ final class MolochBoss implements Listener {
     private static final Particle.DustOptions RAY_PINK = new Particle.DustOptions(Color.fromRGB(255, 120, 255), 2.0f);
     private static final Particle.DustOptions RAY_PURPLE = new Particle.DustOptions(Color.fromRGB(190, 40, 255), 1.7f);
     // his collapse: once per fight, low on health, he crashes to the floor and feeds on everyone's strength
-    private boolean collapsed, collapsing;
+    private boolean collapsed, collapsing, screamed;
     private int collapseTicks;
     private double healPerTick;
     private BukkitTask collapseTask;
@@ -109,7 +109,8 @@ final class MolochBoss implements Listener {
     private int fightMinutes, ringEvery, breakSeconds, bloodMoonHours, deathXp;
     private boolean blockWardens, noDarkness, wavesOn;
     private double collapseAt, collapseHeal;
-    private int collapseSeconds;
+    private int collapseSeconds, screamNausea;
+    private double screamAt;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
 
@@ -138,6 +139,8 @@ final class MolochBoss implements Listener {
         noDarkness = c.getBoolean("boss.no-darkness", true);
         deathXp = Math.max(0, c.getInt("boss.death-xp", 1500));
         wavesOn = c.getBoolean("boss.waves-enabled", false);
+        screamAt = c.getDouble("boss.scream-at", 0.5);
+        screamNausea = Math.max(1, c.getInt("boss.scream-nausea-seconds", 6));
         collapseAt = c.getDouble("boss.collapse-at", 0.25);
         collapseSeconds = Math.max(2, c.getInt("boss.collapse-seconds", 8));
         collapseHeal = c.getDouble("boss.collapse-heal", 0.15);
@@ -192,7 +195,7 @@ final class MolochBoss implements Listener {
         Bukkit.broadcast(Component.text("Everyone to the arena under the pyramid. " + (wavesOn ? "Fight through his servants, then bring" : "Bring") + " him down within " + fightMinutes + " minutes.", NamedTextColor.RED));
         for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:awaken", 1f, 1f);
         wave = -1;
-        collapsed = false; collapsing = false;
+        collapsed = false; collapsing = false; screamed = false;
         if (!wavesOn || waves.isEmpty()) raiseMoloch();
         else { stage = Stage.BREAK; breakHalves = 6; }
         return true;
@@ -384,6 +387,9 @@ final class MolochBoss implements Listener {
             if (wavesOn) spawnGroup(phase == 2 ? phase2Wave : phase3Wave, c);
         }
 
+        // at half health he screams, and the whole hall reels (once a fight)
+        if (!screamed && screamAt > 0 && ratio <= screamAt) scream();
+
         // low on health, he collapses (once a fight)
         if (!collapsed && collapseAt > 0 && ratio <= collapseAt) { startCollapse(); return; }
 
@@ -449,6 +455,32 @@ final class MolochBoss implements Listener {
         for (Player p : w.getPlayers())
             if ((p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) && !p.isDead() && zones.inArena(p.getLocation())) out.add(p);
         return out;
+    }
+
+    // ---------------------------------------------------------------- his scream
+
+    /** A scream that shakes the hall: everyone in the arena is left reeling with Nausea. */
+    private void scream() {
+        screamed = true;
+        Location at = boss.getLocation(), head = at.clone().add(0, 2.9 * scale * 0.85, 0);
+        World w = at.getWorld();
+        w.playSound(head, "minecraft:entity.warden.roar", 4f, 0.55f);
+        w.playSound(head, "minecraft:entity.ghast.scream", 4f, 0.5f);
+        w.playSound(head, "minecraft:entity.ravager.roar", 4f, 0.6f);
+        fx(Particle.SONIC_BOOM, head, 1, 0, 0, null);
+        for (int ring = 1; ring <= 3; ring++) {   // the shockwave rolls out across the hall
+            final int r = ring;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                for (int i = 0; i < 24; i++) {
+                    double a = i * Math.PI * 2 / 24, d = r * 8;
+                    fx(Particle.SONIC_BOOM, at.clone().add(Math.cos(a) * d, 1.5, Math.sin(a) * d), 1, 0, 0, null);
+                }
+            }, r * 3L);
+        }
+        for (Player p : fighters())
+            p.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, screamNausea * 20, 0, false, false, true));
+        titleNear(at, Component.text("MOLOCH SCREAMS", NamedTextColor.DARK_RED, TextDecoration.BOLD),
+                Component.text("the hall spins around you", NamedTextColor.GRAY));
     }
 
     // ---------------------------------------------------------------- his collapse
