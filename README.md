@@ -22,7 +22,7 @@ Capture weakened players, sacrifice them to Moloch, and fight Moloch himself. Wo
 ## Moloch's Hunger and the awakening
 - Sacrifices and gold or mob offerings in the pit fill Moloch's Hunger (0 to 100).
 - When it's full, his awakening is booked for the next Friday or Saturday at 8pm (London time), with at least 6 hours' notice, and announced.
-- He rises on the dais of the arena under the pyramid: a giant warden everyone fights together. Fire rings, cultists and fire rain as his health drops.
+- The fight opens with waves of his servants (cultists, ember spirits, temple guards) through the arena doorways; clear them all and he rises on the dais: a giant warden everyone fights together. Fire rings, reinforcements and fire rain as his health drops. He only targets players and never blinds them with Darkness.
 - Bring him down in 30 minutes and everyone who hurt him gets diamonds and XP, with extra for the top damage dealer. Fail and a blood moon hangs over his realm for 24 hours (stronger mobs).
 - No other wardens exist in the world (ancient-city shriekers summon nothing).
 

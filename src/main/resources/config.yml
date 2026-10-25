@@ -112,10 +112,25 @@ boss:
   fire-ring-damage: 6
   fire-ring-radius: 8
   fire-ring-every-seconds: 20
-  # Cultists stream in from the doorways once he's below two thirds health.
-  cultists-every-seconds: 45
-  cultists-per-wave: 3
-  max-cultists: 8
+  # Before Moloch rises, waves of his servants pour in through the arena doorways. Clear one and the next comes.
+  # Each wave is "mob:count,mob:count" (vanilla mob names). Add or remove lines for more or fewer waves.
+  waves:
+    - "vindicator:4"
+    - "blaze:3,magma_cube:2"
+    - "wither_skeleton:3,piglin_brute:1"
+  wave-names:
+    - "The cult rises"
+    - "Fire from below"
+    - "His honour guard"
+  # Pause between waves.
+  wave-break-seconds: 6
+  # Each extra fighter in the arena adds this share of every wave (0.5 = half as many again per extra player).
+  wave-extra-per-player: 0.5
+  # Reinforcements once Moloch drops to two thirds, then one third, of his health.
+  phase-2-wave: "vindicator:3"
+  phase-3-wave: "wither_skeleton:2,blaze:2"
+  # Moloch never gives players Darkness (the warden's blinding pulse).
+  no-darkness: true
   # If he strays this far from the dais he's pulled back.
   leash-radius: 26
   # Everyone who dealt at least this much damage is rewarded. %player% is each one.

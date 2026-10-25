@@ -6,20 +6,24 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.Difficulty;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
+import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Monster;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.entity.SmallFireball;
-import org.bukkit.entity.Vindicator;
 import org.bukkit.entity.Warden;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -28,6 +32,8 @@ import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityPotionEffectEvent;
+import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
@@ -39,18 +45,26 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Moloch himself: a giant warden the plugin spawns on the arena dais when the Hunger meter's awakening comes round.
- * Everyone fights him together. Kill him in time and everyone who hurt him is rewarded;
- * fail and he goes back to sleep fed, and a blood moon hangs over his realm.
+ * Moloch's awakening, fought in the arena under the pyramid by everyone together:
+ * first waves of his servants pour in through the doorways, then Moloch himself rises on the dais.
+ * Kill him in time and everyone who hurt him is rewarded; fail and he goes back to sleep fed,
+ * and a blood moon hangs over his realm. He only ever fights players, and never blinds them.
  */
 final class MolochBoss implements Listener {
     static final String TAG = "moloch_boss", MINION = "moloch_minion";
+
+    private enum Stage { WAVE, BREAK, BOSS }
+
+    private static final List<String> DEFAULT_WAVES = List.of("vindicator:4", "blaze:3,magma_cube:2", "wither_skeleton:3,piglin_brute:1");
+    private static final List<String> DEFAULT_WAVE_NAMES = List.of("The cult rises", "Fire from below", "His honour guard");
+    private static final double[][] DOORS = {{30, 12}, {30, -12}, {-30, 12}, {-30, -12}, {12, 30}, {-12, 30}, {12, -30}, {-12, -30}};
 
     private final Soulbound plugin;
     private final Store store;
@@ -59,6 +73,8 @@ final class MolochBoss implements Listener {
     private BukkitTask task;
 
     private boolean active;
+    private Stage stage;
+    private int wave, waveTotal, breakHalves;
     private Warden boss;
     private BossBar bar, moonBar;
     private final Set<UUID> barViewers = new HashSet<>(), moonViewers = new HashSet<>();
@@ -69,10 +85,11 @@ final class MolochBoss implements Listener {
     private int phase, half, ringWindup = -1, respawns;
 
     // settings
-    private double scale, baseHealth, perPlayer, boomCap, ringDamage, ringRadius, minDamage, leashRadius;
-    private int fightMinutes, ringEvery, cultistEvery, cultistCount, maxMinions, bloodMoonHours;
-    private boolean blockWardens;
-    private List<String> participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
+    private double scale, baseHealth, perPlayer, boomCap, ringDamage, ringRadius, minDamage, leashRadius, extraPerPlayer;
+    private int fightMinutes, ringEvery, breakSeconds, bloodMoonHours;
+    private boolean blockWardens, noDarkness;
+    private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
+    private String phase2Wave, phase3Wave;
 
     MolochBoss(Soulbound plugin, Store store, Zones zones) {
         this.plugin = plugin; this.store = store; this.zones = zones;
@@ -90,15 +107,19 @@ final class MolochBoss implements Listener {
         ringDamage = c.getDouble("boss.fire-ring-damage", 6);
         ringRadius = c.getDouble("boss.fire-ring-radius", 8);
         ringEvery = Math.max(5, c.getInt("boss.fire-ring-every-seconds", 20));
-        cultistEvery = Math.max(10, c.getInt("boss.cultists-every-seconds", 45));
-        cultistCount = c.getInt("boss.cultists-per-wave", 3);
-        maxMinions = c.getInt("boss.max-cultists", 8);
         leashRadius = c.getDouble("boss.leash-radius", 26);
         minDamage = c.getDouble("boss.reward-min-damage", 10);
         participantCommands = c.getStringList("boss.reward-commands");
         topCommands = c.getStringList("boss.top-damage-commands");
         bloodMoonHours = c.getInt("boss.blood-moon-hours", 24);
         blockWardens = c.getBoolean("boss.block-other-wardens", true);
+        noDarkness = c.getBoolean("boss.no-darkness", true);
+        waves = c.isList("boss.waves") ? c.getStringList("boss.waves") : DEFAULT_WAVES;
+        waveNames = c.isList("boss.wave-names") ? c.getStringList("boss.wave-names") : DEFAULT_WAVE_NAMES;
+        breakSeconds = Math.max(2, c.getInt("boss.wave-break-seconds", 6));
+        extraPerPlayer = c.getDouble("boss.wave-extra-per-player", 0.5);
+        phase2Wave = c.getString("boss.phase-2-wave", "vindicator:3");
+        phase3Wave = c.getString("boss.phase-3-wave", "wither_skeleton:2,blaze:2");
     }
 
     void start() { task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickHalf, 10L, 10L); }
@@ -121,7 +142,7 @@ final class MolochBoss implements Listener {
     String cantBegin() {
         World w = zones.world();
         if (w == null || zones.arenaCentre() == null) return "Moloch's realm (" + zones.worldKey + ") isn't loaded.";
-        if (w.getDifficulty() == org.bukkit.Difficulty.PEACEFUL) return "The difficulty is Peaceful, and Peaceful deletes hostile mobs, Moloch too. Run /difficulty normal first.";
+        if (w.getDifficulty() == Difficulty.PEACEFUL) return "The difficulty is Peaceful, and Peaceful deletes hostile mobs, Moloch too. Run /difficulty normal first.";
         return null;
     }
 
@@ -133,24 +154,93 @@ final class MolochBoss implements Listener {
         World w = zones.world();
         Location c = zones.arenaCentre();
         w.getChunkAt(c).addPluginChunkTicket(plugin);
-        int fighters = Math.max(1, w.getPlayers().size());
-        maxHp = Math.min(1024, baseHealth + perPlayer * fighters);
-        savedHp = maxHp;
         damage.clear();
-        phase = 1; half = 0; ringWindup = -1; respawns = 0;
+        minions.clear();
+        half = 0; respawns = 0; ringWindup = -1; phase = 1;
         endsAt = System.currentTimeMillis() + fightMinutes * 60_000L;
         active = true;
         bar = BossBar.bossBar(Component.text("Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD), 1f, BossBar.Color.RED, BossBar.Overlay.NOTCHED_20);
+        Bukkit.broadcast(Component.text("MOLOCH STIRS.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+        Bukkit.broadcast(Component.text("Everyone to the arena under the pyramid. Fight through his servants, then bring him down within " + fightMinutes + " minutes.", NamedTextColor.RED));
+        for (Player p : Bukkit.getOnlinePlayers()) p.playSound(p.getLocation(), "moloch:awaken", 1f, 1f);
+        wave = -1;
+        if (waves.isEmpty()) raiseMoloch();
+        else { stage = Stage.BREAK; breakHalves = 6; }
+        return true;
+    }
+
+    // ---------------------------------------------------------------- waves
+
+    private void startWave(int i) {
+        wave = i;
+        stage = Stage.WAVE;
+        Location c = zones.arenaCentre();
+        int spawned = spawnGroup(waves.get(i), c);
+        waveTotal = Math.max(1, spawned);
+        String name = i < waveNames.size() ? waveNames.get(i) : "Wave " + (i + 1);
+        titleNear(c, Component.text("Wave " + (i + 1) + " of " + waves.size(), NamedTextColor.RED, TextDecoration.BOLD), Component.text(name, NamedTextColor.GOLD));
+        playNear(c, "moloch:drums", 1f, 1f);
+    }
+
+    /** Spawn a group like "blaze:3,magma_cube:2" at the doorways, scaled up for more players. Returns how many. */
+    private int spawnGroup(String spec, Location c) {
+        int fighters = Math.max(1, fighters().size()), n = 0;
+        for (String part : spec.split(",")) {
+            String[] kv = part.trim().split(":");
+            if (kv.length != 2) continue;
+            EntityType type = Registry.ENTITY_TYPE.get(NamespacedKey.minecraft(kv[0].trim().toLowerCase(Locale.ROOT)));
+            if (type == null || !type.isSpawnable() || !type.isAlive()) { plugin.getLogger().warning("Unknown wave mob '" + kv[0] + "'"); continue; }
+            int count;
+            try { count = Integer.parseInt(kv[1].trim()); } catch (NumberFormatException ex) { continue; }
+            count = (int) Math.round(count * (1 + extraPerPlayer * (fighters - 1)));
+            for (int k = 0; k < count; k++) { spawnMinion(type, c); n++; }
+        }
+        return n;
+    }
+
+    private void spawnMinion(EntityType type, Location c) {
+        double[] d = DOORS[rnd.nextInt(DOORS.length)];
+        Location at = new Location(c.getWorld(), c.getX() + d[0] + rnd.nextDouble() - 0.5, c.getY() - 1, c.getZ() + d[1] + rnd.nextDouble() - 0.5);
+        Entity e = c.getWorld().spawnEntity(at, type);
+        tagMinion(e);
+        String name = switch (type.getKey().getKey()) {
+            case "vindicator", "pillager", "evoker" -> "Cultist of Moloch";
+            case "blaze" -> "Ember Spirit";
+            case "magma_cube" -> "Living Slag";
+            case "wither_skeleton", "skeleton" -> "Temple Guard";
+            case "piglin_brute" -> "Moloch's Champion";
+            default -> null;
+        };
+        if (name != null) e.customName(Component.text(name, NamedTextColor.DARK_RED));
+    }
+
+    private void tagMinion(Entity e) {
+        e.addScoreboardTag(MINION);
+        e.setPersistent(false);
+        if (e instanceof Mob m) m.setRemoveWhenFarAway(false);
+        minions.add(e.getUniqueId());
+    }
+
+    private int minionsLeft() {
+        minions.removeIf(id -> { Entity e = Bukkit.getEntity(id); return e == null || !e.isValid() || e.isDead(); });
+        return minions.size();
+    }
+
+    // ---------------------------------------------------------------- Moloch rises
+
+    private void raiseMoloch() {
+        stage = Stage.BOSS;
+        World w = zones.world();
+        Location c = zones.arenaCentre();
+        int fighters = Math.max(1, Math.max(fighters().size(), w.getPlayers().size()));
+        maxHp = Math.min(1024, baseHealth + perPlayer * fighters);
+        savedHp = maxHp;
+        phase = 1; ringWindup = -1;
         spawnBoss(savedHp);
         w.spawnParticle(Particle.LAVA, c, 80, 3, 2, 3, 0);
-        Bukkit.broadcast(Component.text("MOLOCH HAS AWOKEN.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text("Everyone to the arena under the pyramid. You have " + fightMinutes + " minutes to bring him down.", NamedTextColor.RED));
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            p.playSound(p.getLocation(), "moloch:awaken", 1f, 1f);
-            if (zones.inRealm(p.getLocation())) p.showTitle(Title.title(Component.text("MOLOCH", NamedTextColor.DARK_RED, TextDecoration.BOLD),
-                    Component.text("has awoken", NamedTextColor.RED), Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(3000), Duration.ofMillis(800))));
-        }
-        return true;
+        playNear(c, "moloch:awaken", 1.5f, 1f);
+        titleNear(c, Component.text("MOLOCH", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("has risen", NamedTextColor.RED));
+        Bukkit.broadcast(Component.text("MOLOCH HAS RISEN.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
     }
 
     private void spawnBoss(double health) {
@@ -168,7 +258,7 @@ final class MolochBoss implements Listener {
         boss.setHealth(Math.max(1, Math.min(maxHp, health)));
     }
 
-    private static void set(org.bukkit.entity.LivingEntity e, Attribute a, double v) {
+    private static void set(LivingEntity e, Attribute a, double v) {
         AttributeInstance i = e.getAttribute(a);
         if (i != null) i.setBaseValue(v);
     }
@@ -182,9 +272,37 @@ final class MolochBoss implements Listener {
         Location c = zones.arenaCentre();
         if (c == null) return;
         if (System.currentTimeMillis() >= endsAt) { lose(); return; }
+        long left = Math.max(0, endsAt - System.currentTimeMillis()) / 1000;
+        keepMinionsIn(c);
+        showNear(bar, barViewers, c, 160);
+
+        switch (stage) {
+            case BREAK -> {
+                bar.name(Component.text("Moloch stirs  ·  " + CurseManager.clock((int) left), NamedTextColor.DARK_RED, TextDecoration.BOLD));
+                bar.progress(1f);
+                if (--breakHalves <= 0) {
+                    if (wave + 1 < waves.size()) startWave(wave + 1);
+                    else raiseMoloch();
+                }
+            }
+            case WAVE -> {
+                int remaining = minionsLeft();
+                bar.name(Component.text("Wave " + (wave + 1) + "/" + waves.size() + "  ·  " + remaining + " left  ·  " + CurseManager.clock((int) left), NamedTextColor.RED, TextDecoration.BOLD));
+                bar.progress(Math.max(0f, Math.min(1f, (float) remaining / waveTotal)));
+                if (remaining == 0) {
+                    stage = Stage.BREAK;
+                    breakHalves = breakSeconds * 2;
+                    sayNear(c, wave + 1 < waves.size() ? "Wave cleared. More are coming..." : "The last of his servants falls. The ground shakes...", NamedTextColor.GOLD);
+                }
+            }
+            case BOSS -> tickMoloch(c, left);
+        }
+    }
+
+    private void tickMoloch(Location c, long left) {
         if (boss == null || !boss.isValid()) {
             if (boss != null && boss.getHealth() <= 0) return;   // killed: the death event finishes it
-            if (c.getWorld().getDifficulty() == org.bukkit.Difficulty.PEACEFUL) {
+            if (c.getWorld().getDifficulty() == Difficulty.PEACEFUL) {
                 Bukkit.broadcast(Component.text("Moloch can't exist on Peaceful difficulty. The awakening is called off; set /difficulty normal and try again.", NamedTextColor.RED));
                 abort();
                 return;
@@ -199,32 +317,37 @@ final class MolochBoss implements Listener {
             c.getWorld().spawnParticle(Particle.LAVA, c, 40, 2, 1, 2, 0);
         }
         savedHp = boss.getHealth();
-        if (half % 40 == 0) respawns = 0;   // a dig-away now and then is fine; only a constant loop is a problem
+        if (half % 40 == 0) respawns = 0;
 
         // keep him in his hall
         Location b = boss.getLocation();
         if (Math.max(Math.abs(b.getX() - c.getX()), Math.abs(b.getZ() - c.getZ())) > leashRadius || b.getY() < c.getY() - 4 || b.getY() > c.getY() + 30)
             boss.teleport(c);
 
+        // players only: forget anything else he's angry at, and hunt the nearest player
+        for (int i = 0; i < 8; i++) {
+            Entity angry = boss.getEntityAngryAt();
+            if (angry == null || angry instanceof Player) break;
+            boss.clearAnger(angry);
+        }
+        if (boss.getTarget() != null && !(boss.getTarget() instanceof Player)) boss.setTarget(null);
         List<Player> fighters = fighters();
         if (!fighters.isEmpty()) {
             Player near = fighters.stream().min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(boss.getLocation()))).get();
             boss.setAnger(near, 100);   // always hunting, so he never digs back down
         }
 
-        // the bar
         bar.progress((float) Math.max(0, Math.min(1, boss.getHealth() / maxHp)));
-        long left = Math.max(0, endsAt - System.currentTimeMillis()) / 1000;
         bar.name(Component.text("Moloch  ·  " + CurseManager.clock((int) left), NamedTextColor.DARK_RED, TextDecoration.BOLD));
-        showNear(bar, barViewers, c, 160);
 
-        // phases
+        // phases: reinforcements at two thirds and one third
         double ratio = boss.getHealth() / maxHp;
         int now = ratio > 0.66 ? 1 : ratio > 0.33 ? 2 : 3;
         if (now > phase) {
             phase = now;
-            sayNear(c, phase == 2 ? "The furnace in Moloch's belly roars open!" : "MOLOCH HUNGERS. Fire falls from the vault!", NamedTextColor.RED);
+            sayNear(c, phase == 2 ? "The furnace in Moloch's belly roars open! His cult answers the call." : "MOLOCH HUNGERS. Fire falls from the vault!", NamedTextColor.RED);
             playNear(c, "moloch:furnace", 1.5f, 1f);
+            spawnGroup(phase == 2 ? phase2Wave : phase3Wave, c);
         }
 
         // drums, quicker each phase
@@ -250,12 +373,6 @@ final class MolochBoss implements Listener {
             }
         }
 
-        // cultists from the doorways, from the second phase on
-        if (phase >= 2 && half % (cultistEvery * 2) == 0) {
-            minions.removeIf(id -> { Entity e = Bukkit.getEntity(id); return e == null || !e.isValid(); });
-            for (int i = 0; i < cultistCount && minions.size() < maxMinions; i++) spawnCultist(c);
-        }
-
         // fire rain in the last phase
         if (phase == 3 && half % 6 == 0) for (Player p : fighters) {
             Location from = p.getLocation().add(rnd.nextDouble() * 6 - 3, 14, rnd.nextDouble() * 6 - 3);
@@ -267,16 +384,18 @@ final class MolochBoss implements Listener {
         }
     }
 
-    private void spawnCultist(Location c) {
-        double[][] doors = {{30, 12}, {30, -12}, {-30, 12}, {-30, -12}, {12, 30}, {-12, 30}, {12, -30}, {-12, -30}};
-        double[] d = doors[rnd.nextInt(doors.length)];
-        Location at = new Location(c.getWorld(), c.getX() + d[0], c.getY() - 1, c.getZ() + d[1]);
-        Vindicator v = c.getWorld().spawn(at, Vindicator.class, m -> {
-            m.customName(Component.text("Cultist of Moloch", NamedTextColor.DARK_RED));
-            m.setPersistent(false);
-            m.addScoreboardTag(MINION);
-        });
-        minions.add(v.getUniqueId());
+    /** Servants that wander out of the hall are sent back to a doorway. */
+    private void keepMinionsIn(Location c) {
+        if (half % 4 != 0) return;
+        for (UUID id : new ArrayList<>(minions)) {
+            Entity e = Bukkit.getEntity(id);
+            if (e == null || !e.isValid()) continue;
+            Location l = e.getLocation();
+            if (Math.max(Math.abs(l.getX() - c.getX()), Math.abs(l.getZ() - c.getZ())) > 33 || l.getY() < c.getY() - 6) {
+                double[] d = DOORS[rnd.nextInt(DOORS.length)];
+                e.teleport(new Location(c.getWorld(), c.getX() + d[0], c.getY() - 1, c.getZ() + d[1]));
+            }
+        }
     }
 
     private void ring(Location at, Particle p) {
@@ -373,7 +492,7 @@ final class MolochBoss implements Listener {
 
     // ---------------------------------------------------------------- events
 
-    /** Only players can hurt him: no lava, void, suffocation or command cheese. */
+    /** Only players can hurt him: no lava, void, suffocation, minions or command cheese. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onBossHurt(EntityDamageEvent e) {
         if (!isBoss(e.getEntity())) return;
@@ -387,12 +506,39 @@ final class MolochBoss implements Listener {
         if (p != null) damage.merge(p.getUniqueId(), e.getFinalDamage(), Double::sum);
     }
 
-    /** His sonic boom is his fiery breath: it burns, but it's capped so it can't one-shot people. */
+    /** He only hurts players. His sonic boom is his fiery breath: it burns, but it's capped so it can't one-shot people. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBossHits(EntityDamageByEntityEvent e) {
-        if (!isBoss(e.getDamager()) || e.getCause() != EntityDamageEvent.DamageCause.SONIC_BOOM) return;
-        e.setDamage(Math.min(e.getDamage(), boomCap));
-        e.getEntity().setFireTicks(80);
+        if (!isBoss(e.getDamager())) return;
+        if (!(e.getEntity() instanceof Player)) { e.setCancelled(true); return; }
+        if (e.getCause() == EntityDamageEvent.DamageCause.SONIC_BOOM) {
+            e.setDamage(Math.min(e.getDamage(), boomCap));
+            e.getEntity().setFireTicks(80);
+        }
+    }
+
+    /** He never targets mobs, and his servants never turn on him or each other. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onTarget(EntityTargetEvent e) {
+        Entity t = e.getTarget();
+        if (t == null) return;
+        if (isBoss(e.getEntity()) && !(t instanceof Player)) { e.setCancelled(true); return; }
+        if (e.getEntity().getScoreboardTags().contains(MINION) && !(t instanceof Player)) e.setCancelled(true);
+    }
+
+    /** His servants don't hurt each other either (stray blaze fire, mostly). */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onMinionFriendlyFire(EntityDamageByEntityEvent e) {
+        Entity src = e.getDamager();
+        if (src instanceof Projectile pr && pr.getShooter() instanceof Entity sh) src = sh;
+        if (src.getScoreboardTags().contains(MINION) && e.getEntity().getScoreboardTags().contains(MINION)) e.setCancelled(true);
+    }
+
+    /** No Darkness from Moloch: players need to see the fight. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onDarkness(EntityPotionEffectEvent e) {
+        if (!noDarkness || e.getCause() != EntityPotionEffectEvent.Cause.WARDEN) return;
+        if (e.getModifiedType().equals(PotionEffectType.DARKNESS)) e.setCancelled(true);
     }
 
     @EventHandler
@@ -412,6 +558,8 @@ final class MolochBoss implements Listener {
                 return;
             }
         }
+        // magma cubes that split during a wave are still his servants
+        if (active && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SLIME_SPLIT && zones.inArena(e.getLocation())) tagMinion(e.getEntity());
         if (bloodMoon() && e.getEntity() instanceof Monster m && zones.inRealm(m.getLocation())) {
             m.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, PotionEffect.INFINITE_DURATION, 0, true, false));
             m.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, PotionEffect.INFINITE_DURATION, 0, true, false));
@@ -451,8 +599,14 @@ final class MolochBoss implements Listener {
         for (Player p : c.getWorld().getPlayers()) if (p.getLocation().distanceSquared(c) < 200 * 200) p.sendMessage(Component.text(msg, col));
     }
 
+    private void titleNear(Location c, Component title, Component sub) {
+        Title t = Title.title(title, sub, Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(2500), Duration.ofMillis(700)));
+        for (Player p : c.getWorld().getPlayers()) if (p.getLocation().distanceSquared(c) < 200 * 200) p.showTitle(t);
+    }
+
     String status() {
         if (!active) return bloodMoon() ? "asleep (blood moon for " + CurseManager.clock((int) ((bloodMoonUntil - System.currentTimeMillis()) / 1000)) + ")" : "asleep";
+        if (stage != Stage.BOSS) return "stirring: wave " + Math.max(1, wave + 1) + " of " + waves.size();
         return "AWAKE, " + (boss != null ? Math.round(boss.getHealth()) : 0) + "/" + Math.round(maxHp) + " health";
     }
 }
