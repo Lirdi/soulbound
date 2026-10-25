@@ -27,9 +27,19 @@ public final class ScreenCrack {
 
     public ScreenCrack(Soulbound plugin) { this.plugin = plugin; }
 
+    /**
+     * Minecraft only stitches font images up to 256px, so each frame is 8 tiles (4 across, 2 down), laid edge to edge:
+     * every tile advances 33 units including a 1-unit gap, so a -1 space follows each one, and -128 returns to the
+     * left edge for the second row (whose glyphs sit lower through their ascent).
+     */
     private static Component glyph(int stage, int frame) {
-        char c = (char) (0xE100 + (stage - 1) * FRAMES + frame);
-        return Component.text().content(String.valueOf(c)).font(FONT).shadowColor(ShadowColor.none()).build();
+        int base = 0xE100 + ((stage - 1) * FRAMES + frame) * 8;
+        StringBuilder sb = new StringBuilder();
+        for (int r = 0; r < 2; r++) {
+            for (int c = 0; c < 4; c++) sb.append((char) (base + r * 4 + c)).append('\uE1F0');
+            if (r == 0) sb.append('\uE1F1');
+        }
+        return Component.text().content(sb.toString()).font(FONT).shadowColor(ShadowColor.none()).build();
     }
 
     public void crack(Player p) {
