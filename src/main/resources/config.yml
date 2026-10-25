@@ -215,6 +215,10 @@ boss:
   top-damage-commands:
     - "give %player% minecraft:netherite_ingot 1"
     - "give %player% minecraft:enchanted_golden_apple 1"
+  # His spoils: the top damage dealer takes Moloch's Horns (cosmetic) and a piece of his Regalia (armour a little better
+  # than netherite); everyone else who fought has this chance at a piece. Wear all four and you grow this much bigger.
+  regalia-drop-chance: 0.15
+  regalia-set-scale: 1.5
   # If he survives the fight: a blood moon over his realm (stronger mobs) for this long.
   blood-moon-hours: 24
   # No other wardens: ancient-city shriekers summon nothing. /summon still works for testing.

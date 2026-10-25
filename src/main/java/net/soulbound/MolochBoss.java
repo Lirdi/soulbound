@@ -1469,6 +1469,10 @@ final class MolochBoss implements Listener {
             }
         }
         if (c != null) for (Player p : c.getWorld().getPlayers()) p.playSound(p.getLocation(), "minecraft:ui.toast.challenge_complete", 1f, 1f);
+        // his horns and regalia
+        Set<UUID> fought = new HashSet<>();
+        for (Map.Entry<UUID, Double> e : damage.entrySet()) if (e.getValue() >= minDamage) fought.add(e.getKey());
+        plugin.gear().reward(top, fought);
     }
 
     private void lose() {
