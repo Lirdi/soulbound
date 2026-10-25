@@ -241,9 +241,9 @@ boss:
 # (The resource pack makes the dragon invisible, gives it an old man's voice and names it God.)
 god:
   enabled: true
-  # true: he swims through the sky face-forward, like an elytra glider (Minecraft can hide him at some angles in this
-  # pose, because his body reaches far outside his hitbox). false: he floats upright like an old man drifting along.
-  flying-pose: true
+  # swim: he swims through the sky face-first, like an elytra glider (Minecraft can hide him for a moment at some angles,
+  # because his body reaches far outside his hitbox). upright: he floats upright like an old man drifting along.
+  pose: swim
   # Build the Pearly Gates by the End's arrival platform and God's Throne around the exit portal (once per End world).
   # /moloch heaven rebuilds them.
   build-heaven: true

@@ -19,7 +19,7 @@ import org.bukkit.scheduler.BukkitTask;
  * God's Throne with a ring of white columns around the exit portal (clearing any blossom trees from the middle).
  * Each is built once per End world; reset the End and they're built again.
  */
-final class HeavenBuilder {
+final class HeavenBuilder implements org.bukkit.event.Listener {
     private final Soulbound plugin;
     private final Store store;
     private BukkitTask task;
@@ -46,13 +46,14 @@ final class HeavenBuilder {
             throne(w);
             store.set("heaven.throne", uid); store.save();
         }
+        if (!uid.equals(store.data.getString("heaven.pillars"))) { pillars(w); store.set("heaven.pillars", uid); store.save(); }
     }
 
     /** Rebuild both now (admin). */
     String rebuild() {
         World w = end();
         if (w == null) return "The End isn't loaded.";
-        gates(w); throne(w);
+        gates(w); throne(w); pillars(w);
         store.set("heaven.gates", w.getUID().toString()); store.set("heaven.throne", w.getUID().toString()); store.save();
         return "Heaven's gates and God's throne are built.";
     }
@@ -93,6 +94,44 @@ final class HeavenBuilder {
         set(w, gx, y0 + 7, 0, hang);
     }
 
+    // ---------------------------------------------------------------- the Pillars of Heaven
+
+    /**
+     * The ten obsidian pillars become white marble columns banded with gold (the crystals and their cages stay).
+     * Positions follow the game's own layout: radius 42, evenly spaced. Run again whenever the dragon is respawned,
+     * because respawning rebuilds them in obsidian.
+     */
+    void pillars(World w) {
+        for (int i = 0; i < 10; i++) {
+            double a = 2.0 * (-Math.PI + (Math.PI / 10.0) * i);
+            int cx = (int) Math.floor(42.0 * Math.cos(a)), cz = (int) Math.floor(42.0 * Math.sin(a));
+            for (int x = cx - 6; x <= cx + 6; x++) for (int z = cz - 6; z <= cz + 6; z++) for (int y = 30; y <= 112; y++) {
+                Block b = w.getBlockAt(x, y, z);
+                if (b.getType() != Material.OBSIDIAN) continue;
+                boolean edge = Math.abs(Math.hypot(x - cx, z - cz)) >= 1.5 && isRim(w, x, y, z);
+                Material m = y % 9 == 0 ? Material.GOLD_BLOCK
+                        : b.getRelative(0, 1, 0).getType() != Material.OBSIDIAN ? Material.CHISELED_QUARTZ_BLOCK
+                        : edge && (x + z) % 2 == 0 ? Material.QUARTZ_PILLAR : Material.SMOOTH_QUARTZ;
+                b.setBlockData(m.createBlockData(), false);
+            }
+        }
+    }
+
+    private static boolean isRim(World w, int x, int y, int z) {
+        for (BlockFace f : new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST})
+            if (w.getBlockAt(x, y, z).getRelative(f).getType().isAir()) return true;
+        return false;
+    }
+
+    /** A respawned dragon means freshly rebuilt obsidian pillars: turn them to marble again. */
+    @org.bukkit.event.EventHandler
+    public void onDragon(org.bukkit.event.entity.CreatureSpawnEvent e) {
+        if (e.getEntityType() != org.bukkit.entity.EntityType.ENDER_DRAGON || e.getLocation().getWorld().getEnvironment() != World.Environment.THE_END) return;
+        if (!plugin.getConfig().getBoolean("god.build-heaven", true)) return;
+        World w = e.getLocation().getWorld();
+        Bukkit.getScheduler().runTaskLater(plugin, () -> pillars(w), 100L);
+    }
+
     // ---------------------------------------------------------------- God's Throne
 
     private int portalY(World w) {
@@ -115,7 +154,8 @@ final class HeavenBuilder {
         // clear the blossom trees from the middle of the island
         for (int x = -16; x <= 16; x++) for (int z = -16; z <= 16; z++) for (int y = 40; y <= 120; y++) {
             Material m = w.getBlockAt(x, y, z).getType();
-            if (Tag.LEAVES.isTagged(m) || Tag.LOGS.isTagged(m) || m == Material.BEE_NEST || m == Material.PINK_PETALS)
+            if (Tag.LEAVES.isTagged(m) || Tag.LOGS.isTagged(m) || m == Material.BEE_NEST || m == Material.PINK_PETALS
+                    || m == Material.CHORUS_PLANT || m == Material.CHORUS_FLOWER)
                 set(w, x, y, z, Material.AIR.createBlockData());
         }
         // a ring of eight white columns around the portal
