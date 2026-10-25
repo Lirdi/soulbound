@@ -59,6 +59,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(heaven, this);
         pm.registerEvents(halo, this);
         pm.registerEvents(gear, this);
+        pm.registerEvents(new Archangels(this), this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);

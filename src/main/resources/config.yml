@@ -243,6 +243,11 @@ boss:
 
 # The ender dragon becomes God: a giant old man with a grey beard in white robes, flying where the dragon flies.
 # (The resource pack makes the dragon invisible, gives it an old man's voice and names it God.)
+# Shulkers in the End are Archangels: one hit from their bolt kills (creative and spectator are safe).
+archangels:
+  instant-kill: true
+  # false: the bolt also burns away your totems, so nothing saves you.
+  totems-save: true
 god:
   enabled: true
   # swim: he swims through the sky face-first, like an elytra glider (Minecraft can hide him for a moment at some angles,
