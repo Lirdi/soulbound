@@ -258,11 +258,11 @@ god:
   # His fight is the Seven Days of Creation. Day 1 he sits on his throne, peaceful and chatty, until someone strikes
   # him or answers "I've come to challenge you"; each later day starts as his health drops by another seventh.
   # Smite (a pillar of light, then lightning: move!) runs through every day.
-  smite-damage: 6
+  smite-damage: 8
   # He scales to the crowd like Moloch: he lasts as if he had this much health, plus more per fighter in the End
-  # (1 player: 1100, 5: 3100, 10: 5600). His damage also grows 12% each day of the week.
-  effective-health-base: 600
-  effective-health-per-fighter: 500
+  # (1 player: 1600, 5: 4400, 10: 7900). His damage also grows 15% each day of the week.
+  effective-health-base: 900
+  effective-health-per-fighter: 700
   # On the seventh day he keeps dozing off for this long (double damage); this much damage wakes him up furious.
   nap-seconds: 7
   nap-wake-damage: 30

@@ -144,9 +144,9 @@ final class GodManager implements Listener {
         flyDown = c.getDouble("god.flying-offset-down", 0.15);
         standDown = c.getDouble("god.standing-offset-down", 0.3);
         sitOffset = c.getDouble("god.throne-sit-offset", 0.0);
-        hpBase = c.getDouble("god.effective-health-base", 600);
-        hpPerFighter = c.getDouble("god.effective-health-per-fighter", 500);
-        smiteDamage = c.getDouble("god.smite-damage", 6);
+        hpBase = c.getDouble("god.effective-health-base", 900);
+        hpPerFighter = c.getDouble("god.effective-health-per-fighter", 700);
+        smiteDamage = c.getDouble("god.smite-damage", 8);
         napSeconds = Math.max(3, c.getInt("god.nap-seconds", 7));
         napWake = c.getDouble("god.nap-wake-damage", 30);
         sinnerDays = c.getDouble("god.sinner-days", 7);
@@ -453,7 +453,7 @@ final class GodManager implements Listener {
     }
 
     /** His damage grows through the week: +12% a day. */
-    private double fury() { return 1 + 0.12 * Math.max(0, day - 1); }
+    private double fury() { return 1 + 0.15 * Math.max(0, day - 1); }
 
     private int gap() {
         return switch (day) { case 1 -> 140; case 2, 3 -> 120; case 4, 5 -> 105; case 6 -> 75; default -> 120; };
@@ -470,6 +470,7 @@ final class GodManager implements Listener {
     // ---------------------------------------------------------------- Day 0: the audience
 
     private void sitDown(EnderDragon d) {
+        if (peaceful) setEndTime(d.getWorld(), 18000);   // he holds court at night
         Entity g = godOf.get(d.getUniqueId()) == null ? null : Bukkit.getEntity(godOf.get(d.getUniqueId()));
         if (g == null || seated()) return;
         Location s = seatSpot(d.getWorld());
@@ -570,8 +571,23 @@ final class GodManager implements Listener {
         startFight(p, true);
     }
 
+    /** The End's clock (frozen, so it stays wherever God puts it). 18000 midnight, 6000 noon. */
+    private void setEndTime(World w, long t) { if (w != null) w.setTime(t); }
+
+    /** Dawn in three seconds: the clock runs from midnight through sunrise to noon. */
+    private void dawn(World w) {
+        if (w == null) return;
+        for (int k = 0; k <= 60; k++) {
+            long t = (18000 + k * 200L) % 24000;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> setEndTime(w, t), k);
+        }
+        for (Player p : w.getPlayers()) p.playSound(p.getLocation(), "minecraft:block.beacon.activate", 1f, 0.5f);
+    }
+
     private void startFight(Player starter, boolean rude) {
         peaceful = false;
+        EnderDragon dd = dragon();
+        if (dd != null) dawn(dd.getWorld());
         EnderDragon d = dragon();
         Entity g = godFigure();
         List<Player> f = d != null ? fighters(d.getWorld()) : List.of();
@@ -587,6 +603,7 @@ final class GodManager implements Listener {
 
     private void returnToThrone(EnderDragon d) {
         if (napping) wake(false);
+        setEndTime(d.getWorld(), 18000);
         peaceful = true;
         greeted.clear();
         idleSaid = false;
@@ -679,8 +696,8 @@ final class GodManager implements Listener {
         Location hand = (seated() ? seat.getLocation() : g.getLocation()).add(0, height() * 0.45, 2);
         List<Player> order = new ArrayList<>(f);
         Collections.shuffle(order, rnd);
-        for (int i = 0; i < Math.min(3, order.size()); i++) {
-            Player p = order.get(i);
+        for (int i = 0; i < Math.min(5, order.size() * 2); i++) {
+            Player p = order.get(i % order.size());
             Vector dir = p.getEyeLocation().toVector().subtract(hand.toVector());
             if (dir.lengthSquared() < 1) continue;
             Vector v = dir.normalize();
@@ -821,7 +838,7 @@ final class GodManager implements Listener {
     // ---- Day 5: angels, and Judgement
 
     private void angels(List<Player> f, Entity g) {
-        int n = Math.min(10, 2 + f.size());
+        int n = Math.min(14, 3 + (int) Math.round(f.size() * 1.5));
         Location from = g.getLocation().add(0, height() * 0.6, 0);
         for (int i = 0; i < n; i++) {
             Location at = from.clone().add(rnd.nextGaussian() * 3, rnd.nextGaussian() * 2, rnd.nextGaussian() * 3);
@@ -947,7 +964,7 @@ final class GodManager implements Listener {
             Vector out = p.getLocation().toVector().subtract(c.toVector()); out.setY(0);
             if (out.lengthSquared() < 1e-3) out = new Vector(1, 0, 0);
             p.setVelocity(out.normalize().multiply(2.2).setY(0.7));
-            if (dragon() != null) p.damage(4 * fury(), dragon());
+            if (dragon() != null) p.damage(6 * fury(), dragon());
             p.playSound(p.getLocation(), "minecraft:entity.generic.explode", 1f, 0.6f);
         }
     }
