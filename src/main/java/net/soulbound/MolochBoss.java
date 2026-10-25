@@ -73,6 +73,9 @@ import java.util.UUID;
  */
 final class MolochBoss implements Listener {
     static final String TAG = "moloch_boss", MINION = "moloch_minion";
+    /** Ways mobs appear by themselves (as opposed to plugins, commands, spawn eggs or players building golems). */
+    private static final Set<String> NATURAL_REASONS = Set.of("NATURAL", "CHUNK_GEN", "REINFORCEMENTS", "PATROL", "JOCKEY", "MOUNT", "TRAP",
+            "NETHER_PORTAL", "VILLAGE_DEFENSE", "VILLAGE_INVASION", "SILVERFISH_BLOCK", "RAID", "LIGHTNING", "ENDER_PEARL", "SPAWNER", "TRIAL_SPAWNER");
 
     private enum Stage { WAVE, BREAK, BOSS }
     private enum Move { NONE, RING, CHARGE, LEAP, BREATH, CHAIN, STUN }
@@ -138,7 +141,7 @@ final class MolochBoss implements Listener {
     private double championShield, champBase, champPerFighter, champHealth, frenzySpeed, screamAt, collapseAt, collapseHeal, moveGap;
     private int fightMinutes, breakSeconds, bloodMoonHours, deathXp, stunSeconds, wardSeconds, wardEvery, champMax;
     private int screamNausea, screamWeakness, collapseSeconds;
-    private boolean blockWardens, noDarkness, wavesOn;
+    private boolean blockWardens, noDarkness, wavesOn, templeNoSpawns;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
 
@@ -182,6 +185,7 @@ final class MolochBoss implements Listener {
         topCommands = c.getStringList("boss.top-damage-commands");
         bloodMoonHours = c.getInt("boss.blood-moon-hours", 24);
         blockWardens = c.getBoolean("boss.block-other-wardens", true);
+        templeNoSpawns = c.getBoolean("moloch.temple-no-natural-spawns", true);
         noDarkness = c.getBoolean("boss.no-darkness", true);
         deathXp = Math.max(0, c.getInt("boss.death-xp", 1500));
         screamAt = c.getDouble("boss.scream-at", 0.5);
@@ -1531,6 +1535,8 @@ final class MolochBoss implements Listener {
                 return;
             }
         }
+        // nothing spawns on its own in or on the pyramid (its plaza and moat too): only Moloch, his summons, and what players spawn
+        if (templeNoSpawns && NATURAL_REASONS.contains(e.getSpawnReason().name()) && zones.inTemple(e.getLocation())) { e.setCancelled(true); return; }
         if (active && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SLIME_SPLIT && zones.inArena(e.getLocation())) tagMinion(e.getEntity());
         if (bloodMoon() && e.getEntity() instanceof Monster m && zones.inRealm(m.getLocation())) {
             m.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, PotionEffect.INFINITE_DURATION, 0, true, false));

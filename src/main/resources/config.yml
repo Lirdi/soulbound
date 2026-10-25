@@ -52,6 +52,8 @@ moloch:
   pit-y: 125
   # The temple grounds (plaza and moat): a capture's timer stands still in here.
   temple-radius: 110
+  # No mobs spawn by themselves in or on the pyramid, its plaza or its moat (within temple-radius). Moloch's own summons still come.
+  temple-no-natural-spawns: true
   # The battle arena under the pyramid: where Moloch rises (the top of the dais).
   arena:
     x: 0.5
