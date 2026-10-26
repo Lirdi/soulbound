@@ -176,8 +176,14 @@ final class GodManager implements Listener {
         for (Iterator<Map.Entry<UUID, UUID>> it = godOf.entrySet().iterator(); it.hasNext(); ) {
             Map.Entry<UUID, UUID> e = it.next();
             Entity d = Bukkit.getEntity(e.getKey()), g = Bukkit.getEntity(e.getValue());
-            if (!(d instanceof EnderDragon dragon) || !dragon.isValid()) {   // the dragon is gone: God fades into light
+            if (!(d instanceof EnderDragon dragon) || !present(dragon)) {   // the dragon is gone: God fades into light
                 if (g != null) {
+                    Location at = g.getLocation().add(0, height() * 0.5, 0);
+                    for (Player p : g.getWorld().getPlayers()) {
+                        p.playSound(p.getLocation(), "minecraft:entity.generic.explode", 1f, 0.5f);
+                        p.playSound(p.getLocation(), "minecraft:entity.lightning_bolt.thunder", 1f, 0.6f);
+                        p.playSound(p.getLocation(), "minecraft:ui.toast.challenge_complete", 1f, 1f);
+                    }
                     stopDeathRays();
                     fx(Particle.END_ROD, g.getLocation().add(0, height() * 0.5, 0), 400, scale * 0.8, 0.35);
                     g.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, g.getLocation().add(0, height() * 0.5, 0), 3, scale * 0.3, scale * 0.3, scale * 0.3, 0, null, true);
@@ -326,7 +332,13 @@ final class GodManager implements Listener {
     }
 
     private EnderDragon dragon() {
-        return fightDragon != null && Bukkit.getEntity(fightDragon) instanceof EnderDragon d && d.isValid() ? d : null;
+        return fightDragon != null && Bukkit.getEntity(fightDragon) instanceof EnderDragon d && present(d) ? d : null;
+    }
+
+    /** Dying, the dragon flies home to the portal at 1 health, then plays out its last ten seconds at 0 health,
+     *  when Bukkit already calls it dead. It's still there until it's removed at the very end. */
+    private static boolean dying(EnderDragon d) { return d.getPhase() == EnderDragon.Phase.DYING || d.getHealth() <= 0 || d.isDead(); }
+    private static boolean present(EnderDragon d) { return d.isValid() || dying(d);
     }
 
     // ================================================================ hits
@@ -411,15 +423,22 @@ final class GodManager implements Listener {
     private void tickFight() {
         EnderDragon d = null; Entity g = null;
         for (Map.Entry<UUID, UUID> e : godOf.entrySet()) {
-            if (Bukkit.getEntity(e.getKey()) instanceof EnderDragon dr && dr.isValid()) { d = dr; g = Bukkit.getEntity(e.getValue()); break; }
+            if (Bukkit.getEntity(e.getKey()) instanceof EnderDragon dr && present(dr)) { d = dr; g = Bukkit.getEntity(e.getValue()); break; }
         }
         if (d == null || g == null) { if (fightDragon != null) endFight(); return; }
         if (!d.getUniqueId().equals(fightDragon)) newFight(d);
         World w = d.getWorld();
 
-        if (d.getPhase() == EnderDragon.Phase.DYING) {
+        if (dying(d)) {
             if (!deathSaid) {
                 deathSaid = true;
+                Title fall = Title.title(Component.text("IT IS FINISHED", NamedTextColor.GOLD, TextDecoration.BOLD),
+                        Component.text("God has been defeated", NamedTextColor.WHITE), Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(3500), Duration.ofMillis(1200)));
+                for (Player p : w.getPlayers()) {
+                    p.showTitle(fall);
+                    p.playSound(p.getLocation(), "minecraft:entity.lightning_bolt.thunder", 1f, 0.5f);
+                    p.playSound(p.getLocation(), "soulbound:god.voice", 1f, 0.9f);
+                }
                 if (napping) wake(false);
                 if (seated()) rise(d, false);
                 store.set("god.defeated-once", true); store.save();
