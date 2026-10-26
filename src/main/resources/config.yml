@@ -262,6 +262,11 @@ seal:
   keep-drops: true
   # If someone has died and nobody living is left in the hall for this long, Moloch wins. 0 = off.
   all-fallen-seconds: 60
+  # Block all commands for players inside the sealed hall (and ghosts) during the fight. Admins are exempt.
+  block-commands: true
+  # Commands still allowed there (first word, or a longer prefix like "msg"). "moloch" keeps /moloch leave working.
+  allowed-commands:
+    - moloch
 
 screen-crack:
   enabled: true

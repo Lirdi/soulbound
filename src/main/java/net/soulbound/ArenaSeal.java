@@ -25,6 +25,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -37,6 +38,8 @@ import org.bukkit.util.Vector;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -57,7 +60,8 @@ final class ArenaSeal implements Listener {
     private final Zones zones;
     private BukkitTask task;
 
-    private boolean enabled, ghostsOn, keepDrops;
+    private boolean enabled, ghostsOn, keepDrops, blockCommands;
+    private List<String> allowedCommands = List.of();
     private int fallenSeconds;
 
     /** Ghosts: player -> the fight they died in. */
@@ -93,6 +97,9 @@ final class ArenaSeal implements Listener {
         ghostsOn = c.getBoolean("seal.ghosts", true);
         keepDrops = c.getBoolean("seal.keep-drops", true);
         fallenSeconds = Math.max(0, c.getInt("seal.all-fallen-seconds", 60));
+        blockCommands = c.getBoolean("seal.block-commands", true);
+        allowedCommands = c.getStringList("seal.allowed-commands").stream().map(x -> x.toLowerCase(Locale.ROOT).replaceFirst("^/", "").trim()).toList();
+        if (!c.isList("seal.allowed-commands")) allowedCommands = List.of("moloch");
     }
 
     void start() { task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 1L); }
@@ -339,6 +346,23 @@ final class ArenaSeal implements Listener {
         } else if (p.hasPermission("soulbound.admin") && cause.equals("COMMAND")) return;
         e.setCancelled(true);
         repel(p, e.getFrom());
+    }
+
+    /** No commands inside the sealed hall (or as a ghost), except the few on the allowed list. Admins are exempt. */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onCommand(PlayerCommandPreprocessEvent e) {
+        if (!blockCommands || !sealed()) return;
+        Player p = e.getPlayer();
+        if (p.hasPermission("soulbound.admin")) return;
+        boolean ghost = isGhost(p);
+        if (!ghost && !(living(p) && zones.inArena(p.getLocation()))) return;
+        String cmd = e.getMessage().substring(1).toLowerCase(Locale.ROOT).trim();
+        int colon = cmd.indexOf(':'), space = cmd.indexOf(' ');
+        if (colon >= 0 && (space < 0 || colon < space)) cmd = cmd.substring(colon + 1);   // soulbound:moloch -> moloch
+        for (String ok : allowedCommands) if (cmd.equals(ok) || cmd.startsWith(ok + " ")) return;
+        e.setCancelled(true);
+        p.sendMessage(Component.text("Moloch's seal smothers your words. No commands in the hall until the fight is over.", NamedTextColor.RED));
+        if (ghost) tellLeave(p);
     }
 
     /** Fighting from outside the seal doesn't work: step in or stay out. */
