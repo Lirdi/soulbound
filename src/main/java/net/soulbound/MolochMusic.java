@@ -86,6 +86,7 @@ final class MolochMusic {
         for (UUID id : listening) {
             Player p = Bukkit.getPlayer(id);
             if (p == null) continue;
+            if (tick % 20 == 0) p.stopSound("moloch:realm_music", SoundCategory.MUSIC);   // the realm's own music waits until the fight is over
             if (state.equals("end")) {                       // he's dying: the music collapses into one last blow
                 if (endPlayed.add(id)) {
                     silence(p); playing.remove(id); startedAt.remove(id);
