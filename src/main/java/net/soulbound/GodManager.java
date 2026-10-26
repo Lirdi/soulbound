@@ -1032,6 +1032,7 @@ final class GodManager implements Listener {
         String name = Bukkit.getOfflinePlayer(top).getName();
         if (name == null) name = "someone";
         plugin.halo().award(top, name);
+        plugin.godGear().reward(top, new java.util.HashSet<>(damageBy.keySet()));
         String n = name;
         Bukkit.getScheduler().runTaskLater(plugin, () -> Bukkit.broadcast(Component.text(n + " struck God the hardest, and takes his Halo.", NamedTextColor.GOLD, TextDecoration.BOLD)), 100L);
     }

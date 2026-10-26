@@ -26,6 +26,7 @@ public final class Soulbound extends JavaPlugin {
     private SummitDrums drums;
     private MolochMusic music;
     private StrongholdGate gate;
+    private GodGear godGear;
     private GodManager god;
     private HeavenBuilder heaven;
     private HaloItem halo;
@@ -64,6 +65,9 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(heaven, this);
         pm.registerEvents(halo, this);
         pm.registerEvents(gear, this);
+        godGear = new GodGear(this, store);
+        pm.registerEvents(godGear, this);
+        godGear.start();
         gate = new StrongholdGate(this, store);
         pm.registerEvents(gate, this);
         gate.start();
@@ -95,6 +99,7 @@ public final class Soulbound extends JavaPlugin {
         if (drums != null) drums.stop();
         if (music != null) music.stop();
         if (gate != null) gate.stop();
+        if (godGear != null) godGear.stop();
         if (god != null) god.stop();
         if (heaven != null) heaven.stop();
         if (halo != null) halo.stop();
@@ -111,6 +116,7 @@ public final class Soulbound extends JavaPlugin {
     MolochBoss boss() { return boss; }
     HaloItem halo() { return halo; }
     MolochGear gear() { return gear; }
+    GodGear godGear() { return godGear; }
     public ScreenCrack cracks() { return cracks; }
 
     // ---------------------------------------------------------------- commands
@@ -207,7 +213,8 @@ public final class Soulbound extends JavaPlugin {
             case "gear" -> {
                 if (!admin(sender)) return true;
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
-                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|set|helmet|chestplate|leggings|boots>", NamedTextColor.GRAY)); return true; }
+                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|set|helmet|chestplate|leggings|boots|vestments [piece]>", NamedTextColor.GRAY)); return true; }
+                if (args[2].equalsIgnoreCase("vestments")) { sender.sendMessage(Component.text(godGear.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
                 sender.sendMessage(Component.text(gear.adminGive(t, args[2]), NamedTextColor.GREEN));
                 return true;
             }

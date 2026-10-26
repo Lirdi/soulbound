@@ -279,6 +279,10 @@ god:
   # Build the Pearly Gates by the End's arrival platform and God's Throne around the exit portal (once per End world).
   # /moloch heaven rebuilds them.
   build-heaven: true
+  # The Vestments of the Ancient: God's armour. The top fighter always gets a piece, everyone else who fought has this chance.
+  vestments-drop-chance: 0.15
+  # Wear all four: you shrink to this size (and get Haste I).
+  vestments-set-scale: 0.9
   # The exit portal's bedrock podium becomes a white marble and gold font (End crystals still go on its four gold sockets).
   holy-font: true
   # How big he is (1 = player size, up to 16).
