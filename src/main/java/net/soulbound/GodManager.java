@@ -47,7 +47,9 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import org.bukkit.entity.BlockDisplay;
 import org.joml.AxisAngle4f;
+import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 import java.time.Duration;
@@ -157,6 +159,7 @@ final class GodManager implements Listener {
 
     void stop() {
         if (task != null) task.cancel();
+        stopDeathRays();
         endFight();
         for (UUID id : godOf.values()) { Entity g = Bukkit.getEntity(id); if (g != null) g.remove(); }
         godOf.clear();
@@ -175,7 +178,9 @@ final class GodManager implements Listener {
             Entity d = Bukkit.getEntity(e.getKey()), g = Bukkit.getEntity(e.getValue());
             if (!(d instanceof EnderDragon dragon) || !dragon.isValid()) {   // the dragon is gone: God fades into light
                 if (g != null) {
-                    fx(Particle.END_ROD, g.getLocation().add(0, height() * 0.5, 0), 200, scale * 0.5, 0.15);
+                    stopDeathRays();
+                    fx(Particle.END_ROD, g.getLocation().add(0, height() * 0.5, 0), 400, scale * 0.8, 0.35);
+                    g.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, g.getLocation().add(0, height() * 0.5, 0), 3, scale * 0.3, scale * 0.3, scale * 0.3, 0, null, true);
                     g.getWorld().playSound(g.getLocation(), "minecraft:block.beacon.deactivate", 5f, 0.6f);
                     g.remove();
                 }
@@ -201,6 +206,7 @@ final class GodManager implements Listener {
             for (Entity g : w.getEntities()) {
                 if (g.getScoreboardTags().contains(TAG) && !godOf.containsValue(g.getUniqueId())) g.remove();
                 if (g.getScoreboardTags().contains(TAG + "_seat") && (seat == null || !seat.equals(g))) g.remove();
+                if (g.getScoreboardTags().contains(TAG + "_ray") && rays.isEmpty()) g.remove();
             }
         }
     }
@@ -418,6 +424,7 @@ final class GodManager implements Listener {
                 if (seated()) rise(d, false);
                 store.set("god.defeated-once", true); store.save();
                 awardHalo();
+                startDeathRays();
                 say("Well... I suppose you've grown up.");
                 Bukkit.getScheduler().runTaskLater(plugin, () -> say("Don't tell Moloch."), 60L);
                 clearSinners();
@@ -1101,6 +1108,80 @@ final class GodManager implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         if (!sinners.contains(e.getPlayer().getUniqueId()) && e.getPlayer().isGlowing()) e.getPlayer().setGlowing(false);
+    }
+
+    // ---------------------------------------------------------------- his death: beams of light burst out of him
+
+    private final List<BlockDisplay> rays = new ArrayList<>();
+    private final List<Vector3f> rayDir = new ArrayList<>();
+    private BukkitTask rayTask;
+
+    /** The dragon's own death rays are hidden inside his giant body, so he gets his own: shafts of gold and white
+     *  light that grow out of his chest and slowly turn, a rumble of blasts at the end, then the flash. */
+    private void startDeathRays() {
+        stopDeathRays();
+        Entity g0 = godFigure();
+        if (g0 == null) return;
+        int count = 22;
+        for (int i = 0; i < count; i++) {
+            Vector3f dir = new Vector3f((float) rnd.nextGaussian(), (float) rnd.nextGaussian() * 0.8f + 0.15f, (float) rnd.nextGaussian()).normalize();
+            rayDir.add(dir);
+            Material m = i % 3 == 0 ? Material.YELLOW_STAINED_GLASS : i % 3 == 1 ? Material.WHITE_STAINED_GLASS : Material.ORANGE_STAINED_GLASS;
+            BlockDisplay b = g0.getWorld().spawn(rayCentre(g0), BlockDisplay.class, d -> {
+                d.setBlock(m.createBlockData());
+                d.setBrightness(new Display.Brightness(15, 15));
+                d.setViewRange(6f);
+                d.setPersistent(false);
+                d.addScoreboardTag(TAG + "_ray");
+                d.setTransformation(ray(dir, 0.05f, 0.1f));
+            });
+            rays.add(b);
+        }
+        final int[] t = {0};
+        rayTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+            t[0] += 2;
+            Entity g = godFigure();
+            if (g == null || t[0] > 240) { stopDeathRays(); return; }
+            Location c = rayCentre(g);
+            float grow = Math.min(1f, t[0] / 170f);
+            for (int i = 0; i < rays.size(); i++) {
+                BlockDisplay b = rays.get(i);
+                if (!b.isValid()) continue;
+                Vector3f dir = rayDir.get(i);
+                // each shaft swings slowly round, and flickers in length
+                new Quaternionf().rotateY(0.012f * (i % 2 == 0 ? 1 : -1)).rotateX(0.006f).transform(dir).normalize();
+                float len = (float) ((4 + 3.2 * scale) * grow * (0.75 + 0.25 * Math.sin(t[0] * 0.21 + i)));
+                float w = (float) (0.25 + 0.06 * scale) * (0.6f + 0.4f * grow);
+                b.setTeleportDuration(2);
+                b.teleport(c);
+                b.setInterpolationDelay(0);
+                b.setInterpolationDuration(2);
+                b.setTransformation(ray(dir, w, Math.max(0.1f, len)));
+            }
+            if (t[0] % 10 == 0) g.getWorld().playSound(c, "minecraft:block.beacon.ambient", 6f, 0.5f + grow);
+            if (t[0] >= 150 && t[0] % 6 == 0) {   // the last few seconds: he comes apart in blasts of light
+                Location at = c.clone().add(rnd.nextGaussian() * scale * 0.5, rnd.nextGaussian() * scale * 0.6, rnd.nextGaussian() * scale * 0.5);
+                at.getWorld().spawnParticle(Particle.EXPLOSION_EMITTER, at, 1, 0, 0, 0, 0, null, true);
+                at.getWorld().spawnParticle(Particle.END_ROD, at, 40, scale * 0.3, scale * 0.3, scale * 0.3, 0.2, null, true);
+                at.getWorld().playSound(at, "minecraft:entity.generic.explode", 4f, 0.6f + rnd.nextFloat() * 0.3f);
+            }
+        }, 2L, 2L);
+    }
+
+    private Location rayCentre(Entity g) { return g.getLocation().add(0, height() * 0.6, 0); }
+
+    /** A shaft of light from the centre out along dir: a long thin glass block, rotated so its length points along dir. */
+    private static Transformation ray(Vector3f dir, float w, float len) {
+        Quaternionf q = new Quaternionf().rotationTo(new Vector3f(0, 0, 1), dir);
+        Vector3f off = new Vector3f(-w / 2, -w / 2, 0);
+        q.transform(off);
+        return new Transformation(off, q, new Vector3f(w, w, len), new Quaternionf());
+    }
+
+    private void stopDeathRays() {
+        if (rayTask != null) { rayTask.cancel(); rayTask = null; }
+        for (BlockDisplay b : rays) if (b.isValid()) b.remove();
+        rays.clear(); rayDir.clear();
     }
 
     private static void fx(Particle p, Location at, int n, double spread, double speed) {
