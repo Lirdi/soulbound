@@ -173,6 +173,14 @@ boss:
   # The bull charge: he marks his line on the floor, then charges down it. If he hits a pillar or wall he topples, stunned.
   charge-damage: 12
   stun-seconds: 5
+  # A crash only knocks him down this often (0-1), and never again within the cooldown. Otherwise he shakes it off.
+  stun-chance: 0.35
+  stun-cooldown-seconds: 45
+  # Demons: while he's alive, burning phantoms swoop down from above the hall every so often.
+  demons: true
+  demon-every-seconds: 20
+  # How many can be alive at once (plus one for every two fighters, never more than 12).
+  demon-max: 6
   stun-damage-multiplier: 2.0
   # The leap (from 75%): a red ring marks where he'll land, then he slams down.
   slam-damage: 12

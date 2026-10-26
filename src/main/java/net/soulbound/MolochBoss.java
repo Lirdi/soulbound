@@ -105,7 +105,11 @@ final class MolochBoss implements Listener {
     private final Map<UUID, Double> damage = new HashMap<>();
     private final Set<UUID> minions = new HashSet<>(), champions = new HashSet<>();
     private double savedHp, hpScale = 1, baseSpeed = 0.3;
-    private long endsAt, bloodMoonUntil, startedAt;
+    private long endsAt, bloodMoonUntil, startedAt, lastStun;
+    private double stunChance, demonEvery;
+    private int stunCooldown, demonMax, demonHalves;
+    private boolean demonsOn, demonsCalled;
+    static final String DEMON = "moloch_demon";
     private int phase, half, respawns, crowd = 1;
     private boolean championsCalled, shieldUp, screamed, collapsed, collapsing, frenzy, emerging;
     private static final int EMERGE_TICKS = 134;
@@ -176,6 +180,11 @@ final class MolochBoss implements Listener {
         grabBreak = c.getDouble("boss.grab-break-damage-per-fighter", 30);
         grabSeconds = Math.max(1, c.getInt("boss.grab-hold-seconds", 3));
         stunSeconds = Math.max(1, c.getInt("boss.stun-seconds", 5));
+        stunChance = Math.max(0, Math.min(1, c.getDouble("boss.stun-chance", 0.35)));
+        stunCooldown = Math.max(0, c.getInt("boss.stun-cooldown-seconds", 45));
+        demonsOn = c.getBoolean("boss.demons", true);
+        demonEvery = Math.max(5, c.getDouble("boss.demon-every-seconds", 20));
+        demonMax = Math.max(1, c.getInt("boss.demon-max", 6));
         stunMultiplier = c.getDouble("boss.stun-damage-multiplier", 2.0);
         slamDamage = c.getDouble("boss.slam-damage", 12);
         slamRadius = c.getDouble("boss.slam-radius", 6);
@@ -282,6 +291,7 @@ final class MolochBoss implements Listener {
         w.getChunkAt(c).addPluginChunkTicket(plugin);
         damage.clear(); minions.clear(); champions.clear(); farTicks.clear(); lastSwing.clear();
         half = 0; respawns = 0; phase = 1; crowd = 1;
+        lastStun = 0; demonHalves = 0; demonsCalled = false;
         championsCalled = shieldUp = screamed = collapsed = collapsing = frenzy = dying = emerging = false;
         move = lastMove = Move.NONE;
         wardLeft = 0; wardCooldown = 0; wardNext = wardEvery * 20; projDmg = allDmg = 0;
@@ -472,7 +482,7 @@ final class MolochBoss implements Listener {
                     sayNear(c, wave + 1 < waves.size() ? "Wave cleared. More are coming..." : "The last of his servants falls. The ground shakes...", NamedTextColor.GOLD);
                 }
             }
-            case BOSS -> tickMoloch(c, left);
+            case BOSS -> { tickMoloch(c, left); tickDemons(c); }
         }
     }
 
@@ -825,7 +835,7 @@ final class MolochBoss implements Listener {
             double moved = Math.hypot(at.getX() - lastPos.getX(), at.getZ() - lastPos.getZ());
             Location c = zones.arenaCentre();
             boolean atWall = Math.max(Math.abs(at.getX() - c.getX()), Math.abs(at.getZ() - c.getZ())) > 29;
-            if (moved < 0.25 || atWall) { startStun(); return; }
+            if (moved < 0.25 || atWall) { crash(); return; }
         }
         lastPos = at.clone();
         boss.setVelocity(moveDir.clone().multiply(0.85).setY(Math.min(0, boss.getVelocity().getY())));
@@ -849,6 +859,19 @@ final class MolochBoss implements Listener {
             p.getWorld().playSound(pl, "minecraft:entity.player.attack.knockback", 2f, 0.6f);
         }
         if (moveTick >= 30 + 45) { boss.setVelocity(new Vector(0, 0, 0)); endMove(); }
+    }
+
+    /** The charge ends against a wall or pillar. Now and then it knocks him flat; mostly he shakes it off and turns. */
+    private void crash() {
+        long now = System.currentTimeMillis();
+        boolean stun = now - lastStun >= stunCooldown * 1000L && rnd.nextDouble() < stunChance;
+        if (stun) { lastStun = now; startStun(); return; }
+        Location at = boss.getLocation();
+        boss.setVelocity(new Vector(0, 0, 0));
+        at.getWorld().playSound(at, "minecraft:block.anvil.land", 2.5f, 0.6f);
+        at.getWorld().playSound(at, "minecraft:entity.warden.angry", 3f, 0.6f);
+        fx(Particle.BLOCK, at.clone().add(moveDir.clone().multiply(2)).add(0, 2, 0), 80, 1.5, 0.2, Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
+        endMove();
     }
 
     // ---- stunned: he crashes over onto his side, dazed. Everyone's hits do double damage.
@@ -1281,6 +1304,42 @@ final class MolochBoss implements Listener {
     // ---------------------------------------------------------------- helpers for the fight
 
     /** Servants that wander out of the hall are sent back to a doorway. */
+    // ---- Demons: for as long as he lives, he calls them down out of the dark above the hall (burning phantoms)
+
+    private void tickDemons(Location c) {
+        if (!demonsOn || !active || dying || emerging || collapsing || boss == null || !boss.isValid()) return;
+        if (++demonHalves < demonEvery * 2) return;
+        demonHalves = 0;
+        int fighters = fighters().size();
+        if (fighters == 0) return;
+        int alive = 0;
+        for (UUID id : minions) { Entity e = Bukkit.getEntity(id); if (e != null && e.isValid() && e.getScoreboardTags().contains(DEMON)) alive++; }
+        int cap = Math.min(demonMax + fighters / 2, 12), n = Math.min(cap - alive, 1 + fighters / 3);
+        if (n <= 0) return;
+        if (!demonsCalled) {
+            demonsCalled = true;
+            for (Player p : fighters()) p.sendActionBar(Component.text("Moloch calls his Demons down from the dark!", NamedTextColor.RED, TextDecoration.BOLD));
+        }
+        for (int i = 0; i < n; i++) {
+            double a = rnd.nextDouble() * Math.PI * 2, r = 6 + rnd.nextDouble() * 12;
+            Location at = c.clone().add(Math.cos(a) * r, 36 + rnd.nextDouble() * 4, Math.sin(a) * r);
+            fx(Particle.FLAME, at, 40, 0.8, 0.05, null);
+            fx(Particle.LARGE_SMOKE, at, 20, 0.8, 0.02, null);
+            at.getWorld().playSound(at, "minecraft:entity.phantom.swoop", 3f, 0.6f);
+            at.getWorld().playSound(at, "minecraft:entity.blaze.shoot", 2f, 0.5f);
+            org.bukkit.entity.Phantom ph = at.getWorld().spawn(at, org.bukkit.entity.Phantom.class, d -> {
+                d.setSize(1);
+                d.customName(Component.text("Demon", NamedTextColor.DARK_RED));
+                d.setVisualFire(true);
+                d.setShouldBurnInDay(false);
+                d.addScoreboardTag(DEMON);
+            });
+            tagMinion(ph);
+            Player t = fighters().isEmpty() ? null : fighters().get(rnd.nextInt(fighters().size()));
+            if (t != null) ph.setTarget(t);
+        }
+    }
+
     private void keepMinionsIn(Location c) {
         if (half % 4 != 0) return;
         for (UUID id : new ArrayList<>(minions)) {
