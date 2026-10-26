@@ -94,6 +94,19 @@ final class GodManager implements Listener {
             "In my own image. And look how THAT turned out. Fine. FINE.",
             "And on the seventh day... I rested. Yawn."};
 
+    /** His last words when he falls: he was going easy on you, obviously. */
+    private static final String[][] LAST_WORDS = {
+            {"I was going easy on you, you know.", "Next time I won't."},
+            {"Alright. I let you have that one.", "Don't get used to it."},
+            {"I could've ended you on the first day, you know.", "I just wanted to see you try."},
+            {"I wasn't even trying.", "Honestly. Not even a little."},
+            {"I was holding back. For your sake.", "You're welcome."},
+            {"That was a warm-up, you know.", "Enjoy it while it lasts."},
+            {"I went easy on you because you're new.", "Next time I bring the flood."},
+            {"Fine. I let you win.", "Somebody had to."},
+            {"I didn't want to embarrass you in front of your friends.", "So I let you have it."},
+            {"I was only using one hand.", "And I'm left-handed."}};
+
     private final Soulbound plugin;
     private final Store store;
     private final Random rnd = new Random();
@@ -444,8 +457,9 @@ final class GodManager implements Listener {
                 store.set("god.defeated-once", true); store.save();
                 awardHalo();
                 startDeathRays();
-                say("Well... I suppose you've grown up.");
-                Bukkit.getScheduler().runTaskLater(plugin, () -> say("Don't tell Moloch."), 60L);
+                String[] last = LAST_WORDS[rnd.nextInt(LAST_WORDS.length)];   // he only LET you win, of course
+                say(last[0]);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> say(last[1]), 60L);
                 clearSinners();
                 clearAngels();
             }
