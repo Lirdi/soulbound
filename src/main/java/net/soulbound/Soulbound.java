@@ -29,6 +29,7 @@ public final class Soulbound extends JavaPlugin {
     private ArenaSeal seal;
     private Parasite parasite;
     private BloodMoonBeasts beasts;
+    private Tartare tartare;
     private GodGear godGear;
     private QuantumGear quantum;
     private GodManager god;
@@ -100,6 +101,9 @@ public final class Soulbound extends JavaPlugin {
         beasts = new BloodMoonBeasts(this);
         pm.registerEvents(beasts, this);
         beasts.start();
+        tartare = new Tartare(this);
+        pm.registerEvents(tartare, this);
+        tartare.registerRecipe();
         pm.registerEvents(new Archangels(this), this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
@@ -251,7 +255,8 @@ public final class Soulbound extends JavaPlugin {
             case "gear" -> {
                 if (!admin(sender)) return true;
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
-                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|parasite|cortex|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece]>", NamedTextColor.GRAY)); return true; }
+                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|parasite|cortex|tartare|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece]>", NamedTextColor.GRAY)); return true; }
+                if (args[2].equalsIgnoreCase("tartare")) { sender.sendMessage(Component.text(tartare.adminGive(t, 16), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("cortex")) { sender.sendMessage(Component.text(parasite.adminGiveCrown(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("parasite")) { sender.sendMessage(Component.text(parasite.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("quantum")) { sender.sendMessage(Component.text(quantum.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }

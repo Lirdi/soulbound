@@ -362,3 +362,8 @@ parasite:
   lets-go-when-starving: true
   # The Cortex Leech (/moloch gear <player> cortex), worn on the head: Night Vision while worn.
   cortex-night-vision: true
+
+# Beef Tartare: raw beef + an egg in a crafting grid. Steak is 8 hunger and 12.8 saturation.
+tartare:
+  hunger: 8
+  saturation: 16.0
