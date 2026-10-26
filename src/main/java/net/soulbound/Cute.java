@@ -44,7 +44,8 @@ final class Cute implements Listener {
     enum Kind {
         CAT("Cat Ears", "cat_ears", "cat_ears_twitch", "Creepers leave you alone, like they do cats."),
         BUNNY("Bunny Ears", "bunny_ears", "bunny_ears_hop", "Jump Boost I. Hop hop."),
-        CROWN("Flower Crown", "flower_crown", null, "Bees will never sting you.");
+        CROWN("Flower Crown", "flower_crown", null, "Bees will never sting you."),
+        GUT("Bubble Gut", "bubble_gut", null, "Hard to push over. Harder to see your feet.");
         final String title, model, alt, perk;
         Kind(String title, String model, String alt, String perk) { this.title = title; this.model = model; this.alt = alt; this.perk = perk; }
     }
@@ -62,12 +63,17 @@ final class Cute implements Listener {
         ItemStack it = new ItemStack(Material.ECHO_SHARD);
         ItemMeta m = it.getItemMeta();
         m.displayName(Component.text(k.title, PINK, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
-        m.lore(List.of(Component.text("Worn on the head", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
+        m.lore(List.of(Component.text(k == Kind.GUT ? "Worn on the chest" : "Worn on the head", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
                 Component.text(k.perk, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
         m.setItemModel(new NamespacedKey("soulbound", k.model));
         m.setMaxStackSize(1);
         EquippableComponent eq = m.getEquippable();
-        eq.setSlot(EquipmentSlot.HEAD);
+        eq.setSlot(k == Kind.GUT ? EquipmentSlot.CHEST : EquipmentSlot.HEAD);
+        if (k == Kind.GUT) {
+            eq.setModel(new NamespacedKey("soulbound", "bubble_gut"));
+            m.addAttributeModifier(org.bukkit.attribute.Attribute.KNOCKBACK_RESISTANCE, new org.bukkit.attribute.AttributeModifier(
+                    new NamespacedKey(plugin, "bubble_gut_kb"), 0.5, org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER, org.bukkit.inventory.EquipmentSlotGroup.CHEST));
+        }
         eq.setEquipSound(Sound.INTENTIONALLY_EMPTY);
         eq.setSwappable(true);
         eq.setDispensable(true);
@@ -88,6 +94,7 @@ final class Cute implements Listener {
         add(Kind.CAT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.PINK_DYE, Material.STRING);
         add(Kind.BUNNY, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.PINK_DYE, Material.RABBIT_HIDE);
         add(Kind.CROWN, Material.PINK_TULIP, Material.OXEYE_DAISY, Material.ALLIUM, Material.VINE);
+        add(Kind.GUT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.CAKE);
     }
 
     private void add(Kind k, Material... in) {
@@ -104,6 +111,7 @@ final class Cute implements Listener {
             case "catears", "cat" -> Kind.CAT;
             case "bunnyears", "bunny" -> Kind.BUNNY;
             case "flowercrown", "crown" -> Kind.CROWN;
+            case "bubblegut", "gut" -> Kind.GUT;
             default -> null;
         };
         if (k == null) {
@@ -123,6 +131,7 @@ final class Cute implements Listener {
         for (Player p : Bukkit.getOnlinePlayers()) {
             ItemStack h = p.getInventory().getHelmet();
             Kind k = kindOf(h);
+            if (k == Kind.GUT) k = null;
             if (k == null) { altUntil.remove(p.getUniqueId()); continue; }
             UUID id = p.getUniqueId();
             boolean alt = altUntil.getOrDefault(id, 0) > tick;
