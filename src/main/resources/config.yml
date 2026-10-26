@@ -196,7 +196,7 @@ boss:
   champion-shield: 0.4
   # 50%: he screams, giving everyone in the arena Nausea and Weakness (0 turns Weakness off). Fire starts to rain.
   scream-at: 0.5
-  scream-nausea-seconds: 6
+  scream-nausea-seconds: 11
   scream-weakness-seconds: 6
   # 25%: he crashes to the floor for a while: he can't be hurt, heals this share of his health, and drains everyone's hunger to zero.
   collapse-at: 0.25
@@ -224,8 +224,13 @@ boss:
   # than netherite); everyone else who fought has this chance at a piece. Wear all four and you grow this much bigger.
   regalia-drop-chance: 0.15
   regalia-set-scale: 1.5
-  # If he survives the fight: a blood moon over his realm (stronger mobs) for this long.
+  # If he survives the fight: a blood moon over his realm AND the main world for this long. Monsters that spawn
+  # under it get Strength I and Speed I, and wear full gold armour trimmed in red (it never drops).
   blood-moon-hours: 24
+  blood-moon-overworld: true
+  blood-moon-gold-armour: true
+  # Other worlds (by folder name) the blood moon covers too, e.g. [world_nether]
+  blood-moon-worlds: []
   # No other wardens: ancient-city shriekers summon nothing. /summon still works for testing.
   block-other-wardens: true
 

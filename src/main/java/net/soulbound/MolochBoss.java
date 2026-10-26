@@ -146,6 +146,8 @@ final class MolochBoss implements Listener {
     private double championShield, champBase, champPerFighter, champHealth, frenzySpeed, screamAt, collapseAt, collapseHeal, moveGap;
     private int fightMinutes, breakSeconds, bloodMoonHours, deathXp, stunSeconds, wardSeconds, wardEvery, champMax;
     private int screamNausea, screamWeakness, collapseSeconds;
+    private boolean bloodMoonOverworld, bloodMoonGold;
+    private Set<String> bloodMoonWorlds = new HashSet<>();
     private boolean blockWardens, noDarkness, wavesOn, templeNoSpawns;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
@@ -193,12 +195,15 @@ final class MolochBoss implements Listener {
         participantCommands = c.getStringList("boss.reward-commands");
         topCommands = c.getStringList("boss.top-damage-commands");
         bloodMoonHours = c.getInt("boss.blood-moon-hours", 24);
+        bloodMoonOverworld = c.getBoolean("boss.blood-moon-overworld", true);
+        bloodMoonGold = c.getBoolean("boss.blood-moon-gold-armour", true);
+        bloodMoonWorlds = new HashSet<>(c.getStringList("boss.blood-moon-worlds"));
         blockWardens = c.getBoolean("boss.block-other-wardens", true);
         templeNoSpawns = c.getBoolean("moloch.temple-no-natural-spawns", true);
         noDarkness = c.getBoolean("boss.no-darkness", true);
         deathXp = Math.max(0, c.getInt("boss.death-xp", 1500));
         screamAt = c.getDouble("boss.scream-at", 0.5);
-        screamNausea = Math.max(1, c.getInt("boss.scream-nausea-seconds", 6));
+        screamNausea = Math.max(1, c.getInt("boss.scream-nausea-seconds", 11));
         screamWeakness = Math.max(0, c.getInt("boss.scream-weakness-seconds", 6));
         collapseAt = c.getDouble("boss.collapse-at", 0.25);
         collapseSeconds = Math.max(2, c.getInt("boss.collapse-seconds", 8));
@@ -1513,7 +1518,7 @@ final class MolochBoss implements Listener {
         store.set("blood-moon-until", bloodMoonUntil);
         store.save();
         Bukkit.broadcast(Component.text("Moloch has fed, and sinks back into the dark.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text("A blood moon hangs over his realm for " + bloodMoonHours + " hours. Its creatures are stronger.", NamedTextColor.RED));
+        Bukkit.broadcast(Component.text("A blood moon rises over the world and his realm for " + bloodMoonHours + " hours. Monsters come stronger, dressed in gold.", NamedTextColor.RED));
         if (c != null) playNear(c, "moloch:awaken", 1f, 0.8f);
     }
 
@@ -1547,6 +1552,38 @@ final class MolochBoss implements Listener {
 
     boolean bloodMoon() { return bloodMoonUntil > System.currentTimeMillis(); }
 
+    /** Admin: start a blood moon for this many hours, or end it with 0. */
+    void setBloodMoon(double hours) {
+        bloodMoonUntil = hours <= 0 ? 0 : System.currentTimeMillis() + (long) (hours * 3600_000L);
+        store.set("blood-moon-until", bloodMoonUntil);
+        store.save();
+        if (hours > 0) Bukkit.broadcast(Component.text("A blood moon rises. Monsters come stronger, dressed in gold.", NamedTextColor.RED));
+        else Bukkit.broadcast(Component.text("The blood moon sets.", NamedTextColor.GRAY));
+    }
+
+    /** The blood moon hangs over his realm and the main world (plus any worlds listed in boss.blood-moon-worlds). */
+    private boolean bloodMoonWorld(World w) {
+        if (w == null) return false;
+        if (w.equals(zones.world())) return true;
+        if (!Bukkit.getWorlds().isEmpty() && w.equals(Bukkit.getWorlds().get(0))) return bloodMoonOverworld;
+        return bloodMoonWorlds.contains(w.getName());
+    }
+
+    /** Under the blood moon every monster comes dressed in gold, trimmed in red. None of it drops. */
+    private static void gild(Monster m) {
+        EntityEquipment eq = m.getEquipment();
+        if (eq == null) return;
+        org.bukkit.inventory.meta.trim.ArmorTrim trim = new org.bukkit.inventory.meta.trim.ArmorTrim(
+                org.bukkit.inventory.meta.trim.TrimMaterial.REDSTONE, org.bukkit.inventory.meta.trim.TrimPattern.RIB);
+        ItemStack[] set = {new ItemStack(Material.GOLDEN_HELMET), new ItemStack(Material.GOLDEN_CHESTPLATE),
+                new ItemStack(Material.GOLDEN_LEGGINGS), new ItemStack(Material.GOLDEN_BOOTS)};
+        for (ItemStack it : set) {
+            if (it.getItemMeta() instanceof org.bukkit.inventory.meta.ArmorMeta am) { am.setTrim(trim); it.setItemMeta(am); }
+        }
+        eq.setHelmet(set[0]); eq.setChestplate(set[1]); eq.setLeggings(set[2]); eq.setBoots(set[3]);
+        eq.setHelmetDropChance(0f); eq.setChestplateDropChance(0f); eq.setLeggingsDropChance(0f); eq.setBootsDropChance(0f);
+    }
+
     private void tickBloodMoon() {
         if (!bloodMoon()) {
             if (moonBar != null) { hideAll(moonBar, moonViewers); moonBar = null; }
@@ -1558,7 +1595,7 @@ final class MolochBoss implements Listener {
         moonBar.progress(Math.max(0f, Math.min(1f, left / (bloodMoonHours * 3600f))));
         World w = zones.world();
         for (Player p : Bukkit.getOnlinePlayers()) {
-            boolean in = w != null && p.getWorld().equals(w);
+            boolean in = bloodMoonWorld(p.getWorld());
             if (in && moonViewers.add(p.getUniqueId())) p.showBossBar(moonBar);
             if (!in && moonViewers.remove(p.getUniqueId())) p.hideBossBar(moonBar);
         }
@@ -1706,9 +1743,10 @@ final class MolochBoss implements Listener {
         // nothing spawns on its own in or on the pyramid (its plaza and moat too): only Moloch, his summons, and what players spawn
         if (templeNoSpawns && NATURAL_REASONS.contains(e.getSpawnReason().name()) && zones.inTemple(e.getLocation())) { e.setCancelled(true); return; }
         if (active && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SLIME_SPLIT && zones.inArena(e.getLocation())) tagMinion(e.getEntity());
-        if (bloodMoon() && e.getEntity() instanceof Monster m && zones.inRealm(m.getLocation())) {
+        if (bloodMoon() && e.getEntity() instanceof Monster m && bloodMoonWorld(m.getWorld())) {
             m.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, PotionEffect.INFINITE_DURATION, 0, true, false));
             m.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, PotionEffect.INFINITE_DURATION, 0, true, false));
+            if (bloodMoonGold && e.getSpawnReason() != CreatureSpawnEvent.SpawnReason.CUSTOM) gild(m);
         }
     }
 

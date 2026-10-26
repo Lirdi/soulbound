@@ -39,6 +39,12 @@ public final class Soulbound extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        // one-off: his scream's nausea went from 6 to 11 seconds; bump configs still on the old default
+        if (!getConfig().getBoolean("migrated.scream-nausea-11", false)) {
+            if (getConfig().getInt("boss.scream-nausea-seconds", 6) == 6) getConfig().set("boss.scream-nausea-seconds", 11);
+            getConfig().set("migrated.scream-nausea-11", true);
+            saveConfig();
+        }
         store = new Store(this);
         zones = new Zones(this);
         leash = new LeashItem(this);
@@ -242,6 +248,14 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text(gear.adminGive(t, args[2]), NamedTextColor.GREEN));
                 return true;
             }
+            case "bloodmoon" -> {
+                if (!admin(sender)) return true;
+                double h = getConfig().getInt("boss.blood-moon-hours", 24);
+                if (args.length > 1) { if (args[1].equalsIgnoreCase("off")) h = 0; else try { h = Double.parseDouble(args[1]); } catch (NumberFormatException ignored) {} }
+                boss.setBloodMoon(h);
+                sender.sendMessage(Component.text(h > 0 ? "Blood moon for " + h + " hours." : "Blood moon ended.", NamedTextColor.GREEN));
+                return true;
+            }
             case "halo" -> {
                 if (!admin(sender)) return true;
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : (sender instanceof Player p ? p : null);
@@ -316,7 +330,7 @@ public final class Soulbound extends JavaPlugin {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "halo", "gear", "leave", "reload") : List.of("leave");
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");
