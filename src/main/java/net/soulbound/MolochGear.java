@@ -137,6 +137,23 @@ final class MolochGear implements Listener {
         return it;
     }
 
+    /** The Horned Gjermundbu: a Norse iron helm with a spectacle guard, a mail curtain and great horns (cosmetic). */
+    ItemStack viking(String earnedBy) {
+        ItemStack it = new ItemStack(Material.GOLD_NUGGET);
+        ItemMeta m = it.getItemMeta();
+        m.displayName(Component.text("Horned Gjermundbu", NamedTextColor.GRAY, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.lore(List.of(
+                Component.text("Iron, horn and a long way from home.", NamedTextColor.DARK_AQUA).decoration(TextDecoration.ITALIC, true),
+                Component.text(earnedBy == null ? "Wear it on your head." : "Earned by " + earnedBy + ".", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
+        m.setItemModel(new NamespacedKey("soulbound", "viking_helm"));
+        m.setMaxStackSize(1);
+        EquippableComponent eq = m.getEquippable();
+        eq.setSlot(EquipmentSlot.HEAD);
+        m.setEquippable(eq);
+        it.setItemMeta(m);
+        return it;
+    }
+
     private Piece pieceOf(ItemStack it) {
         if (it == null || !it.hasItemMeta()) return null;
         String s = it.getItemMeta().getPersistentDataContainer().get(pieceKey, PersistentDataType.STRING);
@@ -192,10 +209,11 @@ final class MolochGear implements Listener {
         switch (what.toLowerCase(Locale.ROOT)) {
             case "horns" -> to.getInventory().addItem(horns(null));
             case "skull" -> to.getInventory().addItem(skull(null));
+            case "viking" -> to.getInventory().addItem(viking(null));
             case "set", "all" -> { for (Piece p : Piece.values()) to.getInventory().addItem(piece(p)); }
             default -> {
                 try { to.getInventory().addItem(piece(Piece.valueOf(what.toUpperCase(Locale.ROOT)))); }
-                catch (IllegalArgumentException e) { return "Give what? horns, skull, set, helmet, chestplate, leggings or boots."; }
+                catch (IllegalArgumentException e) { return "Give what? horns, skull, viking, set, helmet, chestplate, leggings or boots."; }
             }
         }
         return "Given.";
