@@ -25,6 +25,7 @@ public final class Soulbound extends JavaPlugin {
     private PortalManager portals;
     private SummitDrums drums;
     private MolochMusic music;
+    private StrongholdGate gate;
     private GodManager god;
     private HeavenBuilder heaven;
     private HaloItem halo;
@@ -63,6 +64,9 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(heaven, this);
         pm.registerEvents(halo, this);
         pm.registerEvents(gear, this);
+        gate = new StrongholdGate(this, store);
+        pm.registerEvents(gate, this);
+        gate.start();
         pm.registerEvents(new Archangels(this), this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
@@ -90,6 +94,7 @@ public final class Soulbound extends JavaPlugin {
         if (sacrifices != null) sacrifices.stop();
         if (drums != null) drums.stop();
         if (music != null) music.stop();
+        if (gate != null) gate.stop();
         if (god != null) god.stop();
         if (heaven != null) heaven.stop();
         if (halo != null) halo.stop();

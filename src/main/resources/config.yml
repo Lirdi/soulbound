@@ -255,6 +255,11 @@ screen-crack:
   min-damage: 6
   stack-seconds: 6
   hold-seconds: 2.5
+# The Gate of Heaven: every stronghold's End portal room is rebuilt in marble and gold the first time it loads, with God's
+# face carved into the far wall, holy-water fonts and an angel spawner in place of the silverfish. Frames and portal untouched.
+stronghold:
+  gate-of-heaven: true
+  angel-spawner: true
 # Shulkers in the End are Archangels: one hit from their bolt kills (creative and spectator are safe).
 archangels:
   instant-kill: true
