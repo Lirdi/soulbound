@@ -98,7 +98,7 @@ final class QuantumGear implements Listener {
         m.setItemModel(new NamespacedKey("soulbound", id));
         EquippableComponent eq = m.getEquippable();
         eq.setSlot(p.slot);
-        eq.setModel(new NamespacedKey("soulbound", "quantum"));
+        eq.setModel(p == Piece.HELMET ? null : new NamespacedKey("soulbound", "quantum"));   // the helm is its own 3D model: horns, a glass visor
         m.setEquippable(eq);
         m.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(new NamespacedKey(plugin, id + "_armor"), p.armor, AttributeModifier.Operation.ADD_NUMBER, p.group));
         m.addAttributeModifier(Attribute.ARMOR_TOUGHNESS, new AttributeModifier(new NamespacedKey(plugin, id + "_toughness"), 4, AttributeModifier.Operation.ADD_NUMBER, p.group));
@@ -184,7 +184,7 @@ final class QuantumGear implements Listener {
         for (Player p : Bukkit.getOnlinePlayers()) {
             var inv = p.getInventory();
             ItemStack h = inv.getHelmet(), c = inv.getChestplate(), b = inv.getBoots();
-            if (pieceOf(h) == Piece.HELMET) { ItemStack n = withModel(h, want); if (n != null) inv.setHelmet(n); }
+            if (pieceOf(h) == Piece.HELMET) { ItemStack n = withModel(h, null); if (n != null) inv.setHelmet(n); }
             if (pieceOf(c) == Piece.CHESTPLATE) { ItemStack n = withModel(c, want); if (n != null) inv.setChestplate(n); }
             if (pieceOf(b) == Piece.BOOTS) { ItemStack n = withModel(b, want); if (n != null) inv.setBoots(n); }
         }
@@ -193,7 +193,7 @@ final class QuantumGear implements Listener {
     private static ItemStack withModel(ItemStack it, NamespacedKey model) {
         ItemMeta m = it.getItemMeta();
         EquippableComponent eq = m.getEquippable();
-        if (model.equals(eq.getModel())) return null;
+        if (java.util.Objects.equals(model, eq.getModel())) return null;
         eq.setModel(model);
         eq.setEquipSound(org.bukkit.Sound.INTENTIONALLY_EMPTY);   // swapped every few ticks: no clank each time
         m.setEquippable(eq);
