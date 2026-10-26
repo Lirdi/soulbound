@@ -132,6 +132,11 @@ portals:
     z: -120
 
 boss:
+  # Battle music: war drums and a chanting choir that follow the fight, for everyone within music-radius blocks of
+  # the arena. It plays on the Jukebox/Note Blocks volume slider and silences normal Minecraft music while it's on.
+  music: true
+  music-volume: 1.0
+  music-radius: 96
   # Moloch is a warden this many times normal size.
   scale: 3.0
   # How long players have to bring him down.

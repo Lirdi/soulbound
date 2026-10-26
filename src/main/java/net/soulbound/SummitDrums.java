@@ -51,6 +51,7 @@ final class SummitDrums {
         if (!enabled) return;
         Location pit = zones.pitCentre();
         if (pit == null) return;
+        if (plugin.boss() != null && plugin.boss().active()) return;   // the battle music takes over from the drums
         double hunger = plugin.hunger().value() / 100.0;
         float volume = (float) (0.7 + 0.8 * hunger);
         float pitch = (float) (0.9 + 0.2 * hunger);

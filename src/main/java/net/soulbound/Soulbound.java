@@ -24,6 +24,7 @@ public final class Soulbound extends JavaPlugin {
     private SacrificeManager sacrifices;
     private PortalManager portals;
     private SummitDrums drums;
+    private MolochMusic music;
     private GodManager god;
     private HeavenBuilder heaven;
     private HaloItem halo;
@@ -44,6 +45,7 @@ public final class Soulbound extends JavaPlugin {
         sacrifices = new SacrificeManager(this, store, captures, curses, hunger, zones);
         portals = new PortalManager(this, store, zones, captures);
         drums = new SummitDrums(this, zones);
+        music = new MolochMusic(this);
         halo = new HaloItem(this, store);
         gear = new MolochGear(this, store);
         cracks = new ScreenCrack(this);
@@ -74,6 +76,7 @@ public final class Soulbound extends JavaPlugin {
         sacrifices.start();
         portals.start();
         drums.start();
+        music.start();
         god.start();
         heaven.start();
         halo.start();
@@ -86,6 +89,7 @@ public final class Soulbound extends JavaPlugin {
     public void onDisable() {
         if (sacrifices != null) sacrifices.stop();
         if (drums != null) drums.stop();
+        if (music != null) music.stop();
         if (god != null) god.stop();
         if (heaven != null) heaven.stop();
         if (halo != null) halo.stop();

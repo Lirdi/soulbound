@@ -231,6 +231,19 @@ final class MolochBoss implements Listener {
     boolean active() { return active; }
     Warden boss() { return boss; }
 
+    /** Which part of the battle music fits this moment, or null when there's no fight. */
+    String musicState() {
+        if (!active) return null;
+        if (dying) return "end";
+        if (stage != Stage.BOSS || emerging) return "rise";
+        if (collapsing) return "collapse";
+        if (frenzy) return "frenzy";
+        if (screamed) return "scream";
+        if (championsCalled) return "champions";
+        return "march";
+    }
+    Location musicCentre() { return zones.arenaCentre(); }
+
     // ---------------------------------------------------------------- the awakening
 
     /** Why the fight can't start right now, or null if it can. */
