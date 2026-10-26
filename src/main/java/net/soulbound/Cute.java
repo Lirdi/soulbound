@@ -45,10 +45,19 @@ final class Cute implements Listener {
         CAT("Cat Ears", "cat_ears", "cat_ears_twitch", "Creepers leave you alone, like they do cats."),
         BUNNY("Bunny Ears", "bunny_ears", "bunny_ears_hop", "Jump Boost I. Hop hop."),
         CROWN("Flower Crown", "flower_crown", null, "Bees will never sting you."),
-        GUT("Bubble Gut", "bubble_gut", null, "Hard to push over. Harder to see your feet."),
-        BRAIN("Big Brain", "big_brain_f0", null, "Brain power: +50% experience.");
+        GUT("Bubble Gut", "bubble_gut", null, "Hard to push over. Harder to see your feet.", EquipmentSlot.CHEST, 0),
+        BRAIN("Big Brain", "big_brain_f0", null, "Brain power: +50% experience."),
+        LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
+        LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
+        LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
         final String title, model, alt, perk;
-        Kind(String title, String model, String alt, String perk) { this.title = title; this.model = model; this.alt = alt; this.perk = perk; }
+        final EquipmentSlot slot;
+        final int armor;
+        Kind(String title, String model, String alt, String perk) { this(title, model, alt, perk, EquipmentSlot.HEAD, 0); }
+        Kind(String title, String model, String alt, String perk, EquipmentSlot slot, int armor) {
+            this.title = title; this.model = model; this.alt = alt; this.perk = perk; this.slot = slot; this.armor = armor;
+        }
+        boolean lab() { return this == LAB_COAT || this == LAB_PANTS || this == LAB_SHOES; }
     }
     private static final TextColor PINK = TextColor.color(0xF48FB1);
 
@@ -64,12 +73,20 @@ final class Cute implements Listener {
         ItemStack it = new ItemStack(Material.ECHO_SHARD);
         ItemMeta m = it.getItemMeta();
         m.displayName(Component.text(k.title, PINK, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
-        m.lore(List.of(Component.text(k == Kind.GUT ? "Worn on the chest" : "Worn on the head", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
+        String where = switch (k.slot) { case CHEST -> "Worn on the chest"; case LEGS -> "Worn on the legs"; case FEET -> "Worn on the feet"; default -> "Worn on the head"; };
+        m.lore(List.of(Component.text(where, NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
                 Component.text(k.perk, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
         m.setItemModel(new NamespacedKey("soulbound", k.model));
         m.setMaxStackSize(1);
         EquippableComponent eq = m.getEquippable();
-        eq.setSlot(k == Kind.GUT ? EquipmentSlot.CHEST : EquipmentSlot.HEAD);
+        eq.setSlot(k.slot);
+        if (k.lab()) {
+            eq.setModel(new NamespacedKey("soulbound", "labcoat"));
+            org.bukkit.inventory.EquipmentSlotGroup g = switch (k.slot) { case CHEST -> org.bukkit.inventory.EquipmentSlotGroup.CHEST;
+                case LEGS -> org.bukkit.inventory.EquipmentSlotGroup.LEGS; default -> org.bukkit.inventory.EquipmentSlotGroup.FEET; };
+            m.addAttributeModifier(org.bukkit.attribute.Attribute.ARMOR, new org.bukkit.attribute.AttributeModifier(
+                    new NamespacedKey(plugin, k.model + "_armor"), k.armor, org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER, g));
+        }
         if (k == Kind.GUT) {
             eq.setModel(new NamespacedKey("soulbound", "bubble_gut"));
             m.addAttributeModifier(org.bukkit.attribute.Attribute.KNOCKBACK_RESISTANCE, new org.bukkit.attribute.AttributeModifier(
@@ -97,6 +114,9 @@ final class Cute implements Listener {
         add(Kind.CROWN, Material.PINK_TULIP, Material.OXEYE_DAISY, Material.ALLIUM, Material.VINE);
         add(Kind.GUT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.CAKE);
         add(Kind.BRAIN, Material.PINK_WOOL, Material.PINK_WOOL, Material.BOOK, Material.LAPIS_LAZULI);
+        add(Kind.LAB_COAT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.PAPER);
+        add(Kind.LAB_PANTS, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.LEATHER);
+        add(Kind.LAB_SHOES, Material.LEATHER, Material.LEATHER, Material.BLACK_DYE);
     }
 
     private void add(Kind k, Material... in) {
@@ -115,11 +135,19 @@ final class Cute implements Listener {
             case "flowercrown", "crown" -> Kind.CROWN;
             case "bubblegut", "gut" -> Kind.GUT;
             case "bigbrain", "brain" -> Kind.BRAIN;
+            case "labcoat", "coat" -> Kind.LAB_COAT;
+            case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
+            case "labshoes", "shoes" -> Kind.LAB_SHOES;
+            case "lab" -> {
+                for (Kind each : new Kind[]{Kind.LAB_COAT, Kind.LAB_PANTS, Kind.LAB_SHOES}) t.getInventory().addItem(create(each));
+                yield null;
+            }
             default -> null;
         };
         if (k == null) {
+            if (what.equalsIgnoreCase("lab")) return "Gave " + t.getName() + " the lab outfit.";
             for (Kind each : Kind.values()) t.getInventory().addItem(create(each));
-            return "Gave " + t.getName() + " all the cute head pieces.";
+            return "Gave " + t.getName() + " all the cosmetics.";
         }
         t.getInventory().addItem(create(k)).values().forEach(i -> t.getWorld().dropItem(t.getLocation(), i));
         return "Gave " + t.getName() + " " + k.title + ".";
@@ -160,6 +188,19 @@ final class Cute implements Listener {
         Kind k = kindOf(p.getInventory().getHelmet());
         if (k == Kind.CAT && e.getEntity() instanceof Creeper) e.setCancelled(true);
         if (k == Kind.CROWN && e.getEntity() instanceof Bee) e.setCancelled(true);
+    }
+
+    /** The full lab outfit: potions you drink last half as long again. */
+    @EventHandler(ignoreCancelled = true)
+    public void onPotion(org.bukkit.event.entity.EntityPotionEffectEvent e) {
+        if (e.getCause() != org.bukkit.event.entity.EntityPotionEffectEvent.Cause.POTION_DRINK || !(e.getEntity() instanceof Player p)) return;
+        var inv = p.getInventory();
+        if (kindOf(inv.getChestplate()) != Kind.LAB_COAT || kindOf(inv.getLeggings()) != Kind.LAB_PANTS || kindOf(inv.getBoots()) != Kind.LAB_SHOES) return;
+        PotionEffect ne = e.getNewEffect();
+        if (ne == null || ne.isInfinite() || ne.getDuration() < 20) return;
+        e.setCancelled(true);
+        PotionEffect longer = new PotionEffect(ne.getType(), (int) (ne.getDuration() * 1.5), ne.getAmplifier(), ne.isAmbient(), ne.hasParticles(), ne.hasIcon());
+        Bukkit.getScheduler().runTask(plugin, () -> p.addPotionEffect(longer));
     }
 
     /** Big Brain: more experience from every orb. */
