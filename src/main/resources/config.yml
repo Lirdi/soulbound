@@ -226,15 +226,19 @@ boss:
   regalia-set-scale: 1.5
   # If he survives the fight: a blood moon over his realm AND the main world for this long. Monsters that spawn
   # under it get Strength I and Speed I, and wear full gold armour trimmed in red (it never drops).
-  blood-moon-hours: 24
+  blood-moon-hours: 1
+  # Hold the main world at midnight for the whole blood moon (and nobody can sleep it away).
+  blood-moon-always-night: true
   blood-moon-overworld: true
   blood-moon-gold-armour: true
   # Other worlds (by folder name) the blood moon covers too, e.g. [world_nether]
   blood-moon-worlds: []
-  # Under the blood moon cows, pigs, sheep, chickens, goats and rabbits hunt nearby players.
+  # Under the blood moon cows, pigs, sheep, chickens, goats, rabbits and horses hunt nearby players.
   blood-moon-angry-animals: true
-  angry-animal-range: 16
-  # Damage per bite (chickens and rabbits do half). 3 = one and a half hearts.
+  angry-animal-range: 10
+  # How close (in blocks, body to body) they have to get to bite.
+  angry-animal-reach: 0.8
+  # Damage per bite (chickens and rabbits do half, horses half again more). 3 = one and a half hearts.
   angry-animal-damage: 3
   angry-animal-speed: 1.5
   angry-animal-babies: false

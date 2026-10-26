@@ -46,6 +46,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.scream-nausea-11", true);
             saveConfig();
         }
+        // one-off: blood moons went from 24 hours to 1
+        if (!getConfig().getBoolean("migrated.blood-moon-1h", false)) {
+            if (getConfig().getInt("boss.blood-moon-hours", 24) == 24) getConfig().set("boss.blood-moon-hours", 1);
+            getConfig().set("migrated.blood-moon-1h", true);
+            saveConfig();
+        }
         store = new Store(this);
         zones = new Zones(this);
         leash = new LeashItem(this);
@@ -92,6 +98,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(parasite, this);
         parasite.start();
         beasts = new BloodMoonBeasts(this);
+        pm.registerEvents(beasts, this);
         beasts.start();
         pm.registerEvents(new Archangels(this), this);
         pm.registerEvents(new Listener() {
@@ -254,7 +261,7 @@ public final class Soulbound extends JavaPlugin {
             }
             case "bloodmoon" -> {
                 if (!admin(sender)) return true;
-                double h = getConfig().getInt("boss.blood-moon-hours", 24);
+                double h = getConfig().getInt("boss.blood-moon-hours", 1);
                 if (args.length > 1) { if (args[1].equalsIgnoreCase("off")) h = 0; else try { h = Double.parseDouble(args[1]); } catch (NumberFormatException ignored) {} }
                 boss.setBloodMoon(h);
                 sender.sendMessage(Component.text(h > 0 ? "Blood moon for " + h + " hours." : "Blood moon ended.", NamedTextColor.GREEN));

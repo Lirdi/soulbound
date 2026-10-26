@@ -194,7 +194,7 @@ final class MolochBoss implements Listener {
         minDamage = c.getDouble("boss.reward-min-damage", 10);
         participantCommands = c.getStringList("boss.reward-commands");
         topCommands = c.getStringList("boss.top-damage-commands");
-        bloodMoonHours = c.getInt("boss.blood-moon-hours", 24);
+        bloodMoonHours = c.getInt("boss.blood-moon-hours", 1);
         bloodMoonOverworld = c.getBoolean("boss.blood-moon-overworld", true);
         bloodMoonGold = c.getBoolean("boss.blood-moon-gold-armour", true);
         bloodMoonWorlds = new HashSet<>(c.getStringList("boss.blood-moon-worlds"));
@@ -1518,7 +1518,7 @@ final class MolochBoss implements Listener {
         store.set("blood-moon-until", bloodMoonUntil);
         store.save();
         Bukkit.broadcast(Component.text("Moloch has fed, and sinks back into the dark.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
-        Bukkit.broadcast(Component.text("A blood moon rises over the world and his realm for " + bloodMoonHours + " hours. Monsters come stronger, dressed in gold.", NamedTextColor.RED));
+        Bukkit.broadcast(Component.text("A blood moon rises over the world and his realm for " + bloodMoonHours + (bloodMoonHours == 1 ? " hour." : " hours.") + " Monsters come stronger, dressed in gold.", NamedTextColor.RED));
         if (c != null) playNear(c, "moloch:awaken", 1f, 0.8f);
     }
 
