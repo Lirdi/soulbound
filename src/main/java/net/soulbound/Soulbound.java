@@ -270,7 +270,7 @@ public final class Soulbound extends JavaPlugin {
             case "gear" -> {
                 if (!admin(sender)) return true;
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
-                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|kraken|cute [catears|bunnyears|flowercrown|bubblegut]|parasite|cortex|tartare|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece]>", NamedTextColor.GRAY)); return true; }
+                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|kraken|cute [catears|bunnyears|flowercrown|bubblegut|brain]|parasite|cortex|tartare|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece]>", NamedTextColor.GRAY)); return true; }
                 if (args[2].equalsIgnoreCase("cute")) { sender.sendMessage(Component.text(cute.adminGive(t, args.length > 3 ? args[3] : "all"), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("kraken")) { sender.sendMessage(Component.text(kraken.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("tartare")) { sender.sendMessage(Component.text(tartare.adminGive(t, 16), NamedTextColor.GREEN)); return true; }

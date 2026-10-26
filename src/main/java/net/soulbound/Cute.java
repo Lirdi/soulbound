@@ -45,7 +45,8 @@ final class Cute implements Listener {
         CAT("Cat Ears", "cat_ears", "cat_ears_twitch", "Creepers leave you alone, like they do cats."),
         BUNNY("Bunny Ears", "bunny_ears", "bunny_ears_hop", "Jump Boost I. Hop hop."),
         CROWN("Flower Crown", "flower_crown", null, "Bees will never sting you."),
-        GUT("Bubble Gut", "bubble_gut", null, "Hard to push over. Harder to see your feet.");
+        GUT("Bubble Gut", "bubble_gut", null, "Hard to push over. Harder to see your feet."),
+        BRAIN("Big Brain", "big_brain_f0", null, "Brain power: +50% experience.");
         final String title, model, alt, perk;
         Kind(String title, String model, String alt, String perk) { this.title = title; this.model = model; this.alt = alt; this.perk = perk; }
     }
@@ -95,6 +96,7 @@ final class Cute implements Listener {
         add(Kind.BUNNY, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.PINK_DYE, Material.RABBIT_HIDE);
         add(Kind.CROWN, Material.PINK_TULIP, Material.OXEYE_DAISY, Material.ALLIUM, Material.VINE);
         add(Kind.GUT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.CAKE);
+        add(Kind.BRAIN, Material.PINK_WOOL, Material.PINK_WOOL, Material.BOOK, Material.LAPIS_LAZULI);
     }
 
     private void add(Kind k, Material... in) {
@@ -112,6 +114,7 @@ final class Cute implements Listener {
             case "bunnyears", "bunny" -> Kind.BUNNY;
             case "flowercrown", "crown" -> Kind.CROWN;
             case "bubblegut", "gut" -> Kind.GUT;
+            case "bigbrain", "brain" -> Kind.BRAIN;
             default -> null;
         };
         if (k == null) {
@@ -143,7 +146,8 @@ final class Cute implements Listener {
                 }
                 case CROWN -> { if (r.nextInt(25) == 0) p.getWorld().spawnParticle(Particle.CHERRY_LEAVES, p.getEyeLocation().add(0, 0.45, 0), 1, 0.25, 0.05, 0.25, 0); }
             }
-            String want = alt && k.alt != null ? k.alt : k.model;
+            String want = k == Kind.BRAIN ? "big_brain_f" + ((tick / 4) % 4)      // it throbs
+                    : alt && k.alt != null ? k.alt : k.model;
             ItemMeta m = h.getItemMeta();
             NamespacedKey wk = new NamespacedKey("soulbound", want);
             if (!wk.equals(m.getItemModel())) { m.setItemModel(wk); h.setItemMeta(m); p.getInventory().setHelmet(h); }
@@ -156,6 +160,13 @@ final class Cute implements Listener {
         Kind k = kindOf(p.getInventory().getHelmet());
         if (k == Kind.CAT && e.getEntity() instanceof Creeper) e.setCancelled(true);
         if (k == Kind.CROWN && e.getEntity() instanceof Bee) e.setCancelled(true);
+    }
+
+    /** Big Brain: more experience from every orb. */
+    @EventHandler
+    public void onXp(org.bukkit.event.player.PlayerExpChangeEvent e) {
+        if (e.getAmount() > 0 && kindOf(e.getPlayer().getInventory().getHelmet()) == Kind.BRAIN)
+            e.setAmount((int) Math.round(e.getAmount() * 1.5));
     }
 
     @EventHandler
