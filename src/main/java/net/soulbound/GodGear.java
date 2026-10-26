@@ -95,6 +95,9 @@ final class GodGear implements Listener {
         return it;
     }
 
+    /** Which piece of this set an item is (HELMET, CHESTPLATE, LEGGINGS, BOOTS), or null. */
+    String pieceName(ItemStack it) { Piece p = pieceOf(it); return p == null ? null : p.name(); }
+
     private Piece pieceOf(ItemStack it) {
         if (it == null || !it.hasItemMeta()) return null;
         String s = it.getItemMeta().getPersistentDataContainer().get(pieceKey, PersistentDataType.STRING);

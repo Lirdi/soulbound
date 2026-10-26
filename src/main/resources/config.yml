@@ -257,6 +257,12 @@ screen-crack:
   stack-seconds: 25
   max-stage: 3
   hold-seconds: 1.5
+# Quantum Humanity: fused at a smithing table (netherite ingot + a Regalia piece + the matching Vestments piece).
+# The wearer's 3D shell rides on them; nudge these if it sits too high or low, or faces backwards (0 or 180).
+quantum:
+  shell-height: -0.675
+  shell-sneak-height: -0.57
+  shell-yaw-offset: 180
 # The Horned Gjermundbu (/moloch gear <player> viking): blow a goat horn while wearing it for the War Cry.
 viking:
   war-cry-seconds: 60

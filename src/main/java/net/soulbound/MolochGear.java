@@ -204,6 +204,9 @@ final class MolochGear implements Listener {
         Bukkit.getScheduler().runTaskLater(plugin, () -> p.setCooldown(Material.GOAT_HORN, Math.max(0, cdTicks - 1)), 1L);
     }
 
+    /** Which piece of this set an item is (HELMET, CHESTPLATE, LEGGINGS, BOOTS), or null. */
+    String pieceName(ItemStack it) { Piece p = pieceOf(it); return p == null ? null : p.name(); }
+
     private Piece pieceOf(ItemStack it) {
         if (it == null || !it.hasItemMeta()) return null;
         String s = it.getItemMeta().getPersistentDataContainer().get(pieceKey, PersistentDataType.STRING);
