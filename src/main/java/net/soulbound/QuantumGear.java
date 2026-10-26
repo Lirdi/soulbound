@@ -185,6 +185,7 @@ final class QuantumGear implements Listener {
     }
 
     private boolean shellShown(Player p) {
+        if (!plugin.getConfig().getBoolean("quantum.shell", false)) return false;   // the sleek suit needs no shell; switch on for the bulky power-armour look
         if (pieceOf(p.getInventory().getChestplate()) != Piece.CHESTPLATE) return false;
         if (p.isDead() || p.getGameMode() == GameMode.SPECTATOR || p.isInvisible() || !p.isValid()) return false;
         Pose pose = p.getPose();

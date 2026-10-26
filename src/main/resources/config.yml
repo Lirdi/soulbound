@@ -258,8 +258,10 @@ screen-crack:
   max-stage: 3
   hold-seconds: 1.5
 # Quantum Humanity: fused at a smithing table (netherite ingot + a Regalia piece + the matching Vestments piece).
-# The wearer's 3D shell rides on them; nudge these if it sits too high or low, or faces backwards (0 or 180).
+# shell: true adds a bulky 3D power-armour shell riding on the wearer (off by default for the sleek suit); nudge the
+# numbers if it sits too high or low, or faces backwards (0 or 180).
 quantum:
+  shell: false
   shell-height: -0.675
   shell-sneak-height: -0.57
   shell-yaw-offset: 180
