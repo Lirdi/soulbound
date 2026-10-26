@@ -46,8 +46,11 @@ public final class ScreenCrack {
         if (!plugin.getConfig().getBoolean("screen-crack.enabled", true)) return;
         UUID id = p.getUniqueId();
         long now = System.currentTimeMillis();
-        long keep = (long) (plugin.getConfig().getDouble("screen-crack.stack-seconds", 6) * 1000);
-        int s = (last.containsKey(id) && now - last.get(id) < keep) ? Math.min(STAGES, stage.getOrDefault(id, 0) + 1) : 1;
+        long keep = (long) (plugin.getConfig().getDouble("screen-crack.stack-seconds", 25) * 1000);
+        long gap = (long) (plugin.getConfig().getDouble("screen-crack.cooldown-seconds", 8) * 1000);
+        if (last.containsKey(id) && now - last.get(id) < gap) return;   // a fresh crack at most every few seconds
+        int max = Math.max(1, Math.min(STAGES, plugin.getConfig().getInt("screen-crack.max-stage", 3)));
+        int s = (last.containsKey(id) && now - last.get(id) < keep) ? Math.min(max, stage.getOrDefault(id, 0) + 1) : 1;
         stage.put(id, s); last.put(id, now);
         BukkitTask old = anim.remove(id);
         if (old != null) old.cancel();
@@ -55,14 +58,14 @@ public final class ScreenCrack {
         p.playSound(p.getLocation(), "minecraft:block.glass.break", 1.2f, s == STAGES ? 0.5f : 0.7f + 0.1f * s);
         if (s == STAGES) p.playSound(p.getLocation(), "minecraft:entity.zombie.break_wooden_door", 0.6f, 0.6f);
         final int st = s;
-        final int hold = (int) (plugin.getConfig().getDouble("screen-crack.hold-seconds", 2.5) * 20);
+        final int hold = (int) (plugin.getConfig().getDouble("screen-crack.hold-seconds", 1.5) * 20);
         BukkitTask t = plugin.getServer().getScheduler().runTaskTimer(plugin, new Runnable() {
             int f = 0;
             @Override public void run() {
                 if (!p.isOnline()) { stop(); return; }
                 boolean lastFrame = f == FRAMES - 1;
                 Title.Times times = lastFrame
-                        ? Title.Times.times(Duration.ZERO, Duration.ofMillis(hold * 50L), Duration.ofMillis(1500))
+                        ? Title.Times.times(Duration.ZERO, Duration.ofMillis(hold * 50L), Duration.ofMillis(800))
                         : Title.Times.times(Duration.ZERO, Duration.ofMillis(300), Duration.ZERO);
                 p.showTitle(Title.title(glyph(st, f), Component.empty(), times));
                 if (lastFrame) stop(); else f++;

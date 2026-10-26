@@ -248,13 +248,15 @@ boss:
 
 # The ender dragon becomes God: a giant old man with a grey beard in white robes, flying where the dragon flies.
 # (The resource pack makes the dragon invisible, gives it an old man's voice and names it God.)
-# Moloch's heavy blows crack your screen (needs the server resource pack). Hits landing within stack-seconds of each
-# other crack it further, up to three stages; then the cracks hold for hold-seconds and fade.
+# Moloch's biggest blows (the leap slam up close, a charge that hits you, being thrown) crack the edges of your screen
+# (needs the server resource pack). At most one crack every cooldown-seconds; another big hit within stack-seconds
+# cracks it a little further, up to max-stage (1-3). The cracks hold for hold-seconds, then fade.
 screen-crack:
   enabled: true
-  min-damage: 6
-  stack-seconds: 6
-  hold-seconds: 2.5
+  cooldown-seconds: 8
+  stack-seconds: 25
+  max-stage: 3
+  hold-seconds: 1.5
 # The Gate of Heaven: every stronghold's End portal room is rebuilt in marble and gold the first time it loads, with God's
 # face carved into the far wall, holy-water fonts and an angel spawner in place of the silverfish. Frames and portal untouched.
 stronghold:

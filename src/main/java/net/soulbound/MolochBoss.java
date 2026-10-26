@@ -823,6 +823,7 @@ final class MolochBoss implements Listener {
             if (Math.hypot(pl.getX() - at.getX(), pl.getZ() - at.getZ()) > reach || pl.getY() < at.getY() - 1 || pl.getY() > at.getY() + height) continue;
             moveHit.add(p.getUniqueId());
             p.damage(chargeDamage, boss);
+            plugin.cracks().crack(p);
             Vector side = new Vector(-moveDir.getZ(), 0, moveDir.getX());
             if (side.dot(pl.toVector().subtract(at.toVector())) < 0) side.multiply(-1);
             p.setVelocity(side.multiply(1.2).add(moveDir.clone().multiply(0.8)).setY(0.7));
@@ -947,6 +948,7 @@ final class MolochBoss implements Listener {
             if (dist <= slamRadius) {
                 p.damage(slamDamage * (1 - 0.5 * dist / slamRadius), boss);
                 p.setVelocity(out.multiply(0.8).setY(1.0));
+                if (dist <= slamRadius * 0.6) plugin.cracks().crack(p);   // only those close to the impact
             } else p.setVelocity(out.multiply(0.4).setY(0.45));   // the floor jolts further out
         }
     }
@@ -1644,15 +1646,6 @@ final class MolochBoss implements Listener {
             e.setDamage(Math.min(e.getDamage(), boomCap));
             e.getEntity().setFireTicks(80);
         }
-    }
-
-    /** His heavy blows crack your screen (melee, charge, slam, fire ring, sonic boom; the throw cracks it too). */
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onBossCracks(EntityDamageByEntityEvent e) {
-        Entity src = e.getDamager();
-        if (src instanceof Projectile pr && pr.getShooter() instanceof Entity sh) src = sh;
-        if (!isBoss(src) || !(e.getEntity() instanceof Player p)) return;
-        if (e.getDamage() >= plugin.getConfig().getDouble("screen-crack.min-damage", 6)) plugin.cracks().crack(p);
     }
 
     /** He never targets mobs, and his servants never turn on him or each other. */
