@@ -26,8 +26,13 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
 
     HeavenBuilder(Soulbound plugin, Store store) { this.plugin = plugin; this.store = store; }
 
-    void start() { task = Bukkit.getScheduler().runTaskTimer(plugin, this::tryBuild, 100L, 1200L); }
-    void stop() { if (task != null) task.cancel(); }
+    private BukkitTask fontTask;
+    void start() {
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tryBuild, 100L, 1200L);
+        // the game puts the bedrock back whenever the dragon dies or is respawned, so keep the font painted
+        fontTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> { World w = end(); if (w != null) font(w, false); }, 120L, 100L);
+    }
+    void stop() { if (task != null) task.cancel(); if (fontTask != null) fontTask.cancel(); }
 
     private World end() {
         for (World w : Bukkit.getWorlds()) if (w.getEnvironment() == World.Environment.THE_END) return w;
@@ -53,7 +58,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
     String rebuild() {
         World w = end();
         if (w == null) return "The End isn't loaded.";
-        gates(w); throne(w); pillars(w);
+        gates(w); throne(w); pillars(w); font(w, true);
         store.set("heaven.gates", w.getUID().toString()); store.set("heaven.throne", w.getUID().toString()); store.save();
         return "Heaven's gates and God's throne are built.";
     }
@@ -132,10 +137,111 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         Bukkit.getScheduler().runTaskLater(plugin, () -> pillars(w), 100L);
     }
 
+    // ---------------------------------------------------------------- the Holy Font
+
+    /**
+     * The exit portal's bedrock podium becomes a font of white marble and gold: a marble basin with four gold sockets,
+     * a fluted column with a gold cap where the torches were (now End rods), and a step of quartz around it. The portal
+     * itself glows gold through the resource pack. Only bedrock and the podium's torches are ever replaced.
+     */
+    private boolean fontOn() { return plugin.getConfig().getBoolean("god.build-heaven", true) && plugin.getConfig().getBoolean("god.holy-font", true); }
+
+    /** The podium's centre at portal level, or null if it isn't loaded or can't be found. */
+    private int[] podium(World w) {
+        org.bukkit.boss.DragonBattle b = w.getEnderDragonBattle();
+        org.bukkit.Location l = b == null ? null : b.getEndPortalLocation();
+        int x = l == null ? 0 : l.getBlockX(), z = l == null ? 0 : l.getBlockZ(), y0 = l == null ? 64 : l.getBlockY();
+        if (!w.isChunkLoaded(x >> 4, z >> 4)) return null;
+        int lo = l == null ? 1 : y0 - 5, hi = l == null ? 120 : y0 + 5;
+        for (int y = hi; y >= lo; y--) {
+            if (rimBlock(w.getBlockAt(x + 3, y, z)) && rimBlock(w.getBlockAt(x - 3, y, z)) && rimBlock(w.getBlockAt(x, y, z + 3))
+                    && capBlock(w.getBlockAt(x, y + 3, z))) return new int[]{x, y, z};
+        }
+        return null;
+    }
+    private static boolean rimBlock(Block b) { Material m = b.getType(); return m == Material.BEDROCK || m == Material.SMOOTH_QUARTZ || m == Material.GOLD_BLOCK; }
+    private static boolean capBlock(Block b) { Material m = b.getType(); return m == Material.BEDROCK || m == Material.GOLD_BLOCK; }
+    private static boolean socket(int dx, int dz) { return (Math.abs(dx) == 3 && dz == 0) || (dx == 0 && Math.abs(dz) == 3); }
+
+    void font(World w, boolean force) {
+        if (!fontOn()) return;
+        int[] o = podium(w);
+        if (o == null) return;
+        int x = o[0], y = o[1], z = o[2];
+        boolean needed = force;
+        for (int dy = -1; dy <= 3 && !needed; dy++) for (int dx = -3; dx <= 3 && !needed; dx++) for (int dz = -3; dz <= 3 && !needed; dz++) {
+            Material m = w.getBlockAt(x + dx, y + dy, z + dz).getType();
+            if (m == Material.BEDROCK || m == Material.WALL_TORCH) needed = true;
+        }
+        if (!needed) return;
+        for (int dx = -4; dx <= 4; dx++) for (int dz = -4; dz <= 4; dz++) for (int dy = -1; dy <= 3; dy++) {
+            Block b = w.getBlockAt(x + dx, y + dy, z + dz);
+            Material m = b.getType();
+            if (dx == 0 && dz == 0) {
+                if (m != Material.BEDROCK) continue;
+                BlockData d = (dy == 0 ? Material.CHISELED_QUARTZ_BLOCK : dy == 3 ? Material.GOLD_BLOCK : Material.QUARTZ_PILLAR).createBlockData();
+                if (d instanceof Orientable or) or.setAxis(org.bukkit.Axis.Y);
+                b.setBlockData(d, false);
+                continue;
+            }
+            if (m == Material.WALL_TORCH) {
+                BlockData rod = Material.END_ROD.createBlockData();
+                if (rod instanceof org.bukkit.block.data.Directional rd && b.getBlockData() instanceof org.bukkit.block.data.Directional td) rd.setFacing(td.getFacing());
+                b.setBlockData(rod, false);
+                continue;
+            }
+            if (m != Material.BEDROCK) continue;
+            Material to = dy == 0 && socket(dx, dz) ? Material.GOLD_BLOCK : Material.SMOOTH_QUARTZ;
+            b.setBlockData(to.createBlockData(), false);
+        }
+        // a quartz step round the basin, with four little lamps on the diagonals
+        for (int dx = -5; dx <= 5; dx++) for (int dz = -5; dz <= 5; dz++) {
+            double d = Math.hypot(dx, dz);
+            if (d < 3.6 || d > 4.6) continue;
+            Block b = w.getBlockAt(x + dx, y, z + dz);
+            if (!b.getType().isAir() || !b.getRelative(0, -1, 0).getType().isSolid()) continue;
+            if (Math.abs(dx) == 3 && Math.abs(dz) == 3) {
+                b.setBlockData(Material.CHISELED_QUARTZ_BLOCK.createBlockData(), false);
+                Block top = b.getRelative(0, 1, 0);
+                if (top.getType().isAir()) top.setBlockData(Material.END_ROD.createBlockData(), false);
+            } else {
+                BlockData slab = Material.SMOOTH_QUARTZ_SLAB.createBlockData();
+                b.setBlockData(slab, false);
+            }
+        }
+    }
+
+    /**
+     * The font's sockets are gold, not bedrock, so vanilla won't let you set an End crystal on them. Place it for the
+     * player, then let the game check for all four and start the respawn, exactly as it would on bedrock.
+     */
+    @org.bukkit.event.EventHandler(priority = org.bukkit.event.EventPriority.HIGH)
+    public void onSocket(org.bukkit.event.player.PlayerInteractEvent e) {
+        if (e.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK || e.getClickedBlock() == null) return;
+        org.bukkit.inventory.ItemStack it = e.getItem();
+        if (it == null || it.getType() != Material.END_CRYSTAL) return;
+        Block b = e.getClickedBlock();
+        World w = b.getWorld();
+        if (w.getEnvironment() != World.Environment.THE_END || b.getType() != Material.GOLD_BLOCK) return;
+        int[] o = podium(w);
+        if (o == null || b.getY() != o[1] || !socket(b.getX() - o[0], b.getZ() - o[2])) return;
+        e.setCancelled(true);
+        if (!b.getRelative(0, 1, 0).getType().isAir()) return;
+        org.bukkit.Location at = b.getLocation().add(0.5, 1, 0.5);
+        if (!w.getNearbyEntitiesByType(org.bukkit.entity.EnderCrystal.class, at, 0.9).isEmpty()) return;
+        w.spawn(at, org.bukkit.entity.EnderCrystal.class, c -> c.setShowingBottom(false));
+        if (e.getPlayer().getGameMode() != org.bukkit.GameMode.CREATIVE) it.setAmount(it.getAmount() - 1);
+        org.bukkit.boss.DragonBattle battle = w.getEnderDragonBattle();
+        if (battle != null) battle.initiateRespawn();
+    }
+
     // ---------------------------------------------------------------- God's Throne
 
     private int portalY(World w) {
-        for (int y = 120; y > 0; y--) if (w.getBlockAt(0, y, 0).getType() == Material.BEDROCK) return y;
+        for (int y = 120; y > 0; y--) {
+            Material m = w.getBlockAt(0, y, 0).getType();
+            if (m == Material.BEDROCK || (m == Material.GOLD_BLOCK && w.getBlockAt(0, y - 1, 0).getType() == Material.QUARTZ_PILLAR)) return y;   // bedrock, or the font's gold cap
+        }
         return -1;
     }
 
