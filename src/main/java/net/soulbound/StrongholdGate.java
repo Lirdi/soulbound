@@ -46,7 +46,7 @@ final class StrongholdGate implements Listener {
             Material.INFESTED_CRACKED_STONE_BRICKS, Material.INFESTED_CHISELED_STONE_BRICKS, Material.STONE, Material.INFESTED_STONE,
             Material.COBBLESTONE, Material.INFESTED_COBBLESTONE, Material.SMOOTH_STONE);
     // God's face on the far wall, top row first (lx 1..9): H hair, M marble skin, G glowing eyes, N nose, B beard
-    private static final String[] FACE = {"HHHHHHHHH", "HMMMMMMMH", "HMGGMGGMH", "BMMMNMMMB", "BBMBBBMBB", "BBBBBBBBB"};
+    private static final String[] FACE = {"HHHHHHHHH", "HMMMMMMMH", "HMGGMGGMH", "HMMMMMMMH", "BBMBBBMBB", "BBBBBBBBB"};
     private static final String[] LINES = {
             "Ah. Someone found the door. Wipe your feet.",
             "I can see you, you know. I always could.",
@@ -135,10 +135,10 @@ final class StrongholdGate implements Listener {
             if (lz == 15 && lx >= 1 && lx <= 9 && ly >= 1 && ly <= 6) {
                 char c = FACE[6 - ly].charAt(lx - 1);
                 put(b, switch (c) {
-                    case 'H' -> Material.WHITE_CONCRETE;
+                    case 'H' -> Material.LIGHT_GRAY_CONCRETE;
                     case 'G' -> Material.GLOWSTONE;
                     case 'N' -> Material.END_STONE_BRICKS;
-                    case 'B' -> Material.LIGHT_GRAY_CONCRETE;
+                    case 'B' -> Material.WHITE_CONCRETE;
                     default -> Material.END_STONE;
                 });
                 continue;
@@ -164,6 +164,14 @@ final class StrongholdGate implements Listener {
                 else put(b, Material.QUARTZ_BRICKS);
             }
             else put(b, ly == 6 ? Material.CHISELED_QUARTZ_BLOCK : Material.SMOOTH_QUARTZ);
+        }
+        // the face stands out from the wall: his nose, his moustache, and a beard spilling onto the floor
+        int[][] relief = {{5, 3, 14}, {3, 2, 14}, {4, 2, 14}, {5, 2, 14}, {6, 2, 14}, {7, 2, 14},
+                {2, 1, 14}, {3, 1, 14}, {4, 1, 14}, {5, 1, 14}, {6, 1, 14}, {7, 1, 14}, {8, 1, 14}, {4, 1, 13}, {5, 1, 13}, {6, 1, 13}};
+        for (int[] r : relief) {
+            int[] p = at(cx, cy, cz, fx, fz, lxX, lxZ, r[0], r[1], r[2]);
+            Block b = w.getBlockAt(p[0], p[1], p[2]);
+            if (b.getType().isAir()) put(b, r[1] == 3 ? Material.END_STONE : Material.WHITE_CONCRETE);
         }
         // lanterns hanging on chains from the gilded ceiling
         for (int[] l : new int[][]{{2, 7}, {8, 7}, {2, 13}, {8, 13}}) {
