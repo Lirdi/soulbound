@@ -257,6 +257,10 @@ screen-crack:
   stack-seconds: 25
   max-stage: 3
   hold-seconds: 1.5
+# The Horned Gjermundbu (/moloch gear <player> viking): blow a goat horn while wearing it for the War Cry.
+viking:
+  war-cry-seconds: 60
+  war-cry-cooldown-seconds: 300
 # The Gate of Heaven: every stronghold's End portal room is rebuilt in marble and gold the first time it loads, with God's
 # face carved into the far wall, holy-water fonts and an angel spawner in place of the silverfish. Frames and portal untouched.
 stronghold:

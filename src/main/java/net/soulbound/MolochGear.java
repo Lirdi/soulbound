@@ -56,7 +56,7 @@ final class MolochGear implements Listener {
 
     private final Soulbound plugin;
     private final Store store;
-    private final NamespacedKey pieceKey, hornsKey, sizeKey;
+    private final NamespacedKey pieceKey, hornsKey, sizeKey, vikingKey;
     private final Set<UUID> empowered = new HashSet<>();
     private final Random rnd = new Random();
     private BukkitTask task, fireTask;
@@ -67,6 +67,7 @@ final class MolochGear implements Listener {
         this.store = store;
         pieceKey = new NamespacedKey(plugin, "moloch_piece");
         hornsKey = new NamespacedKey(plugin, "moloch_horns");
+        vikingKey = new NamespacedKey(plugin, "viking_helm");
         sizeKey = new NamespacedKey(plugin, "moloch_set_size");
         loadSettings();
     }
@@ -137,21 +138,70 @@ final class MolochGear implements Listener {
         return it;
     }
 
-    /** The Horned Gjermundbu: a Norse iron helm with a spectacle guard, a mail curtain and great horns (cosmetic). */
+    /**
+     * The Horned Gjermundbu: a Norse iron helm with a spectacle guard, a mail curtain and great horns. As strong as a
+     * netherite helmet and unbreakable. Blow a goat horn while wearing it for the War Cry: Strength III and Resistance I
+     * for a minute, once every five minutes.
+     */
     ItemStack viking(String earnedBy) {
         ItemStack it = new ItemStack(Material.GOLD_NUGGET);
         ItemMeta m = it.getItemMeta();
         m.displayName(Component.text("Horned Gjermundbu", NamedTextColor.GRAY, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         m.lore(List.of(
                 Component.text("Iron, horn and a long way from home.", NamedTextColor.DARK_AQUA).decoration(TextDecoration.ITALIC, true),
+                Component.text("As strong as netherite. Never breaks.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+                Component.text("War Cry: blow a goat horn while wearing it", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
+                Component.text("for Strength III and Resistance I (1 min, every 5 min).", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false),
                 Component.text(earnedBy == null ? "Wear it on your head." : "Earned by " + earnedBy + ".", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
         m.setItemModel(new NamespacedKey("soulbound", "viking_helm"));
         m.setMaxStackSize(1);
+        m.setUnbreakable(true);
+        m.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(new NamespacedKey(plugin, "viking_armor"), 3, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.HEAD));
+        m.addAttributeModifier(Attribute.ARMOR_TOUGHNESS, new AttributeModifier(new NamespacedKey(plugin, "viking_toughness"), 3, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.HEAD));
+        m.addAttributeModifier(Attribute.KNOCKBACK_RESISTANCE, new AttributeModifier(new NamespacedKey(plugin, "viking_knockback"), 0.1, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.HEAD));
         EquippableComponent eq = m.getEquippable();
         eq.setSlot(EquipmentSlot.HEAD);
         m.setEquippable(eq);
+        m.getPersistentDataContainer().set(vikingKey, PersistentDataType.BYTE, (byte) 1);
         it.setItemMeta(m);
         return it;
+    }
+
+    private boolean isViking(ItemStack it) {
+        if (it == null || !it.hasItemMeta()) return false;
+        ItemMeta m = it.getItemMeta();
+        return m.getPersistentDataContainer().has(vikingKey, PersistentDataType.BYTE)
+                || new NamespacedKey("soulbound", "viking_helm").equals(m.getItemModel());
+    }
+
+    private final java.util.Map<UUID, Long> warCry = new java.util.HashMap<>();
+
+    /** The War Cry: a goat horn blown by someone wearing the Gjermundbu. */
+    @EventHandler(ignoreCancelled = false)
+    public void onHorn(org.bukkit.event.player.PlayerInteractEvent e) {
+        if (e.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_AIR && e.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return;
+        ItemStack horn = e.getItem();
+        if (horn == null || horn.getType() != Material.GOAT_HORN) return;
+        Player p = e.getPlayer();
+        if (!isViking(p.getInventory().getHelmet())) return;
+        long now = System.currentTimeMillis();
+        long cd = (long) (plugin.getConfig().getDouble("viking.war-cry-cooldown-seconds", 300) * 1000);
+        Long last = warCry.get(p.getUniqueId());
+        if (last != null && now - last < cd) {
+            long left = (cd - (now - last)) / 1000;
+            p.sendActionBar(Component.text("Your war cry is spent. Again in " + left / 60 + "m " + left % 60 + "s.", NamedTextColor.GRAY));
+            return;
+        }
+        warCry.put(p.getUniqueId(), now);
+        int ticks = (int) (plugin.getConfig().getDouble("viking.war-cry-seconds", 60) * 20);
+        p.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, ticks, 2, false, true, true));
+        p.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, ticks, 0, false, true, true));
+        p.getWorld().spawnParticle(Particle.ANGRY_VILLAGER, p.getLocation().add(0, 2.1, 0), 12, 0.6, 0.3, 0.6, 0);
+        p.getWorld().spawnParticle(Particle.SWEEP_ATTACK, p.getLocation().add(0, 1, 0), 6, 0.8, 0.3, 0.8, 0);
+        p.sendActionBar(Component.text("WAR CRY! Strength III and Resistance I for " + ticks / 20 + "s.", NamedTextColor.GOLD, TextDecoration.BOLD));
+        // show the wait on every goat horn they carry (after the horn's own short cooldown is set)
+        int cdTicks = (int) (cd / 50);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> p.setCooldown(Material.GOAT_HORN, Math.max(0, cdTicks - 1)), 1L);
     }
 
     private Piece pieceOf(ItemStack it) {
@@ -270,6 +320,9 @@ final class MolochGear implements Listener {
 
     private void tickSets() {
         for (Player p : Bukkit.getOnlinePlayers()) {
+            ItemStack head = p.getInventory().getHelmet();
+            if (isViking(head) && !head.getItemMeta().getPersistentDataContainer().has(vikingKey, PersistentDataType.BYTE))
+                p.getInventory().setHelmet(viking(null));   // an early Gjermundbu without its stats: upgrade it
             boolean full = pieceOf(p.getInventory().getHelmet()) == Piece.HELMET && pieceOf(p.getInventory().getChestplate()) == Piece.CHESTPLATE
                     && pieceOf(p.getInventory().getLeggings()) == Piece.LEGGINGS && pieceOf(p.getInventory().getBoots()) == Piece.BOOTS;
             boolean was = empowered.contains(p.getUniqueId());
