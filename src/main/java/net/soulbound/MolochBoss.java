@@ -105,7 +105,7 @@ final class MolochBoss implements Listener {
     private final Map<UUID, Double> damage = new HashMap<>();
     private final Set<UUID> minions = new HashSet<>(), champions = new HashSet<>();
     private double savedHp, hpScale = 1, baseSpeed = 0.3;
-    private long endsAt, bloodMoonUntil;
+    private long endsAt, bloodMoonUntil, startedAt;
     private int phase, half, respawns, crowd = 1;
     private boolean championsCalled, shieldUp, screamed, collapsed, collapsing, frenzy, emerging;
     private static final int EMERGE_TICKS = 134;
@@ -244,6 +244,19 @@ final class MolochBoss implements Listener {
     }
     Location musicCentre() { return zones.arenaCentre(); }
 
+    /** Which awakening this is (its start time), so a ghost from an old fight can tell it's over. 0 when there's no fight. */
+    long fightId() { return active ? startedAt : 0; }
+    boolean dying() { return dying; }
+    /** Moloch himself, or one of his servants and champions. */
+    boolean isFoe(Entity e) { return e != null && (isBoss(e) || e.getScoreboardTags().contains(MINION)); }
+
+    /** Everyone who stood in the hall is dead: he has fed. */
+    void allFallen() {
+        if (!active || dying) return;
+        Bukkit.broadcast(Component.text("The last of the living has fallen in Moloch's hall.", NamedTextColor.DARK_RED));
+        lose();
+    }
+
     // ---------------------------------------------------------------- the awakening
 
     /** Why the fight can't start right now, or null if it can. */
@@ -267,7 +280,8 @@ final class MolochBoss implements Listener {
         championsCalled = shieldUp = screamed = collapsed = collapsing = frenzy = dying = emerging = false;
         move = lastMove = Move.NONE;
         wardLeft = 0; wardCooldown = 0; wardNext = wardEvery * 20; projDmg = allDmg = 0;
-        endsAt = System.currentTimeMillis() + fightMinutes * 60_000L;
+        startedAt = System.currentTimeMillis();
+        endsAt = startedAt + fightMinutes * 60_000L;
         active = true;
         bar = BossBar.bossBar(Component.text("Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD), 1f, BossBar.Color.RED, BossBar.Overlay.NOTCHED_20);
         Bukkit.broadcast(Component.text("MOLOCH STIRS.", NamedTextColor.DARK_RED, TextDecoration.BOLD));

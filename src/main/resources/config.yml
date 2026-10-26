@@ -251,6 +251,18 @@ boss:
 # Moloch's biggest blows (the leap slam up close, a charge that hits you, being thrown) crack the edges of your screen
 # (needs the server resource pack). At most one crack every cooldown-seconds; another big hit within stack-seconds
 # cracks it a little further, up to max-stage (1-3). The cracks hold for hold-seconds, then fade.
+# Once Moloch is summoned his hall is sealed: anyone can walk in, nobody walks (or pearls) out until the fight ends.
+# The first stretch of each doorway pulls players into the hall, and attacks from outside the seal do nothing.
+seal:
+  enabled: true
+  # Players who die in the hall rise as ghosts (spectators held in the hall). They come back to life where they
+  # float when the fight ends, or can give up with /moloch leave (a clickable button) and go back to their spawn.
+  ghosts: true
+  # Items dropped in the hall during the fight don't burn or despawn until it's over (then the normal 5 minutes).
+  keep-drops: true
+  # If someone has died and nobody living is left in the hall for this long, Moloch wins. 0 = off.
+  all-fallen-seconds: 60
+
 screen-crack:
   enabled: true
   cooldown-seconds: 8

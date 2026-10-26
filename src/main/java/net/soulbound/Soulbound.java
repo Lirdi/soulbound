@@ -26,6 +26,7 @@ public final class Soulbound extends JavaPlugin {
     private SummitDrums drums;
     private MolochMusic music;
     private StrongholdGate gate;
+    private ArenaSeal seal;
     private GodGear godGear;
     private QuantumGear quantum;
     private GodManager god;
@@ -76,6 +77,9 @@ public final class Soulbound extends JavaPlugin {
         gate = new StrongholdGate(this, store);
         pm.registerEvents(gate, this);
         gate.start();
+        seal = new ArenaSeal(this, store);
+        pm.registerEvents(seal, this);
+        seal.start();
         pm.registerEvents(new Archangels(this), this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
@@ -104,6 +108,7 @@ public final class Soulbound extends JavaPlugin {
         if (drums != null) drums.stop();
         if (music != null) music.stop();
         if (gate != null) gate.stop();
+        if (seal != null) seal.stop();
         if (godGear != null) godGear.stop();
         if (quantum != null) quantum.stop();
         if (god != null) god.stop();
@@ -174,6 +179,11 @@ public final class Soulbound extends JavaPlugin {
     private boolean moloch(CommandSender sender, String[] args) {
         String sub = args.length > 0 ? args[0].toLowerCase() : "";
         switch (sub) {
+            case "leave" -> {
+                if (!(sender instanceof Player p)) { sender.sendMessage("Players only."); return true; }
+                seal.leave(p);
+                return true;
+            }
             case "awaken" -> {
                 if (!admin(sender)) return true;
                 if (boss.active()) { sender.sendMessage(Component.text("He's already awake.", NamedTextColor.GRAY)); return true; }
@@ -282,6 +292,7 @@ public final class Soulbound extends JavaPlugin {
         drums.loadSettings();
         god.loadSettings();
         gear.loadSettings();
+        seal.loadSettings();
         leash.load();
         leash.registerRecipe();
     }
@@ -297,7 +308,7 @@ public final class Soulbound extends JavaPlugin {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "halo", "gear", "reload") : List.of();
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "halo", "gear", "leave", "reload") : List.of("leave");
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");
