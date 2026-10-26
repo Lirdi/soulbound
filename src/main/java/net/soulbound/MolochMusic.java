@@ -27,7 +27,7 @@ final class MolochMusic {
             "champions", new double[]{533.333, 66.667},
             "scream", new double[]{533.333, 66.667},
             "collapse", new double[]{266.667, 66.667},
-            "frenzy", new double[]{400.0, 50.0});
+            "frenzy", new double[]{533.333, 66.667});
     private static final int STEP = 2;
 
     private final Soulbound plugin;
