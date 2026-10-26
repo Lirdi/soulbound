@@ -627,6 +627,7 @@ final class GodManager implements Listener {
         say(DAY_LINES[n]);
         if (d == null) return;
         if (n >= 2 && seated()) rise(d, true);
+        else if (n >= 3) d.getWorld().playSound(d.getLocation(), "soulbound:god.voice", 6f, 1f);   // each new day, his voice rolls across the sky
         if (n == 5 && !judged) Bukkit.getScheduler().runTaskLater(plugin, () -> judgement(fighters(d.getWorld())), 80L);
         if (n == 7) nextNap = 60;
         nextAbility = 80;
@@ -638,7 +639,7 @@ final class GodManager implements Listener {
         if (d.getPhase() != EnderDragon.Phase.DYING) d.setPhase(EnderDragon.Phase.CIRCLING);
         if (loud) {
             Location at = d.getLocation();
-            at.getWorld().playSound(at, "minecraft:entity.ender_dragon.growl", 6f, 1f);
+            at.getWorld().playSound(at, "soulbound:god.voice", 6f, 1f);
             fx(Particle.CLOUD, at, 120, scale, 0.15);
         }
     }
@@ -1039,6 +1040,22 @@ final class GodManager implements Listener {
 
     // ---------------------------------------------------------------- tidying up
 
+    /** Which part of his battle music fits this moment, or null when there's no fight (or he's still on his throne). */
+    String musicState() {
+        if (fightDragon == null) return null;
+        EnderDragon d = dragon();
+        if (d == null) return null;
+        if (deathSaid || d.getPhase() == EnderDragon.Phase.DYING) return "end";
+        if (peaceful || day < 1) return null;
+        return day <= 2 ? "dawn" : day <= 5 ? "creation" : day == 6 ? "wrath" : "rest";
+    }
+
+    /** The middle of the fight: the main island of the End. */
+    Location musicCentre() {
+        EnderDragon d = dragon();
+        return d == null ? null : new Location(d.getWorld(), 0, 64, 0);
+    }
+
     private void endFight() {
         if (napping) { napping = false; if (snore != null) { snore.remove(); snore = null; } }
         if (seat != null) { seat.eject(); seat.remove(); seat = null; }
@@ -1064,13 +1081,13 @@ final class GodManager implements Listener {
         Component c = voice(line);
         for (World w : Bukkit.getWorlds()) {
             if (w.getEnvironment() != World.Environment.THE_END) continue;
-            for (Player p : w.getPlayers()) { p.sendMessage(c); p.playSound(p.getLocation(), "minecraft:entity.ender_dragon.ambient", 0.5f, 1f); }
+            for (Player p : w.getPlayers()) { p.sendMessage(c); p.playSound(p.getLocation(), "soulbound:god.speak", 0.6f, 1f); }
         }
     }
 
     private void tell(Player p, String line) {
         p.sendMessage(voice(line));
-        p.playSound(p.getLocation(), "minecraft:entity.ender_dragon.ambient", 0.5f, 1f);
+        p.playSound(p.getLocation(), "soulbound:god.speak", 0.6f, 1f);
     }
 
     private String pick(String... lines) { return lines[rnd.nextInt(lines.length)]; }

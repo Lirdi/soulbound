@@ -25,6 +25,7 @@ public final class Soulbound extends JavaPlugin {
     private PortalManager portals;
     private SummitDrums drums;
     private MolochMusic music;
+    private GodMusic godMusic;
     private StrongholdGate gate;
     private ArenaSeal seal;
     private Parasite parasite;
@@ -119,6 +120,8 @@ public final class Soulbound extends JavaPlugin {
         drums.start();
         music.start();
         god.start();
+        godMusic = new GodMusic(this, god);
+        godMusic.start();
         heaven.start();
         halo.start();
         gear.start();
@@ -137,6 +140,7 @@ public final class Soulbound extends JavaPlugin {
         if (beasts != null) beasts.stop();
         if (godGear != null) godGear.stop();
         if (quantum != null) quantum.stop();
+        if (godMusic != null) godMusic.stop();
         if (god != null) god.stop();
         if (heaven != null) heaven.stop();
         if (halo != null) halo.stop();

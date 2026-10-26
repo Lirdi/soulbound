@@ -313,6 +313,10 @@ archangels:
   # false: the bolt also burns away your totems, so nothing saves you.
   totems-save: true
 god:
+  # God's battle music (organ, choir, bells), on the Jukebox/Note Blocks volume slider, for everyone near the main island.
+  music: true
+  music-volume: 1.0
+  music-radius: 220
   enabled: true
   # swim: he swims through the sky face-first, like an elytra glider (Minecraft can hide him for a moment at some angles,
   # because his body reaches far outside his hitbox). upright: he floats upright like an old man drifting along.
