@@ -120,6 +120,23 @@ final class MolochGear implements Listener {
         return it;
     }
 
+    /** The Skull of Mictlan: an elongated, mosaic-crowned skull worn as a helmet (cosmetic, like the horns). */
+    ItemStack skull(String earnedBy) {
+        ItemStack it = new ItemStack(Material.GOLD_NUGGET);
+        ItemMeta m = it.getItemMeta();
+        m.displayName(Component.text("Skull of Mictlan", NamedTextColor.DARK_AQUA, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.lore(List.of(
+                Component.text("Long-headed, turquoise-crowned, still grinning.", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, true),
+                Component.text(earnedBy == null ? "Wear it on your head." : "Earned by " + earnedBy + ".", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
+        m.setItemModel(new NamespacedKey("soulbound", "elongated_skull"));
+        m.setMaxStackSize(1);
+        EquippableComponent eq = m.getEquippable();
+        eq.setSlot(EquipmentSlot.HEAD);
+        m.setEquippable(eq);
+        it.setItemMeta(m);
+        return it;
+    }
+
     private Piece pieceOf(ItemStack it) {
         if (it == null || !it.hasItemMeta()) return null;
         String s = it.getItemMeta().getPersistentDataContainer().get(pieceKey, PersistentDataType.STRING);
@@ -174,10 +191,11 @@ final class MolochGear implements Listener {
     String adminGive(Player to, String what) {
         switch (what.toLowerCase(Locale.ROOT)) {
             case "horns" -> to.getInventory().addItem(horns(null));
+            case "skull" -> to.getInventory().addItem(skull(null));
             case "set", "all" -> { for (Piece p : Piece.values()) to.getInventory().addItem(piece(p)); }
             default -> {
                 try { to.getInventory().addItem(piece(Piece.valueOf(what.toUpperCase(Locale.ROOT)))); }
-                catch (IllegalArgumentException e) { return "Give what? horns, set, helmet, chestplate, leggings or boots."; }
+                catch (IllegalArgumentException e) { return "Give what? horns, skull, set, helmet, chestplate, leggings or boots."; }
             }
         }
         return "Given.";
