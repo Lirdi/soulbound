@@ -42,8 +42,11 @@ final class Parasite implements Listener {
     private static final int FRAMES = 8;
 
     private final Soulbound plugin;
-    private final NamespacedKey key;
-    private final Set<UUID> hosts = new HashSet<>();
+    private final NamespacedKey key, crownKey;
+    private static final int CROWN_FRAMES = 6;
+    private int crownFrame;
+    private boolean nightVision;
+    private final Set<UUID> hosts = new HashSet<>(), seers = new HashSet<>();
     private BukkitTask animTask, task;
     private int frame;
 
@@ -53,6 +56,7 @@ final class Parasite implements Listener {
     Parasite(Soulbound plugin) {
         this.plugin = plugin;
         this.key = new NamespacedKey(plugin, "parasite");
+        this.crownKey = new NamespacedKey(plugin, "cortex_leech");
         loadSettings();
     }
 
@@ -62,6 +66,7 @@ final class Parasite implements Listener {
         hunger = Math.max(0, c.getInt("parasite.hunger", 2));
         binding = c.getBoolean("parasite.binding", true);
         starveOff = c.getBoolean("parasite.lets-go-when-starving", true);
+        nightVision = c.getBoolean("parasite.cortex-night-vision", true);
     }
 
     void start() {
@@ -101,6 +106,38 @@ final class Parasite implements Listener {
         return it;
     }
 
+    /** The Cortex Leech: a second parasite, worn on the head. Its eye sees in the dark for you. */
+    ItemStack crown() {
+        ItemStack it = new ItemStack(Material.ECHO_SHARD);
+        ItemMeta m = it.getItemMeta();
+        m.displayName(Component.text("The Cortex Leech", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.lore(List.of(
+                Component.text("It thinks your thoughts a moment before you do.", NamedTextColor.DARK_RED).decoration(TextDecoration.ITALIC, true),
+                Component.text("Parasite · worn on the head", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
+                Component.text(nightVision ? "Its eye sees in the dark for you (Night Vision)" : "It watches.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
+        m.setItemModel(new NamespacedKey("soulbound", "cortex_leech_f0"));
+        m.setMaxStackSize(1);
+        EquippableComponent eq = m.getEquippable();
+        eq.setSlot(EquipmentSlot.HEAD);        // no equipment model: the 3D item model itself sits on the head
+        eq.setEquipSound(Sound.INTENTIONALLY_EMPTY);
+        eq.setDispensable(true);
+        eq.setSwappable(true);
+        m.setEquippable(eq);
+        m.getPersistentDataContainer().set(crownKey, PersistentDataType.BYTE, (byte) 1);
+        it.setItemMeta(m);
+        return it;
+    }
+
+    boolean isCrown(ItemStack it) {
+        return it != null && it.hasItemMeta() && it.getItemMeta().getPersistentDataContainer().has(crownKey, PersistentDataType.BYTE);
+    }
+
+    String adminGiveCrown(Player t) {
+        var left = t.getInventory().addItem(crown());
+        left.values().forEach(i -> t.getWorld().dropItem(t.getLocation(), i));
+        return "Gave " + t.getName() + " the Cortex Leech.";
+    }
+
     boolean is(ItemStack it) {
         return it != null && it.hasItemMeta() && it.getItemMeta().getPersistentDataContainer().has(key, PersistentDataType.BYTE);
     }
@@ -114,6 +151,17 @@ final class Parasite implements Listener {
     // ---------------------------------------------------------------- it writhes
 
     private void animate() {
+        crownFrame = (crownFrame + 1) % CROWN_FRAMES;
+        NamespacedKey crownWant = new NamespacedKey("soulbound", "cortex_leech_f" + crownFrame);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            ItemStack head = p.getInventory().getHelmet();
+            if (!isCrown(head)) continue;
+            ItemMeta m = head.getItemMeta();
+            if (crownWant.equals(m.getItemModel())) continue;
+            m.setItemModel(crownWant);
+            head.setItemMeta(m);
+            p.getInventory().setHelmet(head);
+        }
         frame = (frame + 1) % FRAMES;
         NamespacedKey want = new NamespacedKey("soulbound", "parasite_f" + frame);
         for (Player p : Bukkit.getOnlinePlayers()) {
@@ -134,6 +182,16 @@ final class Parasite implements Listener {
     private void tick() {
         for (Player p : Bukkit.getOnlinePlayers()) {
             UUID id = p.getUniqueId();
+            boolean crowned = isCrown(p.getInventory().getHelmet()) && !p.isDead();
+            if (crowned && nightVision) {
+                PotionEffect nv = p.getPotionEffect(PotionEffectType.NIGHT_VISION);
+                if (nv == null || (!nv.isInfinite() && nv.getDuration() <= 240 && nv.isAmbient()))
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.NIGHT_VISION, 400, 0, true, false, true));
+                seers.add(id);
+            } else if (seers.remove(id)) {
+                PotionEffect nv = p.getPotionEffect(PotionEffectType.NIGHT_VISION);
+                if (nv != null && nv.isAmbient() && !nv.isInfinite() && nv.getDuration() <= 400) p.removePotionEffect(PotionEffectType.NIGHT_VISION);
+            }
             boolean wearing = is(p.getInventory().getChestplate()) && !p.isDead();
             if (!wearing) {
                 if (hosts.remove(id)) clearEffects(p);
@@ -191,12 +249,12 @@ final class Parasite implements Listener {
     }
 
     @EventHandler
-    public void onQuit(PlayerQuitEvent e) { hosts.remove(e.getPlayer().getUniqueId()); }
+    public void onQuit(PlayerQuitEvent e) { hosts.remove(e.getPlayer().getUniqueId()); seers.remove(e.getPlayer().getUniqueId()); }
 
     /** It's an echo shard underneath: don't let it be crafted into a recovery compass. */
     @EventHandler
     public void onCraft(PrepareItemCraftEvent e) {
-        for (ItemStack it : e.getInventory().getMatrix()) if (is(it)) { e.getInventory().setResult(null); return; }
+        for (ItemStack it : e.getInventory().getMatrix()) if (is(it) || isCrown(it)) { e.getInventory().setResult(null); return; }
     }
 
     private static String roman(int n) {

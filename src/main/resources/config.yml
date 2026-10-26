@@ -344,3 +344,5 @@ parasite:
   binding: true
   # When your hunger bar hits empty, it lets go and drops into your inventory.
   lets-go-when-starving: true
+  # The Cortex Leech (/moloch gear <player> cortex), worn on the head: Night Vision while worn.
+  cortex-night-vision: true
