@@ -27,6 +27,7 @@ public final class Soulbound extends JavaPlugin {
     private MolochMusic music;
     private StrongholdGate gate;
     private ArenaSeal seal;
+    private Parasite parasite;
     private GodGear godGear;
     private QuantumGear quantum;
     private GodManager god;
@@ -80,6 +81,9 @@ public final class Soulbound extends JavaPlugin {
         seal = new ArenaSeal(this, store);
         pm.registerEvents(seal, this);
         seal.start();
+        parasite = new Parasite(this);
+        pm.registerEvents(parasite, this);
+        parasite.start();
         pm.registerEvents(new Archangels(this), this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
@@ -109,6 +113,7 @@ public final class Soulbound extends JavaPlugin {
         if (music != null) music.stop();
         if (gate != null) gate.stop();
         if (seal != null) seal.stop();
+        if (parasite != null) parasite.stop();
         if (godGear != null) godGear.stop();
         if (quantum != null) quantum.stop();
         if (god != null) god.stop();
@@ -229,7 +234,8 @@ public final class Soulbound extends JavaPlugin {
             case "gear" -> {
                 if (!admin(sender)) return true;
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
-                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece]>", NamedTextColor.GRAY)); return true; }
+                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|parasite|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece]>", NamedTextColor.GRAY)); return true; }
+                if (args[2].equalsIgnoreCase("parasite")) { sender.sendMessage(Component.text(parasite.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("quantum")) { sender.sendMessage(Component.text(quantum.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("vestments")) { sender.sendMessage(Component.text(godGear.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
                 sender.sendMessage(Component.text(gear.adminGive(t, args[2]), NamedTextColor.GREEN));
@@ -293,6 +299,7 @@ public final class Soulbound extends JavaPlugin {
         god.loadSettings();
         gear.loadSettings();
         seal.loadSettings();
+        parasite.loadSettings();
         leash.load();
         leash.registerRecipe();
     }

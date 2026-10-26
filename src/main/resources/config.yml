@@ -334,3 +334,13 @@ god:
   sinner-days: 7
   # Nudge him up or down on his throne if he doesn't sit right (in blocks).
   throne-sit-offset: 0.0
+
+# The Black Filament: a parasite worm worn on the chest (/moloch gear <player> parasite).
+parasite:
+  # Effect levels while it's latched on (0 = none).
+  regeneration: 2
+  hunger: 2
+  # Curse of Binding: it can't be taken off (applies to newly made ones).
+  binding: true
+  # When your hunger bar hits empty, it lets go and drops into your inventory.
+  lets-go-when-starving: true
