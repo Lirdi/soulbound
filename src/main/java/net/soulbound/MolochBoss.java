@@ -1562,7 +1562,7 @@ final class MolochBoss implements Listener {
     }
 
     /** The blood moon hangs over his realm and the main world (plus any worlds listed in boss.blood-moon-worlds). */
-    private boolean bloodMoonWorld(World w) {
+    boolean bloodMoonWorld(World w) {
         if (w == null) return false;
         if (w.equals(zones.world())) return true;
         if (!Bukkit.getWorlds().isEmpty() && w.equals(Bukkit.getWorlds().get(0))) return bloodMoonOverworld;

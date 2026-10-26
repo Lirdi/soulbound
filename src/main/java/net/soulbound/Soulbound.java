@@ -28,6 +28,7 @@ public final class Soulbound extends JavaPlugin {
     private StrongholdGate gate;
     private ArenaSeal seal;
     private Parasite parasite;
+    private BloodMoonBeasts beasts;
     private GodGear godGear;
     private QuantumGear quantum;
     private GodManager god;
@@ -90,6 +91,8 @@ public final class Soulbound extends JavaPlugin {
         parasite = new Parasite(this);
         pm.registerEvents(parasite, this);
         parasite.start();
+        beasts = new BloodMoonBeasts(this);
+        beasts.start();
         pm.registerEvents(new Archangels(this), this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
@@ -120,6 +123,7 @@ public final class Soulbound extends JavaPlugin {
         if (gate != null) gate.stop();
         if (seal != null) seal.stop();
         if (parasite != null) parasite.stop();
+        if (beasts != null) beasts.stop();
         if (godGear != null) godGear.stop();
         if (quantum != null) quantum.stop();
         if (god != null) god.stop();
@@ -315,6 +319,7 @@ public final class Soulbound extends JavaPlugin {
         gear.loadSettings();
         seal.loadSettings();
         parasite.loadSettings();
+        beasts.loadSettings();
         leash.load();
         leash.registerRecipe();
     }

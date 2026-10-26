@@ -231,6 +231,13 @@ boss:
   blood-moon-gold-armour: true
   # Other worlds (by folder name) the blood moon covers too, e.g. [world_nether]
   blood-moon-worlds: []
+  # Under the blood moon cows, pigs, sheep, chickens, goats and rabbits hunt nearby players.
+  blood-moon-angry-animals: true
+  angry-animal-range: 16
+  # Damage per bite (chickens and rabbits do half). 3 = one and a half hearts.
+  angry-animal-damage: 3
+  angry-animal-speed: 1.5
+  angry-animal-babies: false
   # No other wardens: ancient-city shriekers summon nothing. /summon still works for testing.
   block-other-wardens: true
 
