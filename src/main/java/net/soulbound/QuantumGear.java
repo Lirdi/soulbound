@@ -74,7 +74,8 @@ final class QuantumGear implements Listener {
     private final Soulbound plugin;
     private final NamespacedKey pieceKey, shellKey;
     private final Map<UUID, ItemDisplay> shells = new HashMap<>();
-    private BukkitTask task;
+    private BukkitTask task, glowTask;
+    private int glow;
     private long tick;
 
     QuantumGear(Soulbound plugin) {
@@ -97,7 +98,7 @@ final class QuantumGear implements Listener {
         m.setItemModel(new NamespacedKey("soulbound", id));
         EquippableComponent eq = m.getEquippable();
         eq.setSlot(p.slot);
-        eq.setModel(p == Piece.HELMET ? null : new NamespacedKey("soulbound", "quantum"));   // the helm is a 3D model of its own
+        eq.setModel(new NamespacedKey("soulbound", "quantum"));
         m.setEquippable(eq);
         m.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(new NamespacedKey(plugin, id + "_armor"), p.armor, AttributeModifier.Operation.ADD_NUMBER, p.group));
         m.addAttributeModifier(Attribute.ARMOR_TOUGHNESS, new AttributeModifier(new NamespacedKey(plugin, id + "_toughness"), 4, AttributeModifier.Operation.ADD_NUMBER, p.group));
@@ -172,10 +173,37 @@ final class QuantumGear implements Listener {
             for (Entity en : w.getEntitiesByClass(ItemDisplay.class))
                 if (en.getPersistentDataContainer().has(shellKey, PersistentDataType.BYTE)) en.remove();
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickShells, 20L, 1L);
+        glowTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tickGlow, 20L, 5L);
+    }
+
+    /** The reactor heart, the visor and the conduits pulse: swap the helm, chest and boots between six glow frames.
+     *  This also moves old helms (once a 3D model) over to the new armour layer the first time they're worn. */
+    private void tickGlow() {
+        glow = (glow + 1) % 6;
+        NamespacedKey want = new NamespacedKey("soulbound", "quantum_f" + glow);
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            var inv = p.getInventory();
+            ItemStack h = inv.getHelmet(), c = inv.getChestplate(), b = inv.getBoots();
+            if (pieceOf(h) == Piece.HELMET) { ItemStack n = withModel(h, want); if (n != null) inv.setHelmet(n); }
+            if (pieceOf(c) == Piece.CHESTPLATE) { ItemStack n = withModel(c, want); if (n != null) inv.setChestplate(n); }
+            if (pieceOf(b) == Piece.BOOTS) { ItemStack n = withModel(b, want); if (n != null) inv.setBoots(n); }
+        }
+    }
+
+    private static ItemStack withModel(ItemStack it, NamespacedKey model) {
+        ItemMeta m = it.getItemMeta();
+        EquippableComponent eq = m.getEquippable();
+        if (model.equals(eq.getModel())) return null;
+        eq.setModel(model);
+        eq.setEquipSound(org.bukkit.Sound.INTENTIONALLY_EMPTY);   // swapped every few ticks: no clank each time
+        m.setEquippable(eq);
+        it.setItemMeta(m);
+        return it;
     }
 
     void stop() {
         if (task != null) task.cancel();
+        if (glowTask != null) glowTask.cancel();
         for (UUID id : List.copyOf(shells.keySet())) removeShell(id);
     }
 
