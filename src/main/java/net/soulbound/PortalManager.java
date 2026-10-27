@@ -148,10 +148,16 @@ final class PortalManager implements Listener {
         p.playSound(p.getLocation(), "moloch:drums", 0.6f, 1f);
         boolean first = !store.data.getBoolean("portals.visited." + p.getUniqueId(), false);
         if (first) { store.set("portals.visited." + p.getUniqueId(), true); store.save(); }
-        p.showTitle(Title.title(Component.text("The Realm of Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD),
-                Component.text(first ? "Follow the Sacred Way to his temple. He is always hungry." : "He knows you're here.", NamedTextColor.GOLD),
-                Title.Times.times(Duration.ofMillis(500), Duration.ofMillis(3500), Duration.ofMillis(1000))));
-        if (first) p.sendMessage(Component.text("The Exit Gate behind you is the only way back out.", NamedTextColor.GRAY));
+        if (first) {
+            // only the very first visit gets a title, and a small one: subtitle-sized text, not the giant banner
+            p.showTitle(Title.title(Component.empty(),
+                    Component.text("The Realm of Moloch", NamedTextColor.DARK_RED, TextDecoration.BOLD),
+                    Title.Times.times(Duration.ofMillis(400), Duration.ofMillis(2500), Duration.ofMillis(800))));
+            p.sendMessage(Component.text("Follow the Sacred Way to his temple. He is always hungry.", NamedTextColor.GOLD));
+            p.sendMessage(Component.text("The Exit Gate behind you is the only way back out.", NamedTextColor.GRAY));
+        } else {
+            p.sendActionBar(Component.text("The Realm of Moloch", NamedTextColor.DARK_RED));
+        }
     }
 
     private void leaveRealm(Player p) {
