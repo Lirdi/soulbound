@@ -72,7 +72,7 @@ final class QuantumGear implements Listener {
     private static final int CORE_FRAMES = 8;
 
     private final Soulbound plugin;
-    private final NamespacedKey pieceKey, shellKey;
+    private final NamespacedKey pieceKey, shellKey, matKey;
     private final Map<UUID, ItemDisplay> shells = new HashMap<>();
     private BukkitTask task, glowTask;
     private int glow;
@@ -82,6 +82,7 @@ final class QuantumGear implements Listener {
         this.plugin = plugin;
         pieceKey = new NamespacedKey(plugin, "quantum_piece");
         shellKey = new NamespacedKey(plugin, "quantum_shell");
+        matKey = new NamespacedKey(plugin, "quantum_material");
     }
 
     // ---------------------------------------------------------------- the pieces
@@ -119,6 +120,9 @@ final class QuantumGear implements Listener {
     String adminGive(Player to, String what) {
         switch (what.toLowerCase(Locale.ROOT)) {
             case "set", "all" -> { for (Piece p : Piece.values()) to.getInventory().addItem(piece(p)); }
+            case "core" -> to.getInventory().addItem(material(Mat.CORE));
+            case "ember" -> to.getInventory().addItem(material(Mat.EMBER));
+            case "tear" -> to.getInventory().addItem(material(Mat.TEAR));
             default -> {
                 try { to.getInventory().addItem(piece(Piece.valueOf(what.toUpperCase(Locale.ROOT)))); }
                 catch (IllegalArgumentException e) { return "Give what? set, helmet, chestplate, leggings or boots."; }
@@ -131,19 +135,74 @@ final class QuantumGear implements Listener {
 
     /** One recipe per piece so the smithing table accepts the inputs; the real check (Moloch + Vestments) is below. */
     void registerRecipes() {
+        // the Quantum Core: an Ember of Moloch, a Tear of God and a netherite ingot, crafted together
+        NamespacedKey coreKey = new NamespacedKey(plugin, "quantum_core");
+        Bukkit.removeRecipe(coreKey);
+        org.bukkit.inventory.ShapelessRecipe core = new org.bukkit.inventory.ShapelessRecipe(coreKey, material(Mat.CORE));
+        core.addIngredient(new RecipeChoice.ExactChoice(material(Mat.EMBER)));
+        core.addIngredient(new RecipeChoice.ExactChoice(material(Mat.TEAR)));
+        core.addIngredient(new RecipeChoice.MaterialChoice(Material.NETHERITE_INGOT));
+        Bukkit.addRecipe(core);
+        // fusing: a Quantum Core in the template slot, a Moloch piece and the matching Vestments piece
         for (Piece p : Piece.values()) {
             NamespacedKey key = new NamespacedKey(plugin, "quantum_fuse_" + p.name().toLowerCase(Locale.ROOT));
             Bukkit.removeRecipe(key);
-            Bukkit.addRecipe(new SmithingTransformRecipe(key, piece(p), new RecipeChoice.MaterialChoice(Material.NETHERITE_INGOT),
+            Bukkit.addRecipe(new SmithingTransformRecipe(key, piece(p), new RecipeChoice.ExactChoice(material(Mat.CORE)),
                     new RecipeChoice.MaterialChoice(p.base), new RecipeChoice.MaterialChoice(p.base), false));
         }
+        for (Player pl : Bukkit.getOnlinePlayers()) pl.discoverRecipe(coreKey);
     }
+
+    // ---------------------------------------------------------------- the Quantum Core and what it's made of
+
+    enum Mat {
+        EMBER("Ember of Moloch", "ember_of_moloch", NamedTextColor.RED, "Still burning. It remembers being worshipped."),
+        TEAR("Tear of God", "tear_of_god", NamedTextColor.YELLOW, "He'd never admit he cried."),
+        CORE("Quantum Core", "quantum_core", NamedTextColor.GOLD, "Fire and grace, marbled into one. Fuses Quantum Humanity at a smithing table.");
+        final String title, model, lore; final NamedTextColor colour;
+        Mat(String title, String model, NamedTextColor colour, String lore) { this.title = title; this.model = model; this.colour = colour; this.lore = lore; }
+    }
+
+    ItemStack material(Mat k) {
+        ItemStack it = new ItemStack(Material.ECHO_SHARD);
+        ItemMeta m = it.getItemMeta();
+        m.displayName(Component.text(k.title, k.colour, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.lore(List.of(Component.text(k.lore, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, true)));
+        m.setItemModel(new NamespacedKey("soulbound", k.model));
+        m.getPersistentDataContainer().set(matKey, PersistentDataType.STRING, k.name());
+        it.setItemMeta(m);
+        return it;
+    }
+
+    Mat matOf(ItemStack it) {
+        if (it == null || !it.hasItemMeta()) return null;
+        String s = it.getItemMeta().getPersistentDataContainer().get(matKey, PersistentDataType.STRING);
+        if (s == null) return null;
+        try { return Mat.valueOf(s); } catch (IllegalArgumentException e) { return null; }
+    }
+
+    /** A boss's gift to someone who fought it: into their inventory, or at their feet if it's full. */
+    void give(Player p, Mat k) {
+        p.getInventory().addItem(material(k)).values().forEach(i -> p.getWorld().dropItem(p.getLocation(), i));
+        p.sendMessage(Component.text("You take " + (k == Mat.EMBER ? "an " : "a ") + k.title + ".", k.colour));
+    }
+
+    /** Embers, Tears and Cores are only for the Quantum Core recipe and the smithing table. */
+    @EventHandler
+    public void onCraft(org.bukkit.event.inventory.PrepareItemCraftEvent e) {
+        boolean ours = e.getRecipe() instanceof org.bukkit.Keyed k && k.getKey().equals(new NamespacedKey(plugin, "quantum_core"));
+        if (ours) return;
+        for (ItemStack it : e.getInventory().getMatrix()) if (matOf(it) != null) { e.getInventory().setResult(null); return; }
+    }
+
+    @EventHandler
+    public void onJoinRecipes(org.bukkit.event.player.PlayerJoinEvent e) { e.getPlayer().discoverRecipe(new NamespacedKey(plugin, "quantum_core")); }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onSmith(PrepareSmithingEvent e) {
         SmithingInventory inv = e.getInventory();
         ItemStack tmpl = inv.getInputTemplate(), base = inv.getInputEquipment(), add = inv.getInputMineral();
-        if (tmpl == null || tmpl.getType() != Material.NETHERITE_INGOT || base == null || add == null) return;
+        if (tmpl == null || matOf(tmpl) != Mat.CORE || base == null || add == null) return;
         if (base.getType() != add.getType()) return;
         String m1 = plugin.gear().pieceName(base), g1 = plugin.godGear().pieceName(base);
         String m2 = plugin.gear().pieceName(add), g2 = plugin.godGear().pieceName(add);

@@ -1566,6 +1566,8 @@ final class MolochBoss implements Listener {
         Set<UUID> fought = new HashSet<>();
         for (Map.Entry<UUID, Double> e : damage.entrySet()) if (e.getValue() >= minDamage) fought.add(e.getKey());
         plugin.gear().reward(top, fought);
+        // everyone who fought takes an Ember of Moloch, for the Quantum Core
+        for (UUID id : fought) { Player p = Bukkit.getPlayer(id); if (p != null) plugin.quantum().give(p, QuantumGear.Mat.EMBER); }
     }
 
     private void lose() {

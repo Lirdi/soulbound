@@ -1074,6 +1074,8 @@ final class GodManager implements Listener {
         if (name == null) name = "someone";
         plugin.halo().award(top, name);
         plugin.godGear().reward(top, new java.util.HashSet<>(damageBy.keySet()));
+        // everyone who fought him takes a Tear of God, for the Quantum Core
+        for (UUID id : damageBy.keySet()) { Player p = Bukkit.getPlayer(id); if (p != null) plugin.quantum().give(p, QuantumGear.Mat.TEAR); }
         String n = name;
         Bukkit.getScheduler().runTaskLater(plugin, () -> Bukkit.broadcast(Component.text(n + " struck God the hardest, and takes his Halo.", NamedTextColor.GOLD, TextDecoration.BOLD)), 100L);
     }
