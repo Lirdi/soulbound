@@ -56,6 +56,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.blood-moon-1h", true);
             saveConfig();
         }
+        // one-off: no more cooldown before a freed player can be captured again
+        if (!getConfig().getBoolean("migrated.capture-no-immunity", false)) {
+            getConfig().set("capture.immunity-seconds", 0);
+            getConfig().set("migrated.capture-no-immunity", true);
+            saveConfig();
+        }
         store = new Store(this);
         zones = new Zones(this);
         leash = new LeashItem(this);

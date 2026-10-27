@@ -25,7 +25,7 @@ capture:
   # Beyond this distance the captive is snapped to the captor.
   snap-distance: 9.0
   # After being freed, a player can't be captured again for this long, in seconds.
-  immunity-seconds: 300
+  immunity-seconds: 0
   # Slow the captor down while dragging someone.
   captor-slowness: true
   # Announce captures and escapes in chat to everyone.

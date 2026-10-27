@@ -97,7 +97,7 @@ final class CaptureManager implements Listener {
         strugglePresses = Math.max(1, c.getInt("capture.struggle-presses", 30));
         slack = c.getDouble("capture.slack", 4.0);
         snapDistance = Math.max(slack + 1, c.getDouble("capture.snap-distance", 9.0));
-        immunitySeconds = c.getInt("capture.immunity-seconds", 300);
+        immunitySeconds = c.getInt("capture.immunity-seconds", 0);
         captorSlowness = c.getBoolean("capture.captor-slowness", true);
         broadcast = c.getBoolean("capture.broadcast", true);
         disabledWorlds = c.getStringList("safety.disabled-worlds");
@@ -233,7 +233,7 @@ final class CaptureManager implements Listener {
         if (byCaptive.containsKey(victim.getUniqueId())) return victim.getName() + " is already on a lead.";
         if (byCaptor.containsKey(victim.getUniqueId())) return victim.getName() + " is holding someone already.";
         Long until = immuneUntil.get(victim.getUniqueId());
-        if (until != null && until > System.currentTimeMillis()) return victim.getName() + " just escaped. Give it " + ((until - System.currentTimeMillis()) / 1000 + 1) + "s.";
+        if (immunitySeconds > 0 && until != null && until > System.currentTimeMillis()) return victim.getName() + " just escaped. Give it " + ((until - System.currentTimeMillis()) / 1000 + 1) + "s.";
         World w = victim.getWorld();
         if (disabledWorlds.contains(w.getName())) return "No captures in this world.";
         if (spawnSafeRadius > 0 && victim.getLocation().distance(w.getSpawnLocation()) < spawnSafeRadius) return "No captures this close to spawn.";
