@@ -69,10 +69,23 @@ final class QuantumGear implements Listener {
             this.base = base; this.slot = slot; this.group = group; this.armor = armor; this.title = title; this.durability = durability;
         }
     }
+    /** The tools: netherite fused with a Quantum Core and a netherite ingot. Harder-hitting, faster, longer-lived. */
+    enum Tool {
+        SWORD(Material.NETHERITE_SWORD, "Quantum Blade", 9, -2.4, 0),
+        PICKAXE(Material.NETHERITE_PICKAXE, "Quantum Drill", 6, -2.7, 10),
+        AXE(Material.NETHERITE_AXE, "Quantum Cleaver", 11, -2.9, 10),
+        SHOVEL(Material.NETHERITE_SHOVEL, "Quantum Spade", 6.5, -2.9, 10),
+        HOE(Material.NETHERITE_HOE, "Quantum Reaper", 1, 0, 10);
+        final Material base; final String title; final double damage, speed, efficiency;
+        Tool(Material base, String title, double damage, double speed, double efficiency) {
+            this.base = base; this.title = title; this.damage = damage; this.speed = speed; this.efficiency = efficiency;
+        }
+    }
+    private static final int TOOL_DURABILITY = 2800;
     private static final int CORE_FRAMES = 8;
 
     private final Soulbound plugin;
-    private final NamespacedKey pieceKey, shellKey, matKey;
+    private final NamespacedKey pieceKey, shellKey, matKey, toolKey;
     private final Map<UUID, ItemDisplay> shells = new HashMap<>();
     private BukkitTask task, glowTask;
     private int glow;
@@ -83,6 +96,7 @@ final class QuantumGear implements Listener {
         pieceKey = new NamespacedKey(plugin, "quantum_piece");
         shellKey = new NamespacedKey(plugin, "quantum_shell");
         matKey = new NamespacedKey(plugin, "quantum_material");
+        toolKey = new NamespacedKey(plugin, "quantum_tool");
     }
 
     // ---------------------------------------------------------------- the pieces
@@ -110,6 +124,31 @@ final class QuantumGear implements Listener {
         return it;
     }
 
+    ItemStack tool(Tool t) {
+        ItemStack it = new ItemStack(t.base);
+        ItemMeta m = it.getItemMeta();
+        String id = "quantum_" + t.name().toLowerCase(Locale.ROOT);
+        m.displayName(Component.text(t.title, NamedTextColor.DARK_AQUA, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.lore(List.of(
+                Component.text("Past good and evil. Built, not given.", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, true),
+                Component.text("Quantum Humanity", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
+        m.setItemModel(new NamespacedKey("soulbound", id));
+        // setting any modifier replaces the netherite defaults, so damage and speed are given in full
+        m.addAttributeModifier(Attribute.ATTACK_DAMAGE, new AttributeModifier(new NamespacedKey(plugin, id + "_damage"), t.damage, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+        m.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(new NamespacedKey(plugin, id + "_speed"), t.speed, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+        if (t.efficiency > 0)
+            m.addAttributeModifier(Attribute.MINING_EFFICIENCY, new AttributeModifier(new NamespacedKey(plugin, id + "_efficiency"), t.efficiency, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+        if (m instanceof Damageable d) d.setMaxDamage(TOOL_DURABILITY);
+        m.getPersistentDataContainer().set(toolKey, PersistentDataType.STRING, t.name());
+        it.setItemMeta(m);
+        return it;
+    }
+
+    private static Tool toolFor(Material netherite) {
+        for (Tool t : Tool.values()) if (t.base == netherite) return t;
+        return null;
+    }
+
     private Piece pieceOf(ItemStack it) {
         if (it == null || !it.hasItemMeta()) return null;
         String s = it.getItemMeta().getPersistentDataContainer().get(pieceKey, PersistentDataType.STRING);
@@ -123,9 +162,15 @@ final class QuantumGear implements Listener {
             case "core" -> to.getInventory().addItem(material(Mat.CORE));
             case "ember" -> to.getInventory().addItem(material(Mat.EMBER));
             case "tear" -> to.getInventory().addItem(material(Mat.TEAR));
+            case "tools" -> { for (Tool t : Tool.values()) to.getInventory().addItem(tool(t)); }
+            case "sword", "blade" -> to.getInventory().addItem(tool(Tool.SWORD));
+            case "pickaxe", "drill" -> to.getInventory().addItem(tool(Tool.PICKAXE));
+            case "axe", "cleaver" -> to.getInventory().addItem(tool(Tool.AXE));
+            case "shovel", "spade" -> to.getInventory().addItem(tool(Tool.SHOVEL));
+            case "hoe", "reaper" -> to.getInventory().addItem(tool(Tool.HOE));
             default -> {
                 try { to.getInventory().addItem(piece(Piece.valueOf(what.toUpperCase(Locale.ROOT)))); }
-                catch (IllegalArgumentException e) { return "Give what? set, helmet, chestplate, leggings or boots."; }
+                catch (IllegalArgumentException e) { return "Give what? set, helmet, chestplate, leggings, boots, tools, sword, pickaxe, axe, shovel or hoe."; }
             }
         }
         return "Given.";
@@ -149,6 +194,13 @@ final class QuantumGear implements Listener {
             Bukkit.removeRecipe(key);
             Bukkit.addRecipe(new SmithingTransformRecipe(key, piece(p), new RecipeChoice.ExactChoice(material(Mat.CORE)),
                     new RecipeChoice.MaterialChoice(p.base), new RecipeChoice.MaterialChoice(p.base), false));
+        }
+        // the tools: a Quantum Core, the netherite tool and a netherite ingot
+        for (Tool t : Tool.values()) {
+            NamespacedKey key = new NamespacedKey(plugin, "quantum_tool_" + t.name().toLowerCase(Locale.ROOT));
+            Bukkit.removeRecipe(key);
+            Bukkit.addRecipe(new SmithingTransformRecipe(key, tool(t), new RecipeChoice.ExactChoice(material(Mat.CORE)),
+                    new RecipeChoice.MaterialChoice(t.base), new RecipeChoice.MaterialChoice(Material.NETHERITE_INGOT), false));
         }
         for (Player pl : Bukkit.getOnlinePlayers()) pl.discoverRecipe(coreKey);
     }
@@ -203,6 +255,16 @@ final class QuantumGear implements Listener {
         SmithingInventory inv = e.getInventory();
         ItemStack tmpl = inv.getInputTemplate(), base = inv.getInputEquipment(), add = inv.getInputMineral();
         if (tmpl == null || matOf(tmpl) != Mat.CORE || base == null || add == null) return;
+        Tool tool = add.getType() == Material.NETHERITE_INGOT ? toolFor(base.getType()) : null;
+        if (tool != null) {
+            if (base.hasItemMeta() && base.getItemMeta().getPersistentDataContainer().has(toolKey, PersistentDataType.STRING)) { e.setResult(null); return; }
+            ItemStack out = tool(tool);
+            ItemMeta om = out.getItemMeta();
+            if (base.hasItemMeta()) for (Entry<Enchantment, Integer> en : base.getItemMeta().getEnchants().entrySet()) om.addEnchant(en.getKey(), en.getValue(), true);
+            out.setItemMeta(om);
+            e.setResult(out);
+            return;
+        }
         if (base.getType() != add.getType()) return;
         String m1 = plugin.gear().pieceName(base), g1 = plugin.godGear().pieceName(base);
         String m2 = plugin.gear().pieceName(add), g2 = plugin.godGear().pieceName(add);
