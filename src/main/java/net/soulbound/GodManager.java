@@ -455,6 +455,11 @@ final class GodManager implements Listener {
                 if (napping) wake(false);
                 if (seated()) rise(d, false);
                 store.set("god.defeated-once", true); store.save();
+                final World ww = w;
+                for (int k = 0; k <= 200; k += 5) {   // night breaks into a new day over ten seconds
+                    long t = (21000 + k * 45L) % 24000;
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> setEndTime(ww, t), 60 + k);
+                }
                 awardHalo();
                 startDeathRays();
                 String[] last = LAST_WORDS[rnd.nextInt(LAST_WORDS.length)];   // he only LET you win, of course
@@ -615,12 +620,20 @@ final class GodManager implements Listener {
     }
 
     /** The End's clock (frozen, so it stays wherever God puts it). 18000 midnight, 6000 noon. */
-    private void setEndTime(World w, long t) { if (w != null) w.setTime(t); }
+    /**
+     * The End keeps its own clock (minecraft:the_end) since 26.1; World#setTime moves the main day clock, not that one,
+     * so set the End's clock by command (quietly) as well.
+     */
+    private void setEndTime(World w, long t) {
+        if (w == null) return;
+        try { w.setTime(t); } catch (Throwable ignored) { }
+        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "time of minecraft:the_end set " + Math.floorMod(t, 24000L));
+    }
 
     /** Dawn in three seconds: the clock runs from midnight through sunrise to noon. */
     private void dawn(World w) {
         if (w == null) return;
-        for (int k = 0; k <= 60; k++) {
+        for (int k = 0; k <= 60; k += 3) {
             long t = (18000 + k * 200L) % 24000;
             Bukkit.getScheduler().runTaskLater(plugin, () -> setEndTime(w, t), k);
         }
