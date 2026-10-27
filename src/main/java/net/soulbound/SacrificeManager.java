@@ -184,6 +184,7 @@ final class SacrificeManager implements Listener {
         curses.curse(victim, curseMinutes);
         hunger.addSacrifice();
         reward(captor);
+        if (plugin.priest() != null) plugin.priest().onSacrifice(captor, victim.getName());
         for (String cmd : captorCommands) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("%player%", captor.getName()));
         captor.showTitle(Title.title(Component.text("Moloch accepts", NamedTextColor.GOLD, TextDecoration.BOLD), Component.text("Your offering is taken.", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(victim.getName() + " was sacrificed to Moloch by " + captor.getName() + ".", NamedTextColor.DARK_RED, TextDecoration.BOLD));

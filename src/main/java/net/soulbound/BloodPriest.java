@@ -50,6 +50,8 @@ final class BloodPriest implements Listener {
     private final Set<UUID> priests = new HashSet<>();
     private int hoodPrice, cudgelPrice, shacklesPrice;
     private double lookRange;
+    private List<String> sacrificeLines;
+    private String sacrificeBroadcast;
 
     BloodPriest(Soulbound plugin, CaptureManager captures, LeashItem leash) {
         this.plugin = plugin;
@@ -65,6 +67,14 @@ final class BloodPriest implements Listener {
         cudgelPrice = c.getInt("priest.price.cudgel", 10);
         shacklesPrice = c.getInt("priest.price.shackles", 16);
         lookRange = c.getDouble("priest.look-range", 16);
+        sacrificeLines = c.getStringList("priest.sacrifice-lines");
+        if (sacrificeLines.isEmpty()) sacrificeLines = List.of(
+                "Did you hear the scream? I'll hear it in my sleep. Wonderful.",
+                "Their name is already forgotten. Yours isn't.",
+                "Wash your hands. Or don't. He likes the smell.",
+                "%victim% begged. I want you to remember that.",
+                "Next time, bring someone you love. He prefers it.");
+        sacrificeBroadcast = c.getString("priest.sacrifice-broadcast", "The Blood Priest smiles.");
     }
 
     void start() {
@@ -155,6 +165,24 @@ final class BloodPriest implements Listener {
         if (a >= 180f) a -= 360f;
         if (a < -180f) a += 360f;
         return a;
+    }
+
+    // ---------------------------------------------------------------- after a sacrifice
+
+    /** A couple of seconds after the fire takes them, the Priest whispers to the captor; everyone sees him smile. */
+    void onSacrifice(Player captor, String victimName) {
+        if (sacrificeLines.isEmpty()) return;
+        String line = sacrificeLines.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(sacrificeLines.size()))
+                .replace("%player%", captor.getName()).replace("%victim%", victimName);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (captor.isOnline()) {
+                captor.sendMessage(Component.text("The Blood Priest whispers: ", NamedTextColor.DARK_RED, TextDecoration.ITALIC)
+                        .append(Component.text(line, NamedTextColor.RED, TextDecoration.ITALIC)));
+                captor.playSound(captor.getLocation(), "minecraft:entity.evoker.ambient", 0.7f, 0.55f);
+            }
+            if (sacrificeBroadcast != null && !sacrificeBroadcast.isBlank())
+                Bukkit.broadcast(Component.text(sacrificeBroadcast, NamedTextColor.DARK_RED, TextDecoration.ITALIC));
+        }, 50L);
     }
 
     // ---------------------------------------------------------------- trading
