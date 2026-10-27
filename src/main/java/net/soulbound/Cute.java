@@ -47,6 +47,7 @@ final class Cute implements Listener {
         CROWN("Flower Crown", "flower_crown", null, "Bees will never sting you."),
         GUT("Bubble Gut", "bubble_gut", null, "Hard to push over. Harder to see your feet.", EquipmentSlot.CHEST, 0),
         BRAIN("Big Brain", "big_brain_f0", null, "Brain power: +50% experience."),
+        CHEF("Chef's Hat", "chef_hat", null, "Everything you eat fills you up for longer."),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -114,6 +115,7 @@ final class Cute implements Listener {
         add(Kind.CROWN, Material.PINK_TULIP, Material.OXEYE_DAISY, Material.ALLIUM, Material.VINE);
         add(Kind.GUT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.CAKE);
         add(Kind.BRAIN, Material.PINK_WOOL, Material.PINK_WOOL, Material.BOOK, Material.LAPIS_LAZULI);
+        add(Kind.CHEF, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.BOWL);
         add(Kind.LAB_COAT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.PAPER);
         add(Kind.LAB_PANTS, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.LEATHER);
         add(Kind.LAB_SHOES, Material.LEATHER, Material.LEATHER, Material.BLACK_DYE);
@@ -135,6 +137,7 @@ final class Cute implements Listener {
             case "flowercrown", "crown" -> Kind.CROWN;
             case "bubblegut", "gut" -> Kind.GUT;
             case "bigbrain", "brain" -> Kind.BRAIN;
+            case "chefhat", "chef" -> Kind.CHEF;
             case "labcoat", "coat" -> Kind.LAB_COAT;
             case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
             case "labshoes", "shoes" -> Kind.LAB_SHOES;
@@ -201,6 +204,14 @@ final class Cute implements Listener {
         e.setCancelled(true);
         PotionEffect longer = new PotionEffect(ne.getType(), (int) (ne.getDuration() * 1.5), ne.getAmplifier(), ne.isAmbient(), ne.hasParticles(), ne.hasIcon());
         Bukkit.getScheduler().runTask(plugin, () -> p.addPotionEffect(longer));
+    }
+
+    /** Chef's Hat: food keeps you full longer (a little extra saturation from every meal). */
+    @EventHandler(ignoreCancelled = true)
+    public void onEat(org.bukkit.event.player.PlayerItemConsumeEvent e) {
+        Player p = e.getPlayer();
+        if (kindOf(p.getInventory().getHelmet()) != Kind.CHEF || !e.getItem().getType().isEdible()) return;
+        Bukkit.getScheduler().runTask(plugin, () -> p.setSaturation(Math.min(p.getFoodLevel(), p.getSaturation() + 3f)));
     }
 
     /** Big Brain: more experience from every orb. */
