@@ -74,6 +74,9 @@ public final class Archangels implements Listener {
                 w.spawn(at, Ghast.class, g -> {
                     g.customName(Component.text("Archangel", NamedTextColor.GOLD));
                     g.setCustomNameVisible(false);
+                    double hp = Math.max(1, plugin.getConfig().getDouble("archangels.ghasts.health", 40));
+                    var mh = g.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+                    if (mh != null) { mh.setBaseValue(hp); g.setHealth(hp); }
                     g.getPersistentDataContainer().set(ghastKey, PersistentDataType.BYTE, (byte) 1);
                 });
             }
@@ -105,6 +108,14 @@ public final class Archangels implements Listener {
             if (d < bd) { bd = d; best = p; }
         }
         return best;
+    }
+
+    /** A fireball knocked back into an Archangel doesn't kill it outright (vanilla does 1000 damage); it takes a set amount. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onReturnedFire(EntityDamageByEntityEvent e) {
+        if (!isArchangel(e.getEntity()) || !(e.getDamager() instanceof Fireball)) return;
+        double dmg = plugin.getConfig().getDouble("archangels.ghasts.returned-fireball-damage", 10);
+        if (dmg >= 0) e.setDamage(dmg);
     }
 
     /** An Archangel's fireball smites, direct hit or blast. */

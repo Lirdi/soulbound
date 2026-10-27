@@ -352,6 +352,10 @@ archangels:
     max-per-player: 2
     # Every 5 seconds, the chance one more appears near a player out there (0.08 = roughly one a minute until the max).
     chance: 0.08
+    # Their health (40 = 20 hearts; a normal ghast has 10).
+    health: 40
+    # Damage they take from their own fireball knocked back at them (10 = 5 hearts, so four hits). -1 = vanilla instant kill.
+    returned-fireball-damage: 10
 god:
   # God's battle music (organ, choir, bells), on the Jukebox/Note Blocks volume slider, for everyone near the main island.
   music: true
