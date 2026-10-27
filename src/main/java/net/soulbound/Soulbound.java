@@ -41,6 +41,7 @@ public final class Soulbound extends JavaPlugin {
     private HaloItem halo;
     private MolochGear gear;
     private BloodPriest priest;
+    private Archangels archangels;
     private ScreenCrack cracks;
 
     @Override
@@ -137,7 +138,9 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(cute, this);
         cute.registerRecipes();
         cute.start();
-        pm.registerEvents(new Archangels(this), this);
+        archangels = new Archangels(this);
+        pm.registerEvents(archangels, this);
+        archangels.start();
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
@@ -203,6 +206,8 @@ public final class Soulbound extends JavaPlugin {
     MolochGear gear() { return gear; }
     BloodPriest priest() { return priest; }
     Tartare tartare() { return tartare; }
+    Store store() { return store; }
+    GodManager god() { return god; }
     GodGear godGear() { return godGear; }
     QuantumGear quantum() { return quantum; }
     public ScreenCrack cracks() { return cracks; }
