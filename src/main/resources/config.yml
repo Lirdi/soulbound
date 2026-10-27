@@ -14,7 +14,7 @@ capture:
   max-health: 6.0
   # How long a capture lasts before the lead gives way, in seconds.
   duration-seconds: 180
-  # The captor must keep a lead in hand, or the captive goes free.
+  # The captor must keep the leash on them (anywhere in their inventory), or the captive goes free.
   require-holding-lead: true
   # Damage the captor can take (from anyone) before the lead breaks. 6 = 3 hearts.
   captor-break-damage: 6.0

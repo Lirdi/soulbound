@@ -194,6 +194,13 @@ final class CaptureManager implements Listener {
             if (captor.getGameMode() != GameMode.CREATIVE) hand.setAmount(hand.getAmount() - 1);
             return;
         }
+        Capture own = byCaptor.get(captor.getUniqueId());
+        if (own != null && own.captive.equals(victim.getUniqueId())) {
+            e.setCancelled(true);
+            if (captor.isSneaking()) startCarry(own, captor, victim);
+            else captor.sendActionBar(Component.text("Sneak and right-click to sling " + victim.getName() + " over your shoulder.", NamedTextColor.GRAY));
+            return;
+        }
         if (hand.getType() != Material.LEAD) return;
         if (!leash.captures(captor.getInventory().getItemInMainHand())) {
             if (e.getRightClicked() instanceof Player) captor.sendActionBar(Component.text("A plain lead won't hold a person. Craft a " + leashName() + ".", NamedTextColor.RED));
@@ -271,8 +278,7 @@ final class CaptureManager implements Listener {
             return;
         }
         if (tick >= cap.endsAt) { end(cap, End.TIMEOUT); return; }
-        if (requireLead && !leash.captures(captor.getInventory().getItemInMainHand())
-                && !leash.captures(captor.getInventory().getItemInOffHand())) { end(cap, End.LET_GO); return; }
+        if (requireLead && !hasLeash(captor)) { end(cap, End.LET_GO); return; }
 
         if (cap.carried) tickCarry(cap, captor, victim);
         else { tickProps(cap, victim); drag(cap, captor, victim); }
@@ -402,7 +408,7 @@ final class CaptureManager implements Listener {
             }
             case LET_GO -> {
                 if (victim != null) victim.sendActionBar(Component.text(cn + " let you go.", NamedTextColor.GREEN));
-                if (captor != null) captor.sendActionBar(Component.text("You let " + vn + " go.", NamedTextColor.GRAY));
+                if (captor != null) captor.sendActionBar(Component.text("You no longer have the chain. " + vn + " goes free.", NamedTextColor.GRAY));
             }
             case SACRIFICED -> { }
             case RESCUED -> {
@@ -564,6 +570,12 @@ final class CaptureManager implements Listener {
     }
 
     // ---------------------------------------------------------------- the abduction: cudgel, hood, carry
+
+    /** Once they're chained, the leash only has to be on you somewhere, not in your hand: hands are free for the hood. */
+    private boolean hasLeash(Player captor) {
+        for (org.bukkit.inventory.ItemStack it : captor.getInventory().getContents()) if (leash.captures(it)) return true;
+        return false;
+    }
 
     boolean isDazed(Player p) { Long u = dazedUntil.get(p.getUniqueId()); return u != null && u > System.currentTimeMillis(); }
     private boolean carrying(Player p) { Capture c = byCaptor.get(p.getUniqueId()); return c != null && c.carried; }
