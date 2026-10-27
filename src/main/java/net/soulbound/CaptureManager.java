@@ -268,6 +268,7 @@ final class CaptureManager implements Listener {
 
     private void tickAll() {
         tick++;
+        if (tick % 20 == 0) tickSelfHooded();
         for (Capture cap : new ArrayList<>(byCaptive.values())) tickOne(cap);
     }
 
@@ -292,7 +293,6 @@ final class CaptureManager implements Listener {
 
         if ((tick - cap.startedAt) % 10 == 0) {
             applyEffects(captor, victim);
-            if (cap.hooded) victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
             if (cap.hooded && (tick - cap.startedAt) % 40 == 0) hoodVision(victim);
             long left = Math.max(0, cap.endsAt - tick);
             cap.captorBar.progress(clamp((float) left / durationTicks));
@@ -622,6 +622,7 @@ final class CaptureManager implements Listener {
     }
 
     private void hood(Capture cap, Player victim) {
+        if (selfPrevList.containsKey(victim.getUniqueId())) selfUnhood(victim, Bukkit.getScoreboardManager().getMainScoreboard());
         cap.hooded = true;
         org.bukkit.scoreboard.Scoreboard sb = Bukkit.getScoreboardManager().getMainScoreboard();
         org.bukkit.scoreboard.Team old = sb.getEntryTeam(victim.getName());
@@ -631,8 +632,7 @@ final class CaptureManager implements Listener {
         t.addEntry(victim.getName());
         cap.prevListName = victim.playerListName();
         victim.playerListName(Component.text("Hooded figure", NamedTextColor.DARK_GRAY));
-        victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
-        victim.showTitle(Title.title(Component.text("Hooded", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("You can't see. Nobody knows it's you.", NamedTextColor.GRAY)));
+        victim.showTitle(Title.title(Component.text("Hooded", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("You can barely see. Nobody knows it's you.", NamedTextColor.GRAY)));
         sound(victim.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.6f);
         victim.getInventory().setHelmet(items.worn(victim.getInventory().getHelmet()));
         Bukkit.getScheduler().runTaskLater(plugin, () -> { if (cap.hooded && victim.isOnline()) hoodVision(victim); }, 50L);
@@ -674,6 +674,50 @@ final class CaptureManager implements Listener {
             org.bukkit.inventory.ItemStack it = p.getInventory().getItem(i);
             if (items.isWorn(it)) { org.bukkit.inventory.ItemStack st = items.stashOf(it); p.getInventory().setItem(i, st); }
         }
+    }
+
+    /** Hoods worn by choice: the wearer sees the inside of the sack and their name is hidden, until it comes off. */
+    private final Map<UUID, String> selfPrevTeam = new HashMap<>();
+    private final Map<UUID, Component> selfPrevList = new HashMap<>();
+    private void tickSelfHooded() {
+        org.bukkit.scoreboard.Scoreboard sb = Bukkit.getScoreboardManager().getMainScoreboard();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            UUID id = p.getUniqueId();
+            Capture c = byCaptive.get(id);
+            boolean captiveHood = c != null && c.hooded;
+            org.bukkit.inventory.ItemStack h = p.getInventory().getHelmet();
+            boolean wearing = !captiveHood && (items.isHood(h) || items.isWorn(h)) && p.getGameMode() != GameMode.SPECTATOR;
+            boolean was = selfPrevList.containsKey(id);
+            if (wearing && !was) {
+                org.bukkit.scoreboard.Team old = sb.getEntryTeam(p.getName());
+                selfPrevTeam.put(id, old != null && !old.getName().equals(HOOD_TEAM) ? old.getName() : null);
+                selfPrevList.put(id, p.playerListName());
+                org.bukkit.scoreboard.Team t = sb.getTeam(HOOD_TEAM);
+                if (t == null) { t = sb.registerNewTeam(HOOD_TEAM); t.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY, org.bukkit.scoreboard.Team.OptionStatus.NEVER); }
+                t.addEntry(p.getName());
+                p.playerListName(Component.text("Hooded figure", NamedTextColor.DARK_GRAY));
+                hoodVision(p);
+            } else if (wearing) {
+                if (tick % 40 == 0) hoodVision(p);
+            } else if (was) {
+                selfUnhood(p, sb);
+            }
+        }
+    }
+
+    private void selfUnhood(Player p, org.bukkit.scoreboard.Scoreboard sb) {
+        UUID id = p.getUniqueId();
+        org.bukkit.scoreboard.Team t = sb.getTeam(HOOD_TEAM);
+        if (t != null && !(byCaptive.get(id) != null && byCaptive.get(id).hooded)) t.removeEntry(p.getName());
+        String prev = selfPrevTeam.remove(id);
+        if (prev != null) { org.bukkit.scoreboard.Team old = sb.getTeam(prev); if (old != null) old.addEntry(p.getName()); }
+        Component list = selfPrevList.remove(id);
+        if (!(byCaptive.get(id) != null && byCaptive.get(id).hooded)) { p.playerListName(list); p.clearTitle(); }
+    }
+
+    @EventHandler
+    public void onSelfHoodQuit(PlayerQuitEvent e) {
+        if (selfPrevList.containsKey(e.getPlayer().getUniqueId())) selfUnhood(e.getPlayer(), Bukkit.getScoreboardManager().getMainScoreboard());
     }
 
     /** A hood left on by a crash: take it off when they come back. */
