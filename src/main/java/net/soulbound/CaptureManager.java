@@ -204,7 +204,9 @@ final class CaptureManager implements Listener {
         Capture own = byCaptor.get(captor.getUniqueId());
         if (own != null && own.captive.equals(victim.getUniqueId())) {
             e.setCancelled(true);
+            if (captor.isSneaking() && justToggled(captor)) return;
             if (captor.isSneaking() && atPitEdge(captor)) throwIn(own, captor);
+            else if (captor.isSneaking() && own.carried) putDown(own, captor);   // you clicked the one on your head
             else if (captor.isSneaking()) startCarry(own, captor, victim);
             else captor.sendActionBar(Component.text("Sneak and right-click to sling " + victim.getName() + " over your shoulder.", NamedTextColor.GRAY));
             return;
@@ -545,10 +547,33 @@ final class CaptureManager implements Listener {
         if (e.getHand() == EquipmentSlot.HAND && p.isSneaking()
                 && (e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR || e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK)) {
             Capture cap = byCaptor.get(p.getUniqueId());
+            if (justToggled(p)) return;
             if (atPitEdge(p)) { throwIn(cap, p); return; }
-            stopCarry(cap, true);
-            sound(p.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.7f);
+            putDown(cap, p);
         }
+    }
+
+    /** Sneak + left-click (an empty-handed right-click at the air never reaches the server, a swing always does). */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onSwing(org.bukkit.event.player.PlayerAnimationEvent e) {
+        Player p = e.getPlayer();
+        if (!p.isSneaking() || !carrying(p) || justToggled(p)) return;
+        Capture cap = byCaptor.get(p.getUniqueId());
+        if (atPitEdge(p)) throwIn(cap, p);
+        else putDown(cap, p);
+    }
+
+    private void putDown(Capture cap, Player captor) {
+        stopCarry(cap, true);
+        sound(captor.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.7f);
+        captor.sendActionBar(Component.text("You put them down.", NamedTextColor.GRAY));
+    }
+
+    /** A click both picks up and swings the arm; don't let one click lift and drop in the same breath. */
+    private final Map<UUID, Long> carryToggled = new HashMap<>();
+    private boolean justToggled(Player p) {
+        Long t = carryToggled.get(p.getUniqueId());
+        return t != null && tick - t < 6;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -818,17 +843,19 @@ final class CaptureManager implements Listener {
         if (victim.isInsideVehicle()) victim.leaveVehicle();
         if (!captor.addPassenger(victim)) { captor.sendActionBar(Component.text("You can't lift them here.", NamedTextColor.RED)); return; }
         cap.carried = true;
+        carryToggled.put(cap.captor, tick);
         cap.captorDamage = 0;
         captor.removePotionEffect(PotionEffectType.SLOWNESS);
         sound(captor.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.5f);
         victim.sendActionBar(Component.text(captor.getName() + " hoists you up. Tap sneak to struggle.", NamedTextColor.RED));
-        captor.sendActionBar(Component.text("You hoist " + victim.getName() + " up. Sneak + right-click to put them down.", NamedTextColor.GRAY));
+        captor.sendActionBar(Component.text("You hoist " + victim.getName() + " up. Sneak + click to put them down.", NamedTextColor.GRAY));
     }
 
     /** Put them down (or drop them): back on their feet beside you, chained, still on the lead. */
     private void stopCarry(Capture cap, boolean announce) {
         if (!cap.carried) return;
         cap.carried = false;
+        carryToggled.put(cap.captor, tick);
         Player captor = Bukkit.getPlayer(cap.captor), victim = Bukkit.getPlayer(cap.captive);
         if (cap.body != null) { cap.body.remove(); cap.body = null; }
         if (victim == null) return;
