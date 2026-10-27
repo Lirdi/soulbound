@@ -420,12 +420,12 @@ priest:
     shackles: 16
   # He turns to watch the nearest player within this many blocks.
   look-range: 16
-  # After a sacrifice he whispers one of these to the captor (picked at random). %player% = captor, %victim% = the sacrificed.
+  # The first time a player sacrifices someone, he whispers this to them.
+  first-sacrifice-line: "Look at your hands. Now look at me. Now we're the same."
+  # Every sacrifice after that, one of these (picked at random). %player% = captor, %victim% = the sacrificed.
   sacrifice-lines:
-    - "Did you hear the scream? I'll hear it in my sleep. Wonderful."
-    - "Their name is already forgotten. Yours isn't."
-    - "Wash your hands. Or don't. He likes the smell."
-    - "%victim% begged. I want you to remember that."
-    - "Next time, bring someone you love. He prefers it."
+    - "I've kept a lock of hair from every one of them. Want to see?"
+    - "Sleep well. If you hear chains in the night, don't check."
+    - "You'll dream about this. He'll be in the dream too."
   # And everyone sees this. Leave it empty ("") to turn it off.
   sacrifice-broadcast: "The Blood Priest smiles."

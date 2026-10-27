@@ -51,7 +51,7 @@ final class BloodPriest implements Listener {
     private int hoodPrice, cudgelPrice, shacklesPrice;
     private double lookRange;
     private List<String> sacrificeLines;
-    private String sacrificeBroadcast;
+    private String sacrificeBroadcast, firstLine;
 
     BloodPriest(Soulbound plugin, CaptureManager captures, LeashItem leash) {
         this.plugin = plugin;
@@ -69,11 +69,10 @@ final class BloodPriest implements Listener {
         lookRange = c.getDouble("priest.look-range", 16);
         sacrificeLines = c.getStringList("priest.sacrifice-lines");
         if (sacrificeLines.isEmpty()) sacrificeLines = List.of(
-                "Did you hear the scream? I'll hear it in my sleep. Wonderful.",
-                "Their name is already forgotten. Yours isn't.",
-                "Wash your hands. Or don't. He likes the smell.",
-                "%victim% begged. I want you to remember that.",
-                "Next time, bring someone you love. He prefers it.");
+                "I've kept a lock of hair from every one of them. Want to see?",
+                "Sleep well. If you hear chains in the night, don't check.",
+                "You'll dream about this. He'll be in the dream too.");
+        firstLine = c.getString("priest.first-sacrifice-line", "Look at your hands. Now look at me. Now we're the same.");
         sacrificeBroadcast = c.getString("priest.sacrifice-broadcast", "The Blood Priest smiles.");
     }
 
@@ -169,11 +168,13 @@ final class BloodPriest implements Listener {
 
     // ---------------------------------------------------------------- after a sacrifice
 
-    /** A couple of seconds after the fire takes them, the Priest whispers to the captor; everyone sees him smile. */
-    void onSacrifice(Player captor, String victimName) {
-        if (sacrificeLines.isEmpty()) return;
-        String line = sacrificeLines.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(sacrificeLines.size()))
-                .replace("%player%", captor.getName()).replace("%victim%", victimName);
+    /** A couple of seconds after the fire takes them, the Priest whispers to the captor (his signature line the first time); everyone sees him smile. */
+    void onSacrifice(Player captor, String victimName, boolean first) {
+        String pick = first && firstLine != null && !firstLine.isBlank() ? firstLine
+                : sacrificeLines.isEmpty() ? null
+                : sacrificeLines.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(sacrificeLines.size()));
+        if (pick == null) return;
+        String line = pick.replace("%player%", captor.getName()).replace("%victim%", victimName);
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (captor.isOnline()) {
                 captor.sendMessage(Component.text("The Blood Priest whispers: ", NamedTextColor.DARK_RED, TextDecoration.ITALIC)
