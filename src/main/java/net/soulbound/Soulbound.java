@@ -53,6 +53,13 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.scream-nausea-11", true);
             saveConfig();
         }
+        // one-off: Archangel ghasts were too rare
+        if (!getConfig().getBoolean("migrated.archangel-ghasts-more", false)) {
+            if (getConfig().getDouble("archangels.ghasts.chance", 0.2) == 0.08) getConfig().set("archangels.ghasts.chance", 0.2);
+            if (getConfig().getInt("archangels.ghasts.max-per-player", 3) == 2) getConfig().set("archangels.ghasts.max-per-player", 3);
+            getConfig().set("migrated.archangel-ghasts-more", true);
+            saveConfig();
+        }
         // one-off: blood moons went from 24 hours to 1
         if (!getConfig().getBoolean("migrated.blood-moon-1h", false)) {
             if (getConfig().getInt("boss.blood-moon-hours", 24) == 24) getConfig().set("boss.blood-moon-hours", 1);
