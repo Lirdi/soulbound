@@ -159,6 +159,13 @@ public final class Soulbound extends JavaPlugin {
         halo.start();
         gear.start();
         priest.start();
+        // Moloch's realm: a lower monster cap than the vanilla 70, so the terraces aren't swarming
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            org.bukkit.World realm = zones.world();
+            if (realm == null) return;
+            int cap = getConfig().getInt("moloch.monster-limit", 30);
+            if (cap >= 0 && realm.getSpawnLimit(org.bukkit.entity.SpawnCategory.MONSTER) != cap) realm.setSpawnLimit(org.bukkit.entity.SpawnCategory.MONSTER, cap);
+        }, 40L, 600L);
         if (zones.world() == null) getLogger().warning("Moloch's realm '" + zones.worldKey + "' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.");
         getLogger().info("Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.");
     }

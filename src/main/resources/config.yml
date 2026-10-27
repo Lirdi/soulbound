@@ -64,6 +64,8 @@ logout:
 moloch:
   # Moloch's realm, as the data pack names it.
   world: "sacrifice:sacrifice"
+  # How many monsters can be around in his realm at once (vanilla is 70). Lower = fewer mobs. -1 = leave it alone.
+  monster-limit: 30
   # The fire in the summit pit is at this height.
   pit-y: 125
   # The temple grounds (plaza and moat): a capture's timer stands still in here.
