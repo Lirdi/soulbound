@@ -48,6 +48,7 @@ final class Cute implements Listener {
         GUT("Bubble Gut", "bubble_gut", null, "Hard to push over. Harder to see your feet.", EquipmentSlot.CHEST, 0),
         BRAIN("Big Brain", "big_brain_f0", null, "Brain power: +50% experience."),
         CHEF("Chef's Hat", "chef_hat", null, "Everything you eat fills you up for longer."),
+        WIZARD("Wizard's Hat", "wizard_hat", null, "Enchanting costs one level less."),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -116,6 +117,7 @@ final class Cute implements Listener {
         add(Kind.GUT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.CAKE);
         add(Kind.BRAIN, Material.PINK_WOOL, Material.PINK_WOOL, Material.BOOK, Material.LAPIS_LAZULI);
         add(Kind.CHEF, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.BOWL);
+        add(Kind.WIZARD, Material.BLUE_WOOL, Material.BLUE_WOOL, Material.BLUE_WOOL, Material.GLOWSTONE_DUST);
         add(Kind.LAB_COAT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.PAPER);
         add(Kind.LAB_PANTS, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.LEATHER);
         add(Kind.LAB_SHOES, Material.LEATHER, Material.LEATHER, Material.BLACK_DYE);
@@ -138,6 +140,7 @@ final class Cute implements Listener {
             case "bubblegut", "gut" -> Kind.GUT;
             case "bigbrain", "brain" -> Kind.BRAIN;
             case "chefhat", "chef" -> Kind.CHEF;
+            case "wizardhat", "wizard" -> Kind.WIZARD;
             case "labcoat", "coat" -> Kind.LAB_COAT;
             case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
             case "labshoes", "shoes" -> Kind.LAB_SHOES;
@@ -212,6 +215,17 @@ final class Cute implements Listener {
         Player p = e.getPlayer();
         if (kindOf(p.getInventory().getHelmet()) != Kind.CHEF || !e.getItem().getType().isEdible()) return;
         Bukkit.getScheduler().runTask(plugin, () -> p.setSaturation(Math.min(p.getFoodLevel(), p.getSaturation() + 3f)));
+    }
+
+    /** Wizard's Hat: a level back after every enchantment. */
+    @EventHandler(ignoreCancelled = true)
+    public void onEnchant(org.bukkit.event.enchantment.EnchantItemEvent e) {
+        Player p = e.getEnchanter();
+        if (kindOf(p.getInventory().getHelmet()) != Kind.WIZARD) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            p.giveExpLevels(1);
+            p.getWorld().spawnParticle(Particle.ENCHANT, p.getEyeLocation().add(0, 0.6, 0), 30, 0.4, 0.4, 0.4, 0.5);
+        });
     }
 
     /** Big Brain: more experience from every orb. */
