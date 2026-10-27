@@ -356,6 +356,14 @@ archangels:
     health: 40
     # Damage they take from their own fireball knocked back at them (10 = 5 hearts, so four hits). -1 = vanilla instant kill.
     returned-fireball-damage: 10
+# God's main island in the End is preserved: nobody without soulbound.island.build (ops have it) can break or place
+# blocks there, and explosions, endermen, fire, pistons and outside liquids can't change it either.
+island:
+  protect: true
+  # How far from the centre of the End the protection reaches.
+  radius: 200
+  # Take the iron cages off the crystal towers so every crystal can be shot from the ground.
+  remove-crystal-cages: true
 god:
   # God's battle music (organ, choir, bells), on the Jukebox/Note Blocks volume slider, for everyone near the main island.
   music: true

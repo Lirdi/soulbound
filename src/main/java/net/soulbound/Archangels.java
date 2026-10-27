@@ -71,15 +71,30 @@ public final class Archangels implements Listener {
                 if (near >= max) continue;
                 Location at = spot(l);
                 if (at == null) continue;
-                w.spawn(at, Ghast.class, g -> {
-                    // no name tag: the death message already calls them Archangels
-                    double hp = Math.max(1, plugin.getConfig().getDouble("archangels.ghasts.health", 40));
-                    var mh = g.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
-                    if (mh != null) { mh.setBaseValue(hp); g.setHealth(hp); }
-                    g.getPersistentDataContainer().set(ghastKey, PersistentDataType.BYTE, (byte) 1);
-                });
+                summon(at);
             }
         }
+    }
+
+    /** An Archangel ghast at this spot (God's host on the third day uses this too). */
+    Ghast summon(Location at) {
+        return at.getWorld().spawn(at, Ghast.class, g -> {
+            // no name tag: the death message already calls them Archangels
+            double hp = Math.max(1, plugin.getConfig().getDouble("archangels.ghasts.health", 40));
+            var mh = g.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            if (mh != null) { mh.setBaseValue(hp); g.setHealth(hp); }
+            g.getPersistentDataContainer().set(ghastKey, PersistentDataType.BYTE, (byte) 1);
+        });
+    }
+
+    int countNear(Location l, double r) {
+        int n = 0;
+        for (Ghast g : l.getWorld().getEntitiesByClass(Ghast.class)) if (isArchangel(g) && g.getLocation().distanceSquared(l) < r * r) n++;
+        return n;
+    }
+
+    void clearNear(Location l, double r) {
+        for (Ghast g : l.getWorld().getEntitiesByClass(Ghast.class)) if (isArchangel(g) && g.getLocation().distanceSquared(l) < r * r) g.remove();
     }
 
     /** Somewhere open in the sky 40-70 blocks away and a little above, out of everyone's close view. */

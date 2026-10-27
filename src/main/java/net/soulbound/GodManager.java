@@ -71,7 +71,7 @@ import java.util.UUID;
  *
  *   1. Let there be light   seated on his throne, peaceful and chatty until someone strikes him; then he fights seated
  *   2. The firmament        he rises and swims through the sky; Rapture lifts players into the air
- *   3. The earth            thorn bushes burst up around players
+ *   3. The heavenly host    he calls down two Archangels (ghasts whose fireballs smite)
  *   4. Lights in heaven     falling stars, Pillar of Salt (look at him and you're frozen)
  *   5. Creatures of the sky angels (vexes) swoop in; Judgement marks Moloch's sinners
  *   6. In my own image      "Fine. FINE.": smite storms, he hurls his throne, "Get off my lawn!"
@@ -88,7 +88,7 @@ final class GodManager implements Listener {
     private static final String[] DAY_LINES = {"",
             "Let there be light.",
             "Let there be a firmament. Up you go.",
-            "Let the earth bring forth. Mostly thorns, for you.",
+            "Let the heavens send their host. Archangels! Attend me.",
             "Let there be lights in the heavens. Falling on you.",
             "Let the skies teem with creatures. Angels! Sic 'em.",
             "In my own image. And look how THAT turned out. Fine. FINE.",
@@ -706,8 +706,8 @@ final class GodManager implements Listener {
         switch (day) {
             case 1 -> { pool.add(() -> orbs(f, d, g)); pool.add(() -> orbs(f, d, g)); }
             case 2 -> { pool.add(() -> rapture(f)); pool.add(() -> rapture(f)); }
-            case 3 -> { pool.add(() -> rapture(f)); pool.add(() -> thorns(f)); pool.add(() -> thorns(f)); }
-            case 4 -> { pool.add(() -> thorns(f)); pool.add(() -> stars(f, d)); pool.add(() -> stars(f, d)); if (saltTicks < 0) pool.add(() -> startSalt(f)); }
+            case 3 -> { pool.add(() -> rapture(f)); pool.add(() -> host(d)); pool.add(() -> host(d)); }
+            case 4 -> { pool.add(() -> rapture(f)); pool.add(() -> stars(f, d)); pool.add(() -> stars(f, d)); if (saltTicks < 0) pool.add(() -> startSalt(f)); }
             case 5 -> { pool.add(() -> angels(f, g)); pool.add(() -> angels(f, g)); pool.add(() -> stars(f, d)); if (saltTicks < 0) pool.add(() -> startSalt(f)); }
             case 6 -> { pool.add(() -> throwThrone(f, g)); pool.add(() -> lawn(f, g)); pool.add(() -> angels(f, g)); }
             default -> { }
@@ -797,7 +797,24 @@ final class GodManager implements Listener {
         say(pick("Rise, my child.", "Up you go.", "Ascend! Mind the landing."));
     }
 
-    // ---- Day 3: thorns burst up around players (they wither away again)
+    // ---- Day 3: the heavenly host - two Archangels come down to help him (no more than two at once)
+
+    private void host(EnderDragon d) {
+        Location at = d.getLocation();
+        int alive = plugin.archangels().countNear(at, 220);
+        if (alive >= 2) { say(pick("Archangels! Smite them, would you?", "My host is busy. Busy smiting you.")); return; }
+        for (int i = alive; i < 2; i++) {
+            double a = rnd.nextDouble() * Math.PI * 2;
+            Location spot = at.clone().add(Math.cos(a) * 14, 4 + rnd.nextInt(6), Math.sin(a) * 14);
+            plugin.archangels().summon(spot);
+            fx(Particle.END_ROD, spot, 80, 2.5, 0.12);
+            spot.getWorld().strikeLightningEffect(spot);
+        }
+        at.getWorld().playSound(at, "minecraft:block.beacon.activate", 6f, 0.6f);
+        say(pick("Archangels! Attend me.", "I brought help. Don't tell anyone.", "My host. Be polite, they bite."));
+    }
+
+    // ---- (old) thorns burst up around players (they wither away again)
 
     private void thorns(List<Player> f) {
         BlockData bush = Material.SWEET_BERRY_BUSH.createBlockData();
@@ -1120,6 +1137,8 @@ final class GodManager implements Listener {
         thorns.clear();
         clearSinners();
         clearAngels();
+        for (org.bukkit.World ew : Bukkit.getWorlds())
+            if (ew.getEnvironment() == org.bukkit.World.Environment.THE_END) plugin.archangels().clearNear(new Location(ew, 0, 64, 0), 260);
         marks.clear(); frozen.clear(); frozenUntil.clear(); saltImmune.clear(); greeted.clear(); damageBy.clear();
         fightDragon = null;
         peaceful = true;

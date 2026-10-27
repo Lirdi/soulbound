@@ -148,6 +148,9 @@ public final class Soulbound extends JavaPlugin {
         archangels = new Archangels(this);
         pm.registerEvents(archangels, this);
         archangels.start();
+        IslandGuard island = new IslandGuard(this);
+        pm.registerEvents(island, this);
+        island.start();
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
@@ -215,6 +218,7 @@ public final class Soulbound extends JavaPlugin {
     Tartare tartare() { return tartare; }
     Store store() { return store; }
     GodManager god() { return god; }
+    Archangels archangels() { return archangels; }
     GodGear godGear() { return godGear; }
     QuantumGear quantum() { return quantum; }
     public ScreenCrack cracks() { return cracks; }
