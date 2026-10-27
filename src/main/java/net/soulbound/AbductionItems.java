@@ -67,6 +67,23 @@ final class AbductionItems {
         return it;
     }
 
+    /** The chains as they're worn, in the chestplate slot (drawn as armour); their chestplate is kept inside. */
+    ItemStack wornChains(ItemStack stash) {
+        ItemStack it = new ItemStack(Material.IRON_NUGGET);
+        ItemMeta m = it.getItemMeta();
+        m.displayName(Component.text("Chains", NamedTextColor.DARK_RED).decoration(TextDecoration.ITALIC, false));
+        m.setItemModel(new NamespacedKey("soulbound", "shackles"));
+        var eq = m.getEquippable();
+        eq.setSlot(org.bukkit.inventory.EquipmentSlot.CHEST);
+        eq.setModel(new NamespacedKey("soulbound", "shackles"));
+        eq.setEquipSound(org.bukkit.Sound.INTENTIONALLY_EMPTY);
+        m.setEquippable(eq);
+        m.getPersistentDataContainer().set(wornKey, PersistentDataType.BYTE, (byte) 1);
+        if (stash != null && !stash.getType().isAir()) m.getPersistentDataContainer().set(stashKey, PersistentDataType.BYTE_ARRAY, stash.serializeAsBytes());
+        it.setItemMeta(m);
+        return it;
+    }
+
     boolean isWorn(ItemStack it) {
         return it != null && it.hasItemMeta() && it.getItemMeta().getPersistentDataContainer().has(wornKey, PersistentDataType.BYTE);
     }

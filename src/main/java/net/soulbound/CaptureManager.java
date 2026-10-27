@@ -252,7 +252,7 @@ final class CaptureManager implements Listener {
         Title.Times t = Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(600));
         victim.showTitle(Title.title(Component.text("Captured", NamedTextColor.DARK_RED, TextDecoration.BOLD),
                 Component.text("by " + captor.getName() + ". Tap sneak to struggle.", NamedTextColor.GRAY), t));
-        cap.shackleShow = prop(victim, items.shackles(), 0.9375f);
+        victim.getInventory().setChestplate(items.wornChains(victim.getInventory().getChestplate()));
         sound(victim.getLocation(), "minecraft:block.chain.place", 1f, 0.7f);
         captor.showTitle(Title.title(Component.empty(), Component.text("You captured " + victim.getName(), NamedTextColor.RED), t));
         sound(victim.getLocation(), "minecraft:entity.leash_knot.place", 1f, 0.6f);
@@ -274,7 +274,6 @@ final class CaptureManager implements Listener {
         // the clock stands still at the temple and during the ritual, so the climb isn't a race against it
         if (cap.ritual || plugin.zones().inTemple(victim.getLocation())) cap.endsAt++;
         if (cap.ritual) {
-            tickProps(cap, victim);
             Rabbit ra = cap.anchor;
             if (ra != null && ra.isValid() && !ra.isLeashed()) ra.setLeashHolder(captor);
             return;
@@ -283,11 +282,12 @@ final class CaptureManager implements Listener {
         if (requireLead && !hasLeash(captor)) { end(cap, End.LET_GO); return; }
 
         if (cap.carried) tickCarry(cap, captor, victim);
-        else { tickProps(cap, victim); drag(cap, captor, victim); }
+        else drag(cap, captor, victim);
 
         if ((tick - cap.startedAt) % 10 == 0) {
             applyEffects(captor, victim);
             if (cap.hooded) victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
+            if (cap.hooded && (tick - cap.startedAt) % 40 == 0) hoodVision(victim);
             long left = Math.max(0, cap.endsAt - tick);
             cap.captorBar.progress(clamp((float) left / durationTicks));
             cap.captorBar.name(Component.text((cap.carried ? "Carrying " : "Holding ") + victim.getName() + "  ·  " + (left / 20) + "s"
@@ -373,6 +373,7 @@ final class CaptureManager implements Listener {
         Player captor = Bukkit.getPlayer(cap.captor), victim = Bukkit.getPlayer(cap.captive);
         if (cap.carried) stopCarry(cap, false);
         if (cap.hooded && victim != null) unhood(cap, victim);
+        else if (victim != null) takeHoodOff(victim);   // the chains come off
         removeProps(cap);
         if (cap.anchor != null && cap.anchor.isValid()) cap.anchor.remove();
         if (captor != null) { captor.hideBossBar(cap.captorBar); if (captorSlowness) captor.removePotionEffect(PotionEffectType.SLOWNESS); }
@@ -627,6 +628,7 @@ final class CaptureManager implements Listener {
         victim.showTitle(Title.title(Component.text("Hooded", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("You can't see. Nobody knows it's you.", NamedTextColor.GRAY)));
         sound(victim.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.6f);
         victim.getInventory().setHelmet(items.worn(victim.getInventory().getHelmet()));
+        Bukkit.getScheduler().runTaskLater(plugin, () -> { if (cap.hooded && victim.isOnline()) hoodVision(victim); }, 50L);
         if (cap.carried && cap.body != null && cap.body.isValid()) cap.body.getEquipment().setHelmet(items.worn(null));
     }
 
@@ -638,13 +640,29 @@ final class CaptureManager implements Listener {
         if (cap.prevTeam != null) { org.bukkit.scoreboard.Team old = sb.getTeam(cap.prevTeam); if (old != null) old.addEntry(victim.getName()); }
         victim.playerListName(cap.prevListName);
         victim.removePotionEffect(PotionEffectType.BLINDNESS);
+        victim.clearTitle();
         takeHoodOff(victim);
+    }
+
+    /** The inside of the sack, over the whole screen (a title glyph): dark weave with pinpricks of light. Unlike
+     *  blindness, it still works while they watch through their carrier's eyes. */
+    private void hoodVision(Player p) {
+        StringBuilder sb = new StringBuilder();
+        for (int r = 0; r < 2; r++) {
+            for (int c = 0; c < 4; c++) sb.append((char) (0xE300 + r * 4 + c)).append('\uE3F0');
+            if (r == 0) sb.append('\uE3F1');
+        }
+        Component g = Component.text().content(sb.toString()).font(net.kyori.adventure.key.Key.key("soulbound", "fx"))
+                .shadowColor(net.kyori.adventure.text.format.ShadowColor.none()).build();
+        p.showTitle(Title.title(g, Component.empty(), Title.Times.times(Duration.ZERO, Duration.ofMillis(2600), Duration.ofMillis(400))));
     }
 
     /** Off comes the sack; back on goes whatever helmet they were wearing. */
     private void takeHoodOff(Player p) {
         org.bukkit.inventory.ItemStack h = p.getInventory().getHelmet();
         if (items.isWorn(h)) p.getInventory().setHelmet(items.stashOf(h));
+        org.bukkit.inventory.ItemStack c = p.getInventory().getChestplate();
+        if (items.isWorn(c)) p.getInventory().setChestplate(items.stashOf(c));
         for (int i = 0; i < p.getInventory().getSize(); i++) {
             org.bukkit.inventory.ItemStack it = p.getInventory().getItem(i);
             if (items.isWorn(it)) { org.bukkit.inventory.ItemStack st = items.stashOf(it); p.getInventory().setItem(i, st); }
@@ -761,6 +779,7 @@ final class CaptureManager implements Listener {
             m.addScoreboardTag(PROP_TAG);
             m.setPose(org.bukkit.entity.Pose.SWIMMING, true);
             if (cap.hooded) m.getEquipment().setHelmet(items.worn(null));
+            m.getEquipment().setChestplate(items.wornChains(null));
         });
         captor.removePotionEffect(PotionEffectType.SLOWNESS);
         sound(captor.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.5f);
