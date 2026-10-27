@@ -40,6 +40,7 @@ public final class Soulbound extends JavaPlugin {
     private HeavenBuilder heaven;
     private HaloItem halo;
     private MolochGear gear;
+    private BloodPriest priest;
     private ScreenCrack cracks;
 
     @Override
@@ -89,6 +90,7 @@ public final class Soulbound extends JavaPlugin {
         music = new MolochMusic(this);
         halo = new HaloItem(this, store);
         gear = new MolochGear(this, store);
+        priest = new BloodPriest(this, captures, leash);
         cracks = new ScreenCrack(this);
         god = new GodManager(this, store);
         heavenAir = new HeavenAir(this, god);
@@ -96,6 +98,7 @@ public final class Soulbound extends JavaPlugin {
 
         PluginManager pm = getServer().getPluginManager();
         pm.registerEvents(captures, this);
+        pm.registerEvents(priest, this);
         pm.registerEvents(curses, this);
         pm.registerEvents(hunger, this);
         pm.registerEvents(boss, this);
@@ -155,6 +158,7 @@ public final class Soulbound extends JavaPlugin {
         heaven.start();
         halo.start();
         gear.start();
+        priest.start();
         if (zones.world() == null) getLogger().warning("Moloch's realm '" + zones.worldKey + "' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.");
         getLogger().info("Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.");
     }
@@ -297,6 +301,13 @@ public final class Soulbound extends JavaPlugin {
                 }
                 return true;
             }
+            case "priest" -> {
+                if (!admin(sender)) return true;
+                if (!(sender instanceof Player p)) { sender.sendMessage(Component.text("Stand where he should stand.", NamedTextColor.RED)); return true; }
+                boolean remove = args.length > 1 && args[1].equalsIgnoreCase("remove");
+                sender.sendMessage(Component.text(remove ? priest.removeNear(p) : priest.spawn(p), NamedTextColor.GREEN));
+                return true;
+            }
             case "temple" -> {
                 if (!admin(sender)) return true;
                 sender.sendMessage(Component.text(portals.templeWorks(), NamedTextColor.GREEN));
@@ -394,7 +405,7 @@ public final class Soulbound extends JavaPlugin {
                 if (sender instanceof Player p && curses.secondsLeft(p) > 0)
                     sender.sendMessage(Component.text("You're cursed for " + CurseManager.clock(curses.secondsLeft(p)) + " more.", NamedTextColor.DARK_PURPLE));
                 if (sender.hasPermission("soulbound.admin"))
-                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | resetlimits [player] | gate [here] | setarrival | reload", NamedTextColor.GRAY));
+                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | resetlimits [player] | priest [remove] | gate [here] | setarrival | reload", NamedTextColor.GRAY));
                 return true;
             }
         }
@@ -416,6 +427,7 @@ public final class Soulbound extends JavaPlugin {
         parasite.loadSettings();
         beasts.loadSettings();
         leash.load();
+        priest.load();
         leash.registerRecipe();
     }
 
@@ -430,7 +442,7 @@ public final class Soulbound extends JavaPlugin {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "resetlimits", "gate", "temple", "carry", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "resetlimits", "priest", "gate", "temple", "carry", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");

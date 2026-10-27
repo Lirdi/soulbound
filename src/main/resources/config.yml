@@ -91,6 +91,8 @@ sacrifice:
   server-per-day: 3
   # Players with less playtime than this can't sacrifice or be sacrificed.
   new-player-hours: 5
+  # The Skull of Mictlan for sacrificing someone: first (only the first time), every (each sacrifice) or never.
+  skull-reward: first
   # What the captor gets. %player% is the captor.
   captor-reward-commands:
     - "effect give %player% minecraft:strength 600 1"
@@ -408,3 +410,13 @@ heaven-air:
   mining-fatigue-level: 3
   # Hunger from the thin air, every 2 seconds (4 = one food point). 0 = off.
   thin-air-exhaustion: 0.0
+
+# The Blood Priest (/moloch priest to place him, /moloch priest remove). He sells the abduction tools for gold.
+# Prices are in gold ingots; anything over 64 is asked in gold blocks instead.
+priest:
+  price:
+    hood: 6
+    cudgel: 10
+    shackles: 16
+  # He turns to watch the nearest player within this many blocks.
+  look-range: 16

@@ -183,9 +183,31 @@ final class SacrificeManager implements Listener {
         victim.setHealth(0.0);
         curses.curse(victim, curseMinutes);
         hunger.addSacrifice();
+        reward(captor);
         for (String cmd : captorCommands) Bukkit.dispatchCommand(Bukkit.getConsoleSender(), cmd.replace("%player%", captor.getName()));
         captor.showTitle(Title.title(Component.text("Moloch accepts", NamedTextColor.GOLD, TextDecoration.BOLD), Component.text("Your offering is taken.", NamedTextColor.GRAY)));
         Bukkit.broadcast(Component.text(victim.getName() + " was sacrificed to Moloch by " + captor.getName() + ".", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+    }
+
+    /** The advancement (from the Sacrifice data pack) and, by default the first time only, the Skull of Mictlan. */
+    private void reward(Player captor) {
+        grant(captor, "sacrifice:moloch/root");
+        grant(captor, "sacrifice:moloch/offering");
+        String mode = plugin.getConfig().getString("sacrifice.skull-reward", "first");
+        String path = "sacrifice.skull-given." + captor.getUniqueId();
+        if (mode.equalsIgnoreCase("never") || (mode.equalsIgnoreCase("first") && store.data.getBoolean(path, false))) return;
+        store.set(path, true);
+        org.bukkit.inventory.ItemStack skull = plugin.gear().skull(captor.getName());
+        captor.getInventory().addItem(skull).values().forEach(left -> captor.getWorld().dropItem(captor.getLocation(), left));
+        captor.sendMessage(Component.text("Moloch gives you the Skull of Mictlan.", NamedTextColor.DARK_AQUA));
+    }
+
+    private static void grant(Player p, String id) {
+        org.bukkit.NamespacedKey k = org.bukkit.NamespacedKey.fromString(id);
+        org.bukkit.advancement.Advancement a = k == null ? null : Bukkit.getAdvancement(k);
+        if (a == null) return;
+        org.bukkit.advancement.AdvancementProgress pr = p.getAdvancementProgress(a);
+        for (String c : pr.getRemainingCriteria()) pr.awardCriteria(c);
     }
 
     // ---------------------------------------------------------------- limits
