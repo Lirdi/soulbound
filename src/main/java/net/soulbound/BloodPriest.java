@@ -71,7 +71,8 @@ final class BloodPriest implements Listener {
         if (sacrificeLines.isEmpty()) sacrificeLines = List.of(
                 "I've kept a lock of hair from every one of them. Want to see?",
                 "Sleep well. If you hear chains in the night, don't check.",
-                "You'll dream about this. He'll be in the dream too.");
+                "You'll dream about this. He'll be in the dream too.",
+                "Do you know why I'm called the Blood Priest? Because I did exactly what you just did. Many, many times.");
         firstLine = c.getString("priest.first-sacrifice-line", "Look at your hands. Now look at me. Now we're the same.");
         sacrificeBroadcast = c.getString("priest.sacrifice-broadcast", "The Blood Priest smiles.");
     }

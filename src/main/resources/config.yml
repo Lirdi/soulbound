@@ -427,5 +427,6 @@ priest:
     - "I've kept a lock of hair from every one of them. Want to see?"
     - "Sleep well. If you hear chains in the night, don't check."
     - "You'll dream about this. He'll be in the dream too."
+    - "Do you know why I'm called the Blood Priest? Because I did exactly what you just did. Many, many times."
   # And everyone sees this. Leave it empty ("") to turn it off.
   sacrifice-broadcast: "The Blood Priest smiles."
