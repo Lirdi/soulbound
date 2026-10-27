@@ -963,7 +963,7 @@ final class CaptureManager implements Listener {
 
     private String leashName() { return plugin.getConfig().getString("leash.name", "Bondage Leash"); }
 
-    /** A capture leash is used up when its capture ends, win or lose. */
+    /** Each capture wears the leash down by one use, win or lose; it breaks when it has none left. */
     private void breakOneLeash(Player captor) {
         org.bukkit.inventory.PlayerInventory inv = captor.getInventory();
         org.bukkit.inventory.ItemStack[] slots = inv.getContents();
@@ -973,6 +973,16 @@ final class CaptureManager implements Listener {
         if (pick < 0) return;
         org.bukkit.inventory.ItemStack it = inv.getItem(pick);
         if (it == null) return;
+        if (it.getItemMeta() instanceof org.bukkit.inventory.meta.Damageable dm && dm.hasMaxDamage()) {
+            int used = dm.getDamage() + 1, max = dm.getMaxDamage();
+            if (used < max) {
+                dm.setDamage(used);
+                it.setItemMeta(dm);
+                inv.setItem(pick, it);
+                captor.sendActionBar(Component.text("Your " + leashName() + " wears. " + (max - used) + (max - used == 1 ? " use" : " uses") + " left.", NamedTextColor.GRAY));
+                return;
+            }
+        }
         if (it.getAmount() <= 1) inv.setItem(pick, null); else it.setAmount(it.getAmount() - 1);
         captor.sendMessage(Component.text("Your " + leashName() + " is worn through and breaks.", NamedTextColor.GRAY));
         sound(captor.getLocation(), "minecraft:entity.item.break", 0.8f, 0.8f);

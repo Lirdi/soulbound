@@ -53,14 +53,16 @@ final class LeashItem {
     }
 
     ItemStack create(int amount) {
-        ItemStack item = new ItemStack(Material.LEAD, Math.max(1, amount));
+        ItemStack item = new ItemStack(Material.LEAD, 1);   // one per stack: each has its own wear
         ItemMeta meta = item.getItemMeta();
         meta.displayName(Component.text(name, NamedTextColor.DARK_RED).decoration(TextDecoration.ITALIC, false));
         List<Component> lines = new ArrayList<>();
         for (String l : lore) lines.add(Component.text(l, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, true));
         if (!lines.isEmpty()) meta.lore(lines);
         meta.setItemModel(new NamespacedKey("soulbound", "capture_leash"));
-        meta.setEnchantmentGlintOverride(true);
+        meta.setEnchantmentGlintOverride(false);
+        meta.setMaxStackSize(1);
+        if (meta instanceof org.bukkit.inventory.meta.Damageable dm) dm.setMaxDamage(plugin.getConfig().getInt("leash.uses", 5));
         meta.getPersistentDataContainer().set(tagKey, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
         return item;

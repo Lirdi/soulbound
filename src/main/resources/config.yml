@@ -7,8 +7,10 @@ leash:
     - "Bind the weak."
   # true: only the capture leash can capture people (plain leads can't).
   require-special: true
-  # The capture leash breaks when its capture ends, win or lose.
+  # The capture leash wears down by one use each time a capture ends, win or lose.
   consume-on-capture: true
+  # How many captures a leash lasts.
+  uses: 5
 capture:
   # A player at or below this much health can be captured. 6 = 3 hearts.
   max-health: 6.0
