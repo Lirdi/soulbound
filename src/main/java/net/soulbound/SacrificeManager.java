@@ -1,5 +1,7 @@
 package net.soulbound;
 
+import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionEffect;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -151,6 +153,32 @@ final class SacrificeManager implements Listener {
         Location pit = zones.pitCentre();
         victim.getWorld().spawnParticle(Particle.LAVA, pit.clone().add(0, 1, 0), 40, 0.7, 0.7, 0.7, 0);
         for (Player p : victim.getWorld().getPlayers()) if (p.getLocation().distanceSquared(pit) < 160 * 160) p.playSound(pit, "moloch:furnace", 1.2f, 1f);
+        // he screams as he feeds: the same scream that shakes his hall at half health
+        org.bukkit.World w = pit.getWorld();
+        Location head = pit.clone().add(0, 3, 0);
+        w.playSound(head, "minecraft:entity.warden.roar", 4f, 0.55f);
+        w.playSound(head, "minecraft:entity.ghast.scream", 4f, 0.5f);
+        w.playSound(head, "minecraft:entity.ravager.roar", 4f, 0.6f);
+        w.spawnParticle(Particle.SONIC_BOOM, head, 1);
+        for (int ring = 1; ring <= 3; ring++) {
+            final int r = ring;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                for (int i = 0; i < 24; i++) {
+                    double a2 = i * Math.PI * 2 / 24, d = r * 6;
+                    w.spawnParticle(Particle.SONIC_BOOM, pit.clone().add(Math.cos(a2) * d, 4, Math.sin(a2) * d), 1);
+                }
+            }, r * 3L);
+        }
+        int nausea = Math.max(1, plugin.getConfig().getInt("boss.scream-nausea-seconds", 11));
+        int weak = Math.max(0, plugin.getConfig().getInt("boss.scream-weakness-seconds", 6));
+        for (Player p : w.getPlayers()) {
+            if (p.equals(victim) || p.getLocation().distanceSquared(pit) > 48 * 48) continue;
+            p.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, nausea * 20, 0, false, false, true));
+            if (weak > 0) p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, weak * 20, 0, false, false, true));
+            p.showTitle(Title.title(Component.text("MOLOCH FEEDS", NamedTextColor.DARK_RED, TextDecoration.BOLD),
+                    Component.text("the summit spins around you", NamedTextColor.GRAY),
+                    Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2500), Duration.ofMillis(800))));
+        }
         sacrificing.add(victim.getUniqueId());
         victim.setHealth(0.0);
         curses.curse(victim, curseMinutes);
