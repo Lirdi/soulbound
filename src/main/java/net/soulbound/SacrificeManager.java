@@ -123,6 +123,11 @@ final class SacrificeManager implements Listener {
         if (victim.getLocation().distanceSquared(at) > 0.36) captures.moveCaptive(victim, at);
         victim.setVelocity(new Vector(0, 0, 0));
         if (r.ticksLeft % 4 == 0) victim.getWorld().spawnParticle(Particle.FLAME, pit.clone().add(0, 1, 0), 24, 0.6, 1.0, 0.6, 0.03);
+        // the scream: started 4 seconds out, so its fire-roar lands exactly as the victim is taken
+        if (r.ticksLeft == Math.min(80, ritualTicks)) {
+            for (Player p : victim.getWorld().getPlayers()) if (p.getLocation().distanceSquared(pit) < 160 * 160) p.playSound(pit, "moloch:sacrifice_scream", 2.5f, 1f);
+            victim.playSound(victim.getLocation(), "moloch:sacrifice_scream", 1f, 1f);
+        }
         r.ticksLeft--;
         r.bar.progress(Math.max(0f, (float) r.ticksLeft / ritualTicks));
         if (r.ticksLeft <= 0) complete(r, captor, victim);
@@ -131,7 +136,7 @@ final class SacrificeManager implements Listener {
     private void cancel(Ritual r, Player victim) {
         rituals.remove(r.cap.captive);
         r.cap.ritual = false;
-        for (Player p : Bukkit.getOnlinePlayers()) p.hideBossBar(r.bar);
+        for (Player p : Bukkit.getOnlinePlayers()) { p.hideBossBar(r.bar); p.stopSound("moloch:sacrifice_scream"); }
         if (victim != null) {
             victim.showTitle(Title.title(Component.text("Saved", NamedTextColor.GREEN, TextDecoration.BOLD), Component.text("The ritual was broken.", NamedTextColor.GRAY)));
             Bukkit.broadcast(Component.text("The ritual was broken. " + victim.getName() + " escapes the fire.", NamedTextColor.GREEN));
