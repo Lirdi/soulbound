@@ -76,7 +76,7 @@ final class CaptureManager implements Listener {
 
     // settings
     private double maxHealth, captorBreakDamage, slack, snapDistance, spawnSafeRadius;
-    private int durationTicks, strugglePresses, immunitySeconds;
+    private int durationTicks, strugglePresses, immunitySeconds, struggleDelayTicks;
     private boolean requireLead, captorSlowness, broadcast, killOnLogout;
     private List<String> disabledWorlds = new ArrayList<>(), allowedCommands = new ArrayList<>();
 
@@ -95,6 +95,7 @@ final class CaptureManager implements Listener {
         requireLead = c.getBoolean("capture.require-holding-lead", true);
         captorBreakDamage = c.getDouble("capture.captor-break-damage", 6.0);
         strugglePresses = Math.max(1, c.getInt("capture.struggle-presses", 30));
+        struggleDelayTicks = Math.max(0, c.getInt("capture.struggle-delay-seconds", 25)) * 20;
         slack = c.getDouble("capture.slack", 4.0);
         snapDistance = Math.max(slack + 1, c.getDouble("capture.snap-distance", 9.0));
         immunitySeconds = c.getInt("capture.immunity-seconds", 0);
@@ -301,7 +302,9 @@ final class CaptureManager implements Listener {
                     + (cap.carried ? "  ·  sneak + right-click to put down" : "")));
             int need = Math.max(0, strugglePresses - cap.struggles);
             cap.captiveBar.progress(clamp((float) need / strugglePresses));
-            cap.captiveBar.name(Component.text((cap.hooded ? "Hooded" : "Captured by " + captor.getName()) + "  ·  tap sneak to struggle (" + need + ")"));
+            long wait = cap.startedAt + struggleDelayTicks - tick;
+            cap.captiveBar.name(Component.text((cap.hooded ? "Hooded" : "Captured by " + captor.getName()) + "  ·  "
+                    + (wait > 0 ? "too tightly bound to struggle (" + (wait / 20 + 1) + "s)" : "tap sneak to struggle (" + need + ")")));
         }
     }
 
@@ -447,6 +450,11 @@ final class CaptureManager implements Listener {
 
     private final Map<UUID, Long> lastStruggle = new HashMap<>();
     private void struggle(Capture cap, Player p) {
+        long wait = cap.startedAt + struggleDelayTicks - tick;
+        if (wait > 0) {   // freshly bound: too tight to fight yet
+            p.sendActionBar(Component.text("The chains are too tight. You can struggle in " + (wait / 20 + 1) + "s.", NamedTextColor.RED));
+            return;
+        }
         if (Long.valueOf(tick).equals(lastStruggle.put(p.getUniqueId(), tick))) return;
         cap.struggles++;
         sound(bodyAt(cap, p), "minecraft:block.chain.step", 0.8f, 1.4f);

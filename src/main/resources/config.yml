@@ -22,6 +22,8 @@ capture:
   captor-break-damage: 6.0
   # Sneak presses the captive needs to struggle free.
   struggle-presses: 30
+  # Freshly bound captives can't struggle at all for this long, in seconds.
+  struggle-delay-seconds: 25
   # The captive can wander this far before being pulled back, in blocks.
   slack: 4.0
   # Beyond this distance the captive is snapped to the captor.
