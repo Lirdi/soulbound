@@ -201,6 +201,17 @@ final class SacrificeManager implements Listener {
         return null;
     }
 
+    /** An uncursed player is free to be offered again: forget when they were last offered. */
+    void forgetVictim(UUID id) { store.set("sacrifice.victims." + id, null); }
+
+    /** Admin reset: a player's victim cooldown and daily captor count, or (null) the whole server's daily limit too. */
+    void resetLimits(UUID id) {
+        if (id != null) { forgetVictim(id); store.set("sacrifice.captors." + id, null); return; }
+        store.set("sacrifice.victims", null);
+        store.set("sacrifice.captors", null);
+        store.set("sacrifice.server", null);
+    }
+
     private int count(String path) {
         String v = store.data.getString(path, "");
         String today = LocalDate.now().toString();

@@ -272,11 +272,29 @@ public final class Soulbound extends JavaPlugin {
                 if (!admin(sender)) return true;
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
                 if (t == null) { sender.sendMessage(Component.text("/moloch " + sub + " <player>" + (sub.equals("curse") ? " [minutes]" : ""), NamedTextColor.GRAY)); return true; }
-                if (sub.equals("uncurse")) { curses.lift(t); sender.sendMessage(Component.text("Lifted " + t.getName() + "'s curse.", NamedTextColor.GREEN)); return true; }
+                if (sub.equals("uncurse")) {
+                    curses.lift(t);
+                    sacrifices.forgetVictim(t.getUniqueId());   // and they can be offered again straight away
+                    sender.sendMessage(Component.text("Lifted " + t.getName() + "'s curse; they can be offered again.", NamedTextColor.GREEN));
+                    return true;
+                }
                 int mins = getConfig().getInt("curse.minutes", 45);
                 if (args.length > 2) try { mins = Integer.parseInt(args[2]); } catch (NumberFormatException ignored) {}
                 curses.curse(t, mins);
                 sender.sendMessage(Component.text("Cursed " + t.getName() + " for " + mins + " minutes.", NamedTextColor.GREEN));
+                return true;
+            }
+            case "resetlimits" -> {
+                if (!admin(sender)) return true;
+                if (args.length > 1) {
+                    org.bukkit.OfflinePlayer t = getServer().getOfflinePlayerIfCached(args[1]);
+                    if (t == null) { sender.sendMessage(Component.text("No player called " + args[1] + ".", NamedTextColor.RED)); return true; }
+                    sacrifices.resetLimits(t.getUniqueId());
+                    sender.sendMessage(Component.text("Cleared " + t.getName() + "'s sacrifice cooldown and daily count.", NamedTextColor.GREEN));
+                } else {
+                    sacrifices.resetLimits(null);
+                    sender.sendMessage(Component.text("Cleared every sacrifice cooldown and today's limits.", NamedTextColor.GREEN));
+                }
                 return true;
             }
             case "temple" -> {
@@ -376,7 +394,7 @@ public final class Soulbound extends JavaPlugin {
                 if (sender instanceof Player p && curses.secondsLeft(p) > 0)
                     sender.sendMessage(Component.text("You're cursed for " + CurseManager.clock(curses.secondsLeft(p)) + " more.", NamedTextColor.DARK_PURPLE));
                 if (sender.hasPermission("soulbound.admin"))
-                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | gate [here] | setarrival | reload", NamedTextColor.GRAY));
+                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | resetlimits [player] | gate [here] | setarrival | reload", NamedTextColor.GRAY));
                 return true;
             }
         }
@@ -412,7 +430,7 @@ public final class Soulbound extends JavaPlugin {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "temple", "carry", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "resetlimits", "gate", "temple", "carry", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");
