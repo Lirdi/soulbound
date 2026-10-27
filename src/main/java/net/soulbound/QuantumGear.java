@@ -99,7 +99,7 @@ final class QuantumGear implements Listener {
         m.setItemModel(new NamespacedKey("soulbound", id));
         EquippableComponent eq = m.getEquippable();
         eq.setSlot(p.slot);
-        eq.setModel(new NamespacedKey("soulbound", "quantum"));   // every piece, the helm too, is drawn on the armour layer
+        eq.setModel(p == Piece.HELMET ? null : new NamespacedKey("soulbound", "quantum"));   // the helm is its own 3D model
         m.setEquippable(eq);
         m.addAttributeModifier(Attribute.ARMOR, new AttributeModifier(new NamespacedKey(plugin, id + "_armor"), p.armor, AttributeModifier.Operation.ADD_NUMBER, p.group));
         m.addAttributeModifier(Attribute.ARMOR_TOUGHNESS, new AttributeModifier(new NamespacedKey(plugin, id + "_toughness"), 4, AttributeModifier.Operation.ADD_NUMBER, p.group));
@@ -236,14 +236,14 @@ final class QuantumGear implements Listener {
     }
 
     /** The reactor heart, the visor and the conduits pulse: swap the helm, chest and boots between six glow frames.
-     *  Helms made back when they were 3D models move over to the armour layer the first time they're worn. */
+     *  Any helm that was on the armour layer goes back to its 3D model the first time it's worn. */
     private void tickGlow() {
         glow = (glow + 1) % 6;
         NamespacedKey want = new NamespacedKey("soulbound", "quantum_f" + glow);
         for (Player p : Bukkit.getOnlinePlayers()) {
             var inv = p.getInventory();
             ItemStack h = inv.getHelmet(), c = inv.getChestplate(), b = inv.getBoots();
-            if (pieceOf(h) == Piece.HELMET) { ItemStack n = withModel(h, want); if (n != null) inv.setHelmet(n); }
+            if (pieceOf(h) == Piece.HELMET) { ItemStack n = withModel(h, null); if (n != null) inv.setHelmet(n); }
             if (pieceOf(c) == Piece.CHESTPLATE) { ItemStack n = withModel(c, want); if (n != null) inv.setChestplate(n); }
             if (pieceOf(b) == Piece.BOOTS) { ItemStack n = withModel(b, want); if (n != null) inv.setBoots(n); }
         }
