@@ -293,6 +293,7 @@ final class CaptureManager implements Listener {
 
         if ((tick - cap.startedAt) % 10 == 0) {
             applyEffects(captor, victim);
+            if (cap.hooded) victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
             if (cap.hooded && (tick - cap.startedAt) % 40 == 0) hoodVision(victim);
             long left = Math.max(0, cap.endsAt - tick);
             cap.captorBar.progress(clamp((float) left / durationTicks));
@@ -698,6 +699,7 @@ final class CaptureManager implements Listener {
                 p.playerListName(Component.text("Hooded figure", NamedTextColor.DARK_GRAY));
                 hoodVision(p);
             } else if (wearing) {
+                p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
                 if (tick % 40 == 0) hoodVision(p);
             } else if (was) {
                 selfUnhood(p, sb);
@@ -712,7 +714,7 @@ final class CaptureManager implements Listener {
         String prev = selfPrevTeam.remove(id);
         if (prev != null) { org.bukkit.scoreboard.Team old = sb.getTeam(prev); if (old != null) old.addEntry(p.getName()); }
         Component list = selfPrevList.remove(id);
-        if (!(byCaptive.get(id) != null && byCaptive.get(id).hooded)) { p.playerListName(list); p.clearTitle(); }
+        if (!(byCaptive.get(id) != null && byCaptive.get(id).hooded)) { p.playerListName(list); p.clearTitle(); p.removePotionEffect(PotionEffectType.BLINDNESS); }
     }
 
     @EventHandler
