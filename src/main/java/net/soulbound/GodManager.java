@@ -124,6 +124,8 @@ final class GodManager implements Listener {
 
     // the fight
     private UUID fightDragon;
+    /** True while God is fighting (not holding court on his throne, not dead and gone). */
+    boolean fighting() { return fightDragon != null && !peaceful; }
     private boolean peaceful = true, judged, lowSaid, deathSaid, napping, hadFighters, idleSaid;
     private int day, nextAbility = 160, napTicks, nextNap, saltTicks = -1, emptyTicks, nearTicks;
     private double napDamage;

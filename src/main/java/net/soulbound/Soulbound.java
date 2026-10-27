@@ -36,6 +36,7 @@ public final class Soulbound extends JavaPlugin {
     private GodGear godGear;
     private QuantumGear quantum;
     private GodManager god;
+    private HeavenAir heavenAir;
     private HeavenBuilder heaven;
     private HaloItem halo;
     private MolochGear gear;
@@ -90,6 +91,7 @@ public final class Soulbound extends JavaPlugin {
         gear = new MolochGear(this, store);
         cracks = new ScreenCrack(this);
         god = new GodManager(this, store);
+        heavenAir = new HeavenAir(this, god);
         heaven = new HeavenBuilder(this, store);
 
         PluginManager pm = getServer().getPluginManager();
@@ -147,6 +149,7 @@ public final class Soulbound extends JavaPlugin {
         drums.start();
         music.start();
         god.start();
+        heavenAir.start();
         godMusic = new GodMusic(this, god);
         godMusic.start();
         heaven.start();
@@ -171,6 +174,7 @@ public final class Soulbound extends JavaPlugin {
         if (quantum != null) quantum.stop();
         if (godMusic != null) godMusic.stop();
         if (god != null) god.stop();
+        if (heavenAir != null) heavenAir.stop();
         if (heaven != null) heaven.stop();
         if (halo != null) halo.stop();
         if (gear != null) gear.stop();

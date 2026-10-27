@@ -394,3 +394,13 @@ parasite:
 tartare:
   hunger: 8
   saturation: 16.0
+
+# Heaven isn't built for bodies: in the End everyone floats (Slow Falling), the islands resist being dug, and the
+# thin air makes you hungry. A visit is dreamy; living up there is tiring. All of it lifts while God is fighting.
+heaven-air:
+  enabled: true
+  slow-falling: true
+  # 0 for none, 1 or 2 (2 is strong: blocks break about ten times slower).
+  mining-fatigue-level: 2
+  # Hunger from the thin air, every 2 seconds (4 = one food point; 0.04 is roughly one point every 3 minutes).
+  thin-air-exhaustion: 0.04
