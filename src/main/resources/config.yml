@@ -395,12 +395,14 @@ tartare:
   hunger: 8
   saturation: 16.0
 
-# Heaven isn't built for bodies: in the End everyone floats (Slow Falling), the islands resist being dug, and the
-# thin air makes you hungry. A visit is dreamy; living up there is tiring. All of it lifts while God is fighting.
+# Heaven isn't built for bodies: off God's main island (out among the Seven Heavens) everyone floats and the islands
+# resist being dug. A visit is dreamy; living up there is tiring. The main island itself is left alone.
 heaven-air:
   enabled: true
+  # How far from the centre of the End counts as God's main island (no effects there).
+  main-island-radius: 220
   slow-falling: true
-  # 0 for none, 1 or 2 (2 is strong: blocks break about ten times slower).
-  mining-fatigue-level: 2
-  # Hunger from the thin air, every 2 seconds (4 = one food point; 0.04 is roughly one point every 3 minutes).
-  thin-air-exhaustion: 0.04
+  # 0 for none, 1 to 3 (3 is very strong: blocks break about 30 times slower).
+  mining-fatigue-level: 3
+  # Hunger from the thin air, every 2 seconds (4 = one food point). 0 = off.
+  thin-air-exhaustion: 0.0
