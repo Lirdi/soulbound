@@ -40,6 +40,9 @@ final class AbductionItems {
                     Component.text("Use it on a bound captive: they see nothing,", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
                     Component.text("and nobody can tell who they are.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
             m.setItemModel(new NamespacedKey("soulbound", "hood"));
+            var eq = m.getEquippable();   // you can also just wear one yourself
+            eq.setSlot(org.bukkit.inventory.EquipmentSlot.HEAD);
+            m.setEquippable(eq);
         } else {
             m.displayName(Component.text("Cultist's Cudgel", NamedTextColor.DARK_RED).decoration(TextDecoration.ITALIC, false));
             m.lore(List.of(Component.text("Hit them from behind.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, true),
