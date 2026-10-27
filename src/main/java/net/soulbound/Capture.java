@@ -21,6 +21,8 @@ final class Capture {
     boolean ritual;
     /** Slung over the captor's shoulder: the captive rides them, hidden, and a body lies across the shoulder. */
     boolean carried;
+    /** Thrown towards the fire: until this tick the chain lets them fly. */
+    long thrownUntil;
     org.bukkit.entity.Mannequin body;
     /** A sack over the head: blind, nameless. */
     boolean hooded;

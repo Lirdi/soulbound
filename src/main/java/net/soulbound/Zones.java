@@ -47,6 +47,9 @@ final class Zones {
         return x >= -1 && x <= 1 && z >= -1 && z <= 1 && y >= pitY && y <= pitTop;
     }
 
+    /** Down in the fire itself, at the bottom of the pit: where a sacrifice has to land. */
+    boolean inPitFire(Location l) { return inPit(l) && l.getY() <= pitY + 2.5; }
+
     /** The temple, its plaza and moat. */
     boolean inTemple(Location l) {
         return inRealm(l) && Math.max(Math.abs(l.getX()), Math.abs(l.getZ())) <= templeRadius;

@@ -203,7 +203,8 @@ final class CaptureManager implements Listener {
         Capture own = byCaptor.get(captor.getUniqueId());
         if (own != null && own.captive.equals(victim.getUniqueId())) {
             e.setCancelled(true);
-            if (captor.isSneaking()) startCarry(own, captor, victim);
+            if (captor.isSneaking() && atPitEdge(captor)) throwIn(own, captor);
+            else if (captor.isSneaking()) startCarry(own, captor, victim);
             else captor.sendActionBar(Component.text("Sneak and right-click to sling " + victim.getName() + " over your shoulder.", NamedTextColor.GRAY));
             return;
         }
@@ -286,6 +287,7 @@ final class CaptureManager implements Listener {
         if (requireLead && !hasLeash(captor)) { end(cap, End.LET_GO); return; }
 
         if (cap.carried) tickCarry(cap, captor, victim);
+        else if (tick < cap.thrownUntil) steerIntoPit(victim);
         else drag(cap, captor, victim);
 
         if ((tick - cap.startedAt) % 10 == 0) {
@@ -534,6 +536,7 @@ final class CaptureManager implements Listener {
         if (e.getHand() == EquipmentSlot.HAND && p.isSneaking()
                 && (e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR || e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK)) {
             Capture cap = byCaptor.get(p.getUniqueId());
+            if (atPitEdge(p)) { throwIn(cap, p); return; }
             stopCarry(cap, true);
             sound(p.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.7f);
         }
@@ -844,6 +847,59 @@ final class CaptureManager implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onSprint(org.bukkit.event.player.PlayerToggleSprintEvent e) {
         if (e.isSprinting() && carrying(e.getPlayer())) e.setCancelled(true);
+    }
+
+    /** Standing at the rim of Moloch's fire pit, at the top of the temple. */
+    private boolean atPitEdge(Player p) {
+        Zones z = plugin.zones();
+        Location l = p.getLocation();
+        if (!z.inRealm(l) || l.getY() < z.pitY + 6) return false;
+        double dx = l.getX() - 0.5, dz = l.getZ() - 0.5;
+        return dx * dx + dz * dz <= 5.5 * 5.5;
+    }
+
+    /** Heave them into the fire: off your shoulder (or off the end of the chain) and over the rim. */
+    private void throwIn(Capture cap, Player captor) {
+        Player victim = Bukkit.getPlayer(cap.captive);
+        if (victim == null || cap.ritual) return;
+        if (cap.carried) stopCarry(cap, false);
+        else {
+            Location at = captor.getLocation();
+            ownTeleport.add(victim.getUniqueId());
+            try { victim.teleport(at); } finally { ownTeleport.remove(victim.getUniqueId()); }
+        }
+        cap.thrownUntil = tick + 80;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!victim.isOnline()) return;
+            Vector to = new Vector(0.5, 0, 0.5).subtract(victim.getLocation().toVector()).setY(0);
+            if (to.lengthSquared() > 1e-4) to.normalize().multiply(Math.min(0.9, 0.25 + 0.12 * Math.sqrt(to.lengthSquared() + 0.001)));
+            victim.setVelocity(to.setY(0.45));
+        });
+        sound(captor.getLocation(), "minecraft:entity.player.attack.sweep", 1f, 0.6f);
+        sound(captor.getLocation(), "minecraft:block.chain.break", 1f, 0.6f);
+        victim.sendActionBar(Component.text("You're thrown into the fire!", NamedTextColor.DARK_RED));
+        captor.sendActionBar(Component.text("You heave " + victim.getName() + " into Moloch's fire.", NamedTextColor.DARK_RED));
+    }
+
+    /** A thrown captive drifts to the middle of the hole as they fall, so they don't snag on the rim. */
+    private void steerIntoPit(Player victim) {
+        Location l = victim.getLocation();
+        if (!plugin.zones().inRealm(l)) return;
+        double dx = 0.5 - l.getX(), dz = 0.5 - l.getZ();
+        if (dx * dx + dz * dz > 7 * 7) return;
+        Vector v = victim.getVelocity();
+        v.setX(v.getX() * 0.6 + dx * 0.12);
+        v.setZ(v.getZ() * 0.6 + dz * 0.12);
+        victim.setVelocity(v);
+    }
+
+    /** A captive isn't killed by the fall or the flames: Moloch takes them, nothing else. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onCaptiveHurt(EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player p) || !byCaptive.containsKey(p.getUniqueId())) return;
+        String c = e.getCause().name();
+        if (c.equals("FALL")) e.setCancelled(true);
+        else if ((c.contains("FIRE") || c.equals("LAVA") || c.equals("HOT_FLOOR")) && plugin.zones().inPit(p.getLocation())) { e.setCancelled(true); p.setFireTicks(0); }
     }
 
     /** Sneaking out of the carrier's eyes is just struggling: the view stays locked. */
