@@ -161,13 +161,13 @@ final class SacrificeManager implements Listener {
         w.playSound(head, "minecraft:entity.ravager.roar", 4f, 0.6f);
         w.spawnParticle(Particle.SONIC_BOOM, head, 1);
         for (int ring = 1; ring <= 3; ring++) {
-            final int r = ring;
+            final int rr = ring;
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 for (int i = 0; i < 24; i++) {
-                    double a2 = i * Math.PI * 2 / 24, d = r * 6;
+                    double a2 = i * Math.PI * 2 / 24, d = rr * 6;
                     w.spawnParticle(Particle.SONIC_BOOM, pit.clone().add(Math.cos(a2) * d, 4, Math.sin(a2) * d), 1);
                 }
-            }, r * 3L);
+            }, rr * 3L);
         }
         int nausea = Math.max(1, plugin.getConfig().getInt("boss.scream-nausea-seconds", 11));
         int weak = Math.max(0, plugin.getConfig().getInt("boss.scream-weakness-seconds", 6));
