@@ -50,6 +50,8 @@ final class PortalManager implements Listener {
     private float arrYaw;
     private int gateX, gateZ;
     private BoundingBox gateBox;
+    /** The Exit Gates on the east, south and west sides (the north one is gateBox). */
+    private final java.util.List<BoundingBox> sideGates = new java.util.ArrayList<>();
 
     PortalManager(Soulbound plugin, Store store, Zones zones, CaptureManager captures) {
         this.plugin = plugin; this.store = store; this.zones = zones; this.captures = captures;
@@ -65,6 +67,11 @@ final class PortalManager implements Listener {
         arrYaw = (float) c.getDouble("portals.arrival.yaw", 0);
         gateX = c.getInt("portals.gate.x", 0);
         gateZ = c.getInt("portals.gate.z", -120);
+        sideGates.clear();
+        for (TempleWorks.Side sd : TempleWorks.Side.values()) {
+            String k = "portals.gates." + sd.name().toLowerCase(java.util.Locale.ROOT);
+            if (store.data.isInt(k + ".floor")) sideGates.add(box(store.data.getInt(k + ".x"), store.data.getInt(k + ".floor"), store.data.getInt(k + ".z")));
+        }
         if (store.data.isInt("portals.gate-floor")) {
             int f = store.data.getInt("portals.gate-floor");
             gateBox = new BoundingBox(store.data.getInt("portals.gate-x", gateX) - 3, f - 1, store.data.getInt("portals.gate-z", gateZ) - 1,
@@ -78,16 +85,92 @@ final class PortalManager implements Listener {
             String r = buildGate(gateX, gateZ);
             plugin.getLogger().info(r);
         }
+        if (enabled && zones.world() != null && !store.data.getBoolean("temple.works-v1", false)) plugin.getLogger().info(templeWorks());
+    }
+
+    /**
+     * Rebuild the pyramid's four stairways as real stairs, and give the east, south and west sides a causeway out to
+     * their own arrival point and Exit Gate. Done once; /moloch temple does it again.
+     */
+    String templeWorks() {
+        World w = zones.world();
+        if (w == null) return "Moloch's realm isn't loaded.";
+        TempleWorks t = new TempleWorks(w);
+        for (TempleWorks.Side sd : TempleWorks.Side.values()) {
+            t.stairs(sd);
+            if (sd == TempleWorks.Side.NORTH) continue;   // the Sacred Way already leads to the north stairs
+            t.causeway(sd, TempleWorks.FOOT + 3, 124);
+            int[] g = TempleWorks.gate(sd);
+            buildSideGate(sd, g[0], g[1]);
+        }
+        store.set("temple.works-v1", true);
+        store.save();
+        return "Moloch's pyramid: four climbable stairways, and arrivals and Exit Gates on every side.";
+    }
+
+    private static BoundingBox box(int x, int floor, int z) { return new BoundingBox(x - 4, floor - 1, z - 4, x + 5, floor + 9, z + 5); }
+
+    /** An Exit Gate facing out along a side: the same gate as the north one, turned to face the pyramid. */
+    private void buildSideGate(TempleWorks.Side sd, int gx, int gz) {
+        World w = zones.world();
+        int floor = TempleWorks.PLAZA_Y;
+        boolean alongX = sd == TempleWorks.Side.NORTH || sd == TempleWorks.Side.SOUTH;   // the portal plane runs across the way
+        java.util.function.BiFunction<Integer, Integer, int[]> P = (u, v) -> alongX ? new int[]{gx + u, gz + v} : new int[]{gx + v, gz + u};
+        for (int u = -3; u <= 3; u++) for (int v = -2; v <= 2; v++) {
+            int[] q = P.apply(u, v);
+            for (int y = floor + 1; y <= floor + 8; y++) set(w, q[0], y, q[1], Material.AIR.createBlockData());
+            set(w, q[0], floor, q[1], (Math.abs(u) == 3 || Math.abs(v) == 2 ? Material.CHISELED_POLISHED_BLACKSTONE : Material.POLISHED_BLACKSTONE_BRICKS).createBlockData());
+            for (int y = floor - 1; y >= floor - 3; y--) if (!w.getBlockAt(q[0], y, q[1]).getType().isSolid()) set(w, q[0], y, q[1], Material.POLISHED_BLACKSTONE.createBlockData());
+        }
+        for (int u = -2; u <= 2; u++) for (int y = floor; y <= floor + 5; y++) {
+            int[] q = P.apply(u, 0);
+            boolean edge = Math.abs(u) == 2 || y == floor || y == floor + 5;
+            if (edge) set(w, q[0], y, q[1], Material.OBSIDIAN.createBlockData());
+            else {
+                BlockData portal = Material.NETHER_PORTAL.createBlockData();
+                if (portal instanceof Orientable o) o.setAxis(alongX ? Axis.X : Axis.Z);
+                set(w, q[0], y, q[1], portal);
+            }
+        }
+        for (int side : new int[]{-3, 3}) {
+            int[] q = P.apply(side, 0);
+            for (int y = floor + 1; y <= floor + 5; y++) set(w, q[0], y, q[1], Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
+            set(w, q[0], floor + 6, q[1], Material.GOLD_BLOCK.createBlockData());
+            BlockData fire = Material.SOUL_CAMPFIRE.createBlockData();
+            if (fire instanceof Lightable l) l.setLit(true);
+            set(w, q[0], floor + 7, q[1], fire);
+        }
+        for (int u = -2; u <= 2; u++) { int[] q = P.apply(u, 0); set(w, q[0], floor + 6, q[1], (u == 0 ? Material.GILDED_BLACKSTONE : Material.CHISELED_POLISHED_BLACKSTONE).createBlockData()); }
+        int[] top = P.apply(0, 0);
+        set(w, top[0], floor + 7, top[1], Material.GOLD_BLOCK.createBlockData());
+        String k = "portals.gates." + sd.name().toLowerCase(java.util.Locale.ROOT);
+        store.set(k + ".floor", floor); store.set(k + ".x", gx); store.set(k + ".z", gz); store.save();
+        sideGates.add(box(gx, floor, gz));
     }
 
     // ---------------------------------------------------------------- the arrival point
 
     /** Where everyone arrives: the start of the Sacred Way, facing the temple, lifted onto solid ground if needed. */
-    Location arrival() {
+    Location arrival() { return arrival(TempleWorks.Side.NORTH); }
+
+    /** The arrival point on one side of the pyramid: the configured (north) one, turned a quarter at a time. */
+    Location arrival(TempleWorks.Side side) {
         World w = zones.world();
         if (w == null) return null;
-        Location l = new Location(w, arrX, arrY, arrZ, arrYaw, 0);
+        if (side != TempleWorks.Side.NORTH && !store.data.isInt("portals.gates." + side.name().toLowerCase(java.util.Locale.ROOT) + ".floor")) side = TempleWorks.Side.NORTH;
+        int k = side.ordinal();   // quarter turns clockwise from north
+        double x = arrX, z = arrZ;
+        for (int i = 0; i < k; i++) { double nx = -z, nz = x; x = nx; z = nz; }
+        Location l = new Location(w, x, arrY, z, arrYaw + 90f * k, 0);
         return safe(l);
+    }
+
+    /** Which side of the pyramid an Overworld portal leads to: the way it lies from the world spawn. */
+    private static TempleWorks.Side sideFor(Location from) {
+        Location sp = from.getWorld().getSpawnLocation();
+        double dx = from.getX() - sp.getX(), dz = from.getZ() - sp.getZ();
+        if (Math.abs(dx) > Math.abs(dz)) return dx > 0 ? TempleWorks.Side.EAST : TempleWorks.Side.WEST;
+        return dz > 0 ? TempleWorks.Side.SOUTH : TempleWorks.Side.NORTH;
     }
 
     /** The nearest spot at or above/below this one with solid ground and two blocks of air. */
@@ -135,7 +218,7 @@ final class PortalManager implements Listener {
     }
 
     private void enterRealm(Player p, Location fromSpot) {
-        Location to = arrival();
+        Location to = arrival(sideFor(fromSpot));
         if (to == null) {
             p.sendActionBar(Component.text("The portal is cold. Moloch's realm isn't loaded.", NamedTextColor.GRAY));
             return;
@@ -245,7 +328,11 @@ final class PortalManager implements Listener {
     private static void set(World w, int x, int y, int z, BlockData d) { w.getBlockAt(x, y, z).setBlockData(d, false); }
 
     private boolean inGate(Block b) {
-        return gateBox != null && zones.inRealm(b.getLocation()) && gateBox.contains(b.getX() + 0.5, b.getY() + 0.5, b.getZ() + 0.5);
+        if (!zones.inRealm(b.getLocation())) return false;
+        double x = b.getX() + 0.5, y = b.getY() + 0.5, z = b.getZ() + 0.5;
+        if (gateBox != null && gateBox.contains(x, y, z)) return true;
+        for (BoundingBox g : sideGates) if (g.contains(x, y, z)) return true;
+        return false;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

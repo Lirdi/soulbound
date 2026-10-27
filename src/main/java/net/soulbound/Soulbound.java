@@ -279,6 +279,11 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text("Cursed " + t.getName() + " for " + mins + " minutes.", NamedTextColor.GREEN));
                 return true;
             }
+            case "temple" -> {
+                if (!admin(sender)) return true;
+                sender.sendMessage(Component.text(portals.templeWorks(), NamedTextColor.GREEN));
+                return true;
+            }
             case "gate" -> {
                 if (!admin(sender)) return true;
                 int x = getConfig().getInt("portals.gate.x", 0), z = getConfig().getInt("portals.gate.z", -120);
@@ -407,7 +412,7 @@ public final class Soulbound extends JavaPlugin {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "gate", "temple", "carry", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");
