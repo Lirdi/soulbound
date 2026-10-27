@@ -800,11 +800,7 @@ final class CaptureManager implements Listener {
         if (cap.hoodShow != null) { cap.hoodShow.remove(); cap.hoodShow = null; }
     }
 
-    /**
-     * Sling the captive over your shoulder. Their body (a mannequin with their skin, hood and all) lies across your
-     * shoulder; they themselves are put into a locked spectator view from your eyes, so nobody sees them twice and they
-     * never see themselves perched on you. Sneaking is still their struggle.
-     */
+    /** Pick your captive up: they ride on your head, chained (and hooded, if you've hooded them). Sneaking is their struggle. */
     private void startCarry(Capture cap, Player captor, Player victim) {
         if (cap.carried || cap.ritual) return;
         if (cap.anchor != null && cap.anchor.isValid()) { victim.removePassenger(cap.anchor); cap.anchor.remove(); }
@@ -812,32 +808,13 @@ final class CaptureManager implements Listener {
         removeProps(cap);
         victim.setVelocity(new Vector());
         if (victim.isInsideVehicle()) victim.leaveVehicle();
+        if (!captor.addPassenger(victim)) { captor.sendActionBar(Component.text("You can't lift them here.", NamedTextColor.RED)); return; }
         cap.carried = true;
         cap.captorDamage = 0;
-        if (!victim.getPersistentDataContainer().has(gmKey, org.bukkit.persistence.PersistentDataType.STRING))
-            victim.getPersistentDataContainer().set(gmKey, org.bukkit.persistence.PersistentDataType.STRING, victim.getGameMode().name());
-        ownTeleport.add(victim.getUniqueId());
-        try { victim.setGameMode(GameMode.SPECTATOR); victim.setSpectatorTarget(captor); } finally { ownTeleport.remove(victim.getUniqueId()); }
-        Location at = shoulder(captor);
-        cap.body = captor.getWorld().spawn(at, org.bukkit.entity.Mannequin.class, m -> {
-            m.setProfile(io.papermc.paper.datacomponent.item.ResolvableProfile.resolvableProfile(victim.getPlayerProfile()));
-            m.setDescription(null);
-            m.setImmovable(true);
-            m.setAI(false);
-            m.setGravity(false);
-            m.setInvulnerable(true);
-            m.setSilent(true);
-            m.setCollidable(false);
-            m.setPersistent(false);
-            m.addScoreboardTag(PROP_TAG);
-            m.setPose(carryPose, true);
-            if (cap.hooded) m.getEquipment().setHelmet(items.worn(null));
-            m.getEquipment().setChestplate(items.wornChains(null));
-        });
         captor.removePotionEffect(PotionEffectType.SLOWNESS);
         sound(captor.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.5f);
-        victim.sendActionBar(Component.text("You're slung over " + captor.getName() + "'s shoulder.", NamedTextColor.RED));
-        captor.sendActionBar(Component.text("You sling " + victim.getName() + " over your shoulder. Sneak + right-click to put them down.", NamedTextColor.GRAY));
+        victim.sendActionBar(Component.text(captor.getName() + " hoists you up. Tap sneak to struggle.", NamedTextColor.RED));
+        captor.sendActionBar(Component.text("You hoist " + victim.getName() + " up. Sneak + right-click to put them down.", NamedTextColor.GRAY));
     }
 
     /** Put them down (or drop them): back on their feet beside you, chained, still on the lead. */
@@ -847,15 +824,8 @@ final class CaptureManager implements Listener {
         Player captor = Bukkit.getPlayer(cap.captor), victim = Bukkit.getPlayer(cap.captive);
         if (cap.body != null) { cap.body.remove(); cap.body = null; }
         if (victim == null) return;
-        String gm = victim.getPersistentDataContainer().get(gmKey, org.bukkit.persistence.PersistentDataType.STRING);
-        victim.getPersistentDataContainer().remove(gmKey);
-        ownTeleport.add(victim.getUniqueId());
-        try {
-            victim.setSpectatorTarget(null);
-            GameMode back = GameMode.SURVIVAL;
-            if (gm != null) try { back = GameMode.valueOf(gm); } catch (IllegalArgumentException ignored) {}
-            victim.setGameMode(back);
-        } finally { ownTeleport.remove(victim.getUniqueId()); }
+        ownDismount.add(victim.getUniqueId());
+        try { victim.leaveVehicle(); } finally { ownDismount.remove(victim.getUniqueId()); }
         if (captor != null) {
             Location down = captor.getLocation();
             Vector side = new Vector(Math.cos(Math.toRadians(down.getYaw())), 0, Math.sin(Math.toRadians(down.getYaw())));
@@ -867,27 +837,12 @@ final class CaptureManager implements Listener {
         }
     }
 
-    private Location shoulder(Player captor) {
-        double yaw = Math.toRadians(captor.getBodyYaw());
-        Vector fwd = new Vector(-Math.sin(yaw), 0, Math.cos(yaw)), left = new Vector(Math.cos(yaw), 0, Math.sin(yaw));
-        Location l = captor.getLocation().add(0, captor.isSneaking() ? carryUp - 0.3 : carryUp, 0)
-                .add(left.multiply(carrySide)).add(fwd.multiply(carryForward));
-        l.setYaw(captor.getBodyYaw() + (float) carryTurn);   // across the shoulders: head off one side, legs off the other
-        l.setPitch(0);
-        return l;
-    }
-
     private void tickCarry(Capture cap, Player captor, Player victim) {
-        if (victim.getGameMode() != GameMode.SPECTATOR || !captor.equals(victim.getSpectatorTarget())) {
-            ownTeleport.add(victim.getUniqueId());
-            try { if (victim.getGameMode() != GameMode.SPECTATOR) victim.setGameMode(GameMode.SPECTATOR); victim.setSpectatorTarget(captor); }
-            finally { ownTeleport.remove(victim.getUniqueId()); }
+        if (!captor.getPassengers().contains(victim)) {
+            if (victim.isInsideVehicle()) { ownDismount.add(victim.getUniqueId()); try { victim.leaveVehicle(); } finally { ownDismount.remove(victim.getUniqueId()); } }
+            if (!captor.addPassenger(victim)) { stopCarry(cap, false); return; }
         }
         captor.setSprinting(false);
-        if (cap.body == null || !cap.body.isValid()) { cap.carried = false; startCarry(cap, captor, victim); return; }
-        Location at = shoulder(captor);
-        cap.body.teleport(at);
-        cap.body.setBodyYaw(at.getYaw());
     }
 
     @EventHandler(ignoreCancelled = true)
