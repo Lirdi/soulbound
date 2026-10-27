@@ -68,6 +68,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.sacrifice-feeds-40", true);
             saveConfig();
         }
+        // one-off: the capture leash is now the Cultist's Shackles
+        if (!getConfig().getBoolean("migrated.cultists-shackles", false)) {
+            if ("Bondage Leash".equals(getConfig().getString("leash.name", "Bondage Leash"))) getConfig().set("leash.name", "Cultist's Shackles");
+            getConfig().set("migrated.cultists-shackles", true);
+            saveConfig();
+        }
         store = new Store(this);
         zones = new Zones(this);
         leash = new LeashItem(this);
@@ -216,7 +222,7 @@ public final class Soulbound extends JavaPlugin {
                 int n = 1;
                 if (args.length > 2) try { n = Math.max(1, Math.min(64, Integer.parseInt(args[2]))); } catch (NumberFormatException ignored) {}
                 for (int i = 0; i < n; i++) target.getInventory().addItem(leash.create(1));
-                sender.sendMessage(Component.text("Gave " + n + " capture leash" + (n > 1 ? "es" : "") + " to " + target.getName() + ".", NamedTextColor.GREEN));
+                sender.sendMessage(Component.text("Gave " + n + " " + getConfig().getString("leash.name", "Cultist's Shackles") + " to " + target.getName() + ".", NamedTextColor.GREEN));
                 return true;
             }
             default -> {
@@ -285,7 +291,7 @@ public final class Soulbound extends JavaPlugin {
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
                 if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|kraken|hood|cudgel|chains|cute [catears|bunnyears|flowercrown|bubblegut|brain|chef|wizard|tophat|prospector|lab|labcoat|labpants|labshoes]|parasite|cortex|tartare|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece|core|ember|tear]>", NamedTextColor.GRAY)); return true; }
                 if (args[2].equalsIgnoreCase("hood") || args[2].equalsIgnoreCase("cudgel")) { sender.sendMessage(Component.text(captures.items.adminGive(t, args[2]), NamedTextColor.GREEN)); return true; }
-                if (args[2].equalsIgnoreCase("chains")) { for (int i = 0; i < 4; i++) t.getInventory().addItem(leash.create(1)); sender.sendMessage(Component.text("Gave " + t.getName() + " 4 chain leashes.", NamedTextColor.GREEN)); return true; }
+                if (args[2].equalsIgnoreCase("chains")) { for (int i = 0; i < 4; i++) t.getInventory().addItem(leash.create(1)); sender.sendMessage(Component.text("Gave " + t.getName() + " 4 " + getConfig().getString("leash.name", "Cultist's Shackles") + ".", NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("cute")) { sender.sendMessage(Component.text(cute.adminGive(t, args.length > 3 ? args[3] : "all"), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("kraken")) { sender.sendMessage(Component.text(kraken.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("tartare")) { sender.sendMessage(Component.text(tartare.adminGive(t, 16), NamedTextColor.GREEN)); return true; }

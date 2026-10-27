@@ -33,7 +33,7 @@ final class LeashItem {
 
     void load() {
         FileConfiguration c = plugin.getConfig();
-        name = c.getString("leash.name", "Bondage Leash");
+        name = c.getString("leash.name", "Cultist's Shackles");
         lore = c.getStringList("leash.lore");
         requireSpecial = c.getBoolean("leash.require-special", true);
         consumeOnCapture = c.getBoolean("leash.consume-on-capture", true);

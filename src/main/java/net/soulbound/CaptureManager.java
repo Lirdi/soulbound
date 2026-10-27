@@ -961,7 +961,7 @@ final class CaptureManager implements Listener {
 
     // ---------------------------------------------------------------- helpers
 
-    private String leashName() { return plugin.getConfig().getString("leash.name", "Bondage Leash"); }
+    private String leashName() { return plugin.getConfig().getString("leash.name", "Cultist's Shackles"); }
 
     /** Each capture wears the leash down by one use, win or lose; it breaks when it has none left. */
     private void breakOneLeash(Player captor) {

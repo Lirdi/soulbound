@@ -2,7 +2,7 @@
 
 leash:
   # The capture leash: crafted from 8 iron chains around a lead.
-  name: "Bondage Leash"
+  name: "Cultist's Shackles"
   lore:
     - "Bind the weak."
   # true: only the capture leash can capture people (plain leads can't).
