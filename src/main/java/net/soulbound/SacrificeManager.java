@@ -88,7 +88,8 @@ final class SacrificeManager implements Listener {
             if (cap.ritual) continue;
             Player victim = Bukkit.getPlayer(cap.captive), captor = Bukkit.getPlayer(cap.captor);
             if (victim == null || captor == null || !zones.inPitFire(victim.getLocation())) continue;   // they have to fall into the fire
-            String no = refusal(captor, victim);
+            String no = !cap.hooded && plugin.getConfig().getBoolean("sacrifice.require-hood", true)
+                    ? "hood them first." : refusal(captor, victim);
             if (no != null) {
                 long now = System.currentTimeMillis();
                 if (now - lastRefusal.getOrDefault(captor.getUniqueId(), 0L) > 3000) {

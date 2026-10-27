@@ -91,6 +91,8 @@ sacrifice:
   server-per-day: 3
   # Players with less playtime than this can't sacrifice or be sacrificed.
   new-player-hours: 5
+  # The captive has to be wearing the Hood before Moloch will take them.
+  require-hood: true
   # The Skull of Mictlan for sacrificing someone: first (only the first time), every (each sacrifice) or never.
   skull-reward: first
   # What the captor gets. %player% is the captor.

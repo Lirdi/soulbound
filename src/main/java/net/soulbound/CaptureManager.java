@@ -898,6 +898,11 @@ final class CaptureManager implements Listener {
     private void throwIn(Capture cap, Player captor) {
         Player victim = Bukkit.getPlayer(cap.captive);
         if (victim == null || cap.ritual) return;
+        if (!cap.hooded && plugin.getConfig().getBoolean("sacrifice.require-hood", true)) {
+            captor.sendActionBar(Component.text("Moloch won't take a bare face. Hood them first.", NamedTextColor.RED));
+            sound(captor.getLocation(), "minecraft:block.fire.extinguish", 0.6f, 0.6f);
+            return;
+        }
         if (cap.carried) stopCarry(cap, false);
         else {
             Location at = captor.getLocation();
