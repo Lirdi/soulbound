@@ -32,12 +32,16 @@ capture:
   broadcast: true
   # The only commands a captive can use (everything else is blocked, so no /home or /spawn escapes).
   captive-allowed-commands: [msg, tell, w, r, reply, me, report, helpop, rules, list, ping, moloch]
-  # Carrying a captive over your shoulder (sneak + right-click them with the leash). Where their body lies, in blocks
-  # from your feet: up, out to your left, and forward. Tune these if the body floats or sinks into you.
+  # Carrying a captive (sneak + right-click them): their body lies limp across your shoulders, a fireman's carry.
+  # pose: SLEEPING (still, limp), FALL_FLYING (stiff, face down) or SWIMMING (swim strokes).
+  # height/sideways/forward: where the body sits, in blocks from your feet (sideways = out to your left).
+  # turn: how the body is turned against your facing; 90 lies it across your shoulders, 0 or 180 front-to-back.
   carry:
-    up: 1.05
-    side: 0.32
-    forward: 0.0
+    pose: SLEEPING
+    height: 1.42
+    sideways: 0.0
+    forward: -0.12
+    turn: 90
   # Turns the shackles and the hood to face the right way (only change if they appear backwards).
   prop-yaw-offset: 180
 

@@ -284,6 +284,24 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text(gear.adminGive(t, args[2]), NamedTextColor.GREEN));
                 return true;
             }
+            case "carry" -> {
+                if (!admin(sender)) return true;
+                java.util.List<String> keys = java.util.List.of("pose", "height", "sideways", "forward", "turn");
+                if (args.length < 3 || !keys.contains(args[1].toLowerCase(java.util.Locale.ROOT))) {
+                    StringBuilder now = new StringBuilder("/moloch carry <pose|height|sideways|forward|turn> <value>  ·  now:");
+                    for (String k : keys) now.append(' ').append(k).append('=').append(getConfig().get("capture.carry." + k, "default"));
+                    sender.sendMessage(Component.text(now.toString(), NamedTextColor.GRAY));
+                    return true;
+                }
+                String k = args[1].toLowerCase(java.util.Locale.ROOT);
+                if (k.equals("pose")) getConfig().set("capture.carry.pose", args[2].toUpperCase(java.util.Locale.ROOT));
+                else try { getConfig().set("capture.carry." + k, Double.parseDouble(args[2])); }
+                     catch (NumberFormatException ex) { sender.sendMessage(Component.text("That needs a number.", NamedTextColor.RED)); return true; }
+                saveConfig();
+                captures.loadSettings();
+                sender.sendMessage(Component.text("Carry " + k + " set to " + args[2] + ". Pick someone up again to see it.", NamedTextColor.GREEN));
+                return true;
+            }
             case "bloodmoon" -> {
                 if (!admin(sender)) return true;
                 double h = getConfig().getInt("boss.blood-moon-hours", 1);

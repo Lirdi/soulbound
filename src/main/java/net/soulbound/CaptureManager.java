@@ -69,7 +69,8 @@ final class CaptureManager implements Listener {
     private final Map<UUID, Long> dazedUntil = new HashMap<>();
     final AbductionItems items;
     private final org.bukkit.NamespacedKey gmKey;
-    private double carryUp, carrySide, carryForward, propYaw;
+    private double carryUp, carrySide, carryForward, propYaw, carryTurn;
+    private org.bukkit.entity.Pose carryPose = org.bukkit.entity.Pose.SLEEPING;
     private BukkitTask task;
     private long tick;
 
@@ -102,9 +103,12 @@ final class CaptureManager implements Listener {
         disabledWorlds = c.getStringList("safety.disabled-worlds");
         spawnSafeRadius = c.getDouble("safety.spawn-safe-radius", 48);
         killOnLogout = "kill".equalsIgnoreCase(c.getString("logout.captive", "kill"));
-        carryUp = c.getDouble("capture.carry.up", 1.05);
-        carrySide = c.getDouble("capture.carry.side", 0.32);
-        carryForward = c.getDouble("capture.carry.forward", 0.0);
+        carryUp = c.getDouble("capture.carry.height", 1.42);
+        carrySide = c.getDouble("capture.carry.sideways", 0.0);
+        carryForward = c.getDouble("capture.carry.forward", -0.12);
+        carryTurn = c.getDouble("capture.carry.turn", 90);
+        try { carryPose = org.bukkit.entity.Pose.valueOf(c.getString("capture.carry.pose", "SLEEPING").toUpperCase(java.util.Locale.ROOT)); }
+        catch (IllegalArgumentException ex) { carryPose = org.bukkit.entity.Pose.SLEEPING; }
         propYaw = c.getDouble("capture.prop-yaw-offset", 180);
         allowedCommands = new ArrayList<>();
         for (String s : c.getStringList("capture.captive-allowed-commands")) allowedCommands.add(s.toLowerCase(java.util.Locale.ROOT));
@@ -777,7 +781,7 @@ final class CaptureManager implements Listener {
             m.setCollidable(false);
             m.setPersistent(false);
             m.addScoreboardTag(PROP_TAG);
-            m.setPose(org.bukkit.entity.Pose.SWIMMING, true);
+            m.setPose(carryPose, true);
             if (cap.hooded) m.getEquipment().setHelmet(items.worn(null));
             m.getEquipment().setChestplate(items.wornChains(null));
         });
@@ -819,7 +823,7 @@ final class CaptureManager implements Listener {
         Vector fwd = new Vector(-Math.sin(yaw), 0, Math.cos(yaw)), left = new Vector(Math.cos(yaw), 0, Math.sin(yaw));
         Location l = captor.getLocation().add(0, captor.isSneaking() ? carryUp - 0.3 : carryUp, 0)
                 .add(left.multiply(carrySide)).add(fwd.multiply(carryForward));
-        l.setYaw(captor.getBodyYaw() + 180f);   // head down the back, legs over the front
+        l.setYaw(captor.getBodyYaw() + (float) carryTurn);   // across the shoulders: head off one side, legs off the other
         l.setPitch(0);
         return l;
     }
