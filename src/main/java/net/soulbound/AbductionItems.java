@@ -22,11 +22,13 @@ final class AbductionItems {
     enum Kind { HOOD, CUDGEL }
 
     private final Soulbound plugin;
-    private final NamespacedKey key;
+    private final NamespacedKey key, wornKey, stashKey;
 
     AbductionItems(Soulbound plugin) {
         this.plugin = plugin;
         this.key = new NamespacedKey(plugin, "abduction_item");
+        this.wornKey = new NamespacedKey(plugin, "hood_worn");
+        this.stashKey = new NamespacedKey(plugin, "hood_stash");
     }
 
     ItemStack create(Kind k, int amount) {
@@ -49,13 +51,32 @@ final class AbductionItems {
         return it;
     }
 
-    /** The hood as it's worn: on the carried body's head, or floating on the walking captive's head. */
-    ItemStack worn() {
+    /** The hood as it's worn, in the captive's real helmet slot; whatever helmet they had is kept inside it. */
+    ItemStack worn(ItemStack stash) {
         ItemStack it = new ItemStack(Material.LEATHER);
         ItemMeta m = it.getItemMeta();
+        m.displayName(Component.text("Hood", NamedTextColor.DARK_RED).decoration(TextDecoration.ITALIC, false));
         m.setItemModel(new NamespacedKey("soulbound", "hood"));
+        var eq = m.getEquippable();
+        eq.setSlot(org.bukkit.inventory.EquipmentSlot.HEAD);
+        eq.setEquipSound(org.bukkit.Sound.INTENTIONALLY_EMPTY);
+        m.setEquippable(eq);
+        m.getPersistentDataContainer().set(wornKey, PersistentDataType.BYTE, (byte) 1);
+        if (stash != null && !stash.getType().isAir()) m.getPersistentDataContainer().set(stashKey, PersistentDataType.BYTE_ARRAY, stash.serializeAsBytes());
         it.setItemMeta(m);
         return it;
+    }
+
+    boolean isWorn(ItemStack it) {
+        return it != null && it.hasItemMeta() && it.getItemMeta().getPersistentDataContainer().has(wornKey, PersistentDataType.BYTE);
+    }
+
+    /** The helmet a worn hood was keeping, or null. */
+    ItemStack stashOf(ItemStack worn) {
+        if (!isWorn(worn)) return null;
+        byte[] b = worn.getItemMeta().getPersistentDataContainer().get(stashKey, PersistentDataType.BYTE_ARRAY);
+        if (b == null) return null;
+        try { return ItemStack.deserializeBytes(b); } catch (Exception e) { return null; }
     }
 
     ItemStack shackles() {

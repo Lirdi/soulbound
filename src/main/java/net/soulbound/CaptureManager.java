@@ -68,6 +68,7 @@ final class CaptureManager implements Listener {
     private final Set<UUID> ownDismount = new HashSet<>();
     private final Map<UUID, Long> dazedUntil = new HashMap<>();
     final AbductionItems items;
+    private final org.bukkit.NamespacedKey gmKey;
     private double carryUp, carrySide, carryForward, propYaw;
     private BukkitTask task;
     private long tick;
@@ -82,6 +83,7 @@ final class CaptureManager implements Listener {
         this.plugin = plugin;
         this.leash = leash;
         this.items = new AbductionItems(plugin);
+        this.gmKey = new org.bukkit.NamespacedKey(plugin, "carried_gamemode");
         loadSettings();
     }
 
@@ -432,8 +434,14 @@ final class CaptureManager implements Listener {
         if (!e.isSneaking()) return;
         Capture cap = byCaptive.get(e.getPlayer().getUniqueId());
         if (cap == null || cap.ritual) return;
+        struggle(cap, e.getPlayer());
+    }
+
+    private final Map<UUID, Long> lastStruggle = new HashMap<>();
+    private void struggle(Capture cap, Player p) {
+        if (Long.valueOf(tick).equals(lastStruggle.put(p.getUniqueId(), tick))) return;
         cap.struggles++;
-        sound(e.getPlayer().getLocation(), "minecraft:entity.item.break", 0.4f, 1.6f);
+        sound(bodyAt(cap, p), "minecraft:block.chain.step", 0.8f, 1.4f);
         if (cap.struggles >= strugglePresses) end(cap, End.STRUGGLE);
     }
 
@@ -618,8 +626,8 @@ final class CaptureManager implements Listener {
         victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
         victim.showTitle(Title.title(Component.text("Hooded", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("You can't see. Nobody knows it's you.", NamedTextColor.GRAY)));
         sound(victim.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.6f);
-        if (cap.carried) { if (cap.body != null && cap.body.isValid()) cap.body.getEquipment().setHelmet(items.worn()); }
-        else { cap.hoodShow = prop(victim, items.worn(), 0.586f); victim.hideEntity(plugin, cap.hoodShow); }
+        victim.getInventory().setHelmet(items.worn(victim.getInventory().getHelmet()));
+        if (cap.carried && cap.body != null && cap.body.isValid()) cap.body.getEquipment().setHelmet(items.worn(null));
     }
 
     private void unhood(Capture cap, Player victim) {
@@ -630,13 +638,69 @@ final class CaptureManager implements Listener {
         if (cap.prevTeam != null) { org.bukkit.scoreboard.Team old = sb.getTeam(cap.prevTeam); if (old != null) old.addEntry(victim.getName()); }
         victim.playerListName(cap.prevListName);
         victim.removePotionEffect(PotionEffectType.BLINDNESS);
-        if (cap.hoodShow != null) { cap.hoodShow.remove(); cap.hoodShow = null; }
+        takeHoodOff(victim);
+    }
+
+    /** Off comes the sack; back on goes whatever helmet they were wearing. */
+    private void takeHoodOff(Player p) {
+        org.bukkit.inventory.ItemStack h = p.getInventory().getHelmet();
+        if (items.isWorn(h)) p.getInventory().setHelmet(items.stashOf(h));
+        for (int i = 0; i < p.getInventory().getSize(); i++) {
+            org.bukkit.inventory.ItemStack it = p.getInventory().getItem(i);
+            if (items.isWorn(it)) { org.bukkit.inventory.ItemStack st = items.stashOf(it); p.getInventory().setItem(i, st); }
+        }
     }
 
     /** A hood left on by a crash: take it off when they come back. */
     private void clearStaleHood(Player p) {
+        if (byCaptive.containsKey(p.getUniqueId())) return;
         org.bukkit.scoreboard.Team t = Bukkit.getScoreboardManager().getMainScoreboard().getTeam(HOOD_TEAM);
-        if (t != null && t.hasEntry(p.getName()) && !byCaptive.containsKey(p.getUniqueId())) t.removeEntry(p.getName());
+        if (t != null && t.hasEntry(p.getName())) t.removeEntry(p.getName());
+        takeHoodOff(p);
+        // carried when the server went down: out of spectator, back into the game mode they had
+        String gm = p.getPersistentDataContainer().get(gmKey, org.bukkit.persistence.PersistentDataType.STRING);
+        if (gm != null) {
+            p.getPersistentDataContainer().remove(gmKey);
+            try { p.setGameMode(GameMode.valueOf(gm)); } catch (IllegalArgumentException ex) { p.setGameMode(GameMode.SURVIVAL); }
+        }
+    }
+
+    /** A hooded captive who dies drops their own helmet, not the sack. */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onHoodedDeath(PlayerDeathEvent e) {
+        java.util.ListIterator<org.bukkit.inventory.ItemStack> it = e.getDrops().listIterator();
+        while (it.hasNext()) {
+            org.bukkit.inventory.ItemStack d = it.next();
+            if (items.isWorn(d)) { org.bukkit.inventory.ItemStack st = items.stashOf(d); if (st != null) it.set(st); else it.remove(); }
+        }
+    }
+
+    @EventHandler
+    public void onRespawn(org.bukkit.event.player.PlayerRespawnEvent e) {
+        Player p = e.getPlayer();
+        Bukkit.getScheduler().runTask(plugin, () -> { if (p.isOnline()) clearStaleHood(p); });
+    }
+
+    /** A captive can't touch their inventory: the hood stays on, nothing is passed or dropped. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onInvClick(org.bukkit.event.inventory.InventoryClickEvent e) {
+        if (e.getWhoClicked() instanceof Player p && byCaptive.containsKey(p.getUniqueId())) e.setCancelled(true);
+        else if (items.isWorn(e.getCurrentItem()) || items.isWorn(e.getCursor())) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onInvDrag(org.bukkit.event.inventory.InventoryDragEvent e) {
+        if (e.getWhoClicked() instanceof Player p && byCaptive.containsKey(p.getUniqueId())) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onDrop(org.bukkit.event.player.PlayerDropItemEvent e) {
+        if (byCaptive.containsKey(e.getPlayer().getUniqueId()) || items.isWorn(e.getItemDrop().getItemStack())) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onSwap(org.bukkit.event.player.PlayerSwapHandItemsEvent e) {
+        if (byCaptive.containsKey(e.getPlayer().getUniqueId())) e.setCancelled(true);
     }
 
     /** A display that follows the captive: the shackles on their body, the hood on their head. */
@@ -658,12 +722,6 @@ final class CaptureManager implements Listener {
         Location s = victim.getLocation().add(0, victim.isSneaking() ? 0.8 : 0.9375, 0);
         s.setYaw(body); s.setPitch(0);
         cap.shackleShow.teleport(s);
-        if (cap.hooded) {
-            if (cap.hoodShow == null || !cap.hoodShow.isValid()) { cap.hoodShow = prop(victim, items.worn(), 0.586f); victim.hideEntity(plugin, cap.hoodShow); }
-            Location h = victim.getEyeLocation();
-            h.setYaw(victim.getLocation().getYaw() + (float) propYaw); h.setPitch(-victim.getLocation().getPitch());
-            cap.hoodShow.teleport(h);
-        }
     }
 
     private void removeProps(Capture cap) {
@@ -671,7 +729,11 @@ final class CaptureManager implements Listener {
         if (cap.hoodShow != null) { cap.hoodShow.remove(); cap.hoodShow = null; }
     }
 
-    /** Sling the captive over your shoulder: they ride you, hidden; their body lies across your shoulder. */
+    /**
+     * Sling the captive over your shoulder. Their body (a mannequin with their skin, hood and all) lies across your
+     * shoulder; they themselves are put into a locked spectator view from your eyes, so nobody sees them twice and they
+     * never see themselves perched on you. Sneaking is still their struggle.
+     */
     private void startCarry(Capture cap, Player captor, Player victim) {
         if (cap.carried || cap.ritual) return;
         if (cap.anchor != null && cap.anchor.isValid()) { victim.removePassenger(cap.anchor); cap.anchor.remove(); }
@@ -679,10 +741,12 @@ final class CaptureManager implements Listener {
         removeProps(cap);
         victim.setVelocity(new Vector());
         if (victim.isInsideVehicle()) victim.leaveVehicle();
-        if (!captor.addPassenger(victim)) { captor.sendActionBar(Component.text("You can't lift them here.", NamedTextColor.RED)); return; }
         cap.carried = true;
         cap.captorDamage = 0;
-        for (Player o : Bukkit.getOnlinePlayers()) if (!o.equals(victim)) o.hideEntity(plugin, victim);
+        if (!victim.getPersistentDataContainer().has(gmKey, org.bukkit.persistence.PersistentDataType.STRING))
+            victim.getPersistentDataContainer().set(gmKey, org.bukkit.persistence.PersistentDataType.STRING, victim.getGameMode().name());
+        ownTeleport.add(victim.getUniqueId());
+        try { victim.setGameMode(GameMode.SPECTATOR); victim.setSpectatorTarget(captor); } finally { ownTeleport.remove(victim.getUniqueId()); }
         Location at = shoulder(captor);
         cap.body = captor.getWorld().spawn(at, org.bukkit.entity.Mannequin.class, m -> {
             m.setProfile(io.papermc.paper.datacomponent.item.ResolvableProfile.resolvableProfile(victim.getPlayerProfile()));
@@ -696,7 +760,7 @@ final class CaptureManager implements Listener {
             m.setPersistent(false);
             m.addScoreboardTag(PROP_TAG);
             m.setPose(org.bukkit.entity.Pose.SWIMMING, true);
-            if (cap.hooded) m.getEquipment().setHelmet(items.worn());
+            if (cap.hooded) m.getEquipment().setHelmet(items.worn(null));
         });
         captor.removePotionEffect(PotionEffectType.SLOWNESS);
         sound(captor.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.5f);
@@ -711,9 +775,15 @@ final class CaptureManager implements Listener {
         Player captor = Bukkit.getPlayer(cap.captor), victim = Bukkit.getPlayer(cap.captive);
         if (cap.body != null) { cap.body.remove(); cap.body = null; }
         if (victim == null) return;
-        ownDismount.add(victim.getUniqueId());
-        try { victim.leaveVehicle(); } finally { ownDismount.remove(victim.getUniqueId()); }
-        for (Player o : Bukkit.getOnlinePlayers()) o.showEntity(plugin, victim);
+        String gm = victim.getPersistentDataContainer().get(gmKey, org.bukkit.persistence.PersistentDataType.STRING);
+        victim.getPersistentDataContainer().remove(gmKey);
+        ownTeleport.add(victim.getUniqueId());
+        try {
+            victim.setSpectatorTarget(null);
+            GameMode back = GameMode.SURVIVAL;
+            if (gm != null) try { back = GameMode.valueOf(gm); } catch (IllegalArgumentException ignored) {}
+            victim.setGameMode(back);
+        } finally { ownTeleport.remove(victim.getUniqueId()); }
         if (captor != null) {
             Location down = captor.getLocation();
             Vector side = new Vector(Math.cos(Math.toRadians(down.getYaw())), 0, Math.sin(Math.toRadians(down.getYaw())));
@@ -736,8 +806,10 @@ final class CaptureManager implements Listener {
     }
 
     private void tickCarry(Capture cap, Player captor, Player victim) {
-        if (!captor.getPassengers().contains(victim)) {
-            if (!captor.addPassenger(victim)) { stopCarry(cap, false); return; }
+        if (victim.getGameMode() != GameMode.SPECTATOR || !captor.equals(victim.getSpectatorTarget())) {
+            ownTeleport.add(victim.getUniqueId());
+            try { if (victim.getGameMode() != GameMode.SPECTATOR) victim.setGameMode(GameMode.SPECTATOR); victim.setSpectatorTarget(captor); }
+            finally { ownTeleport.remove(victim.getUniqueId()); }
         }
         captor.setSprinting(false);
         if (cap.body == null || !cap.body.isValid()) { cap.carried = false; startCarry(cap, captor, victim); return; }
@@ -749,6 +821,15 @@ final class CaptureManager implements Listener {
     @EventHandler(ignoreCancelled = true)
     public void onSprint(org.bukkit.event.player.PlayerToggleSprintEvent e) {
         if (e.isSprinting() && carrying(e.getPlayer())) e.setCancelled(true);
+    }
+
+    /** Sneaking out of the carrier's eyes is just struggling: the view stays locked. */
+    @EventHandler(ignoreCancelled = true)
+    public void onStopSpectating(com.destroystokyo.paper.event.player.PlayerStopSpectatingEntityEvent e) {
+        Capture cap = byCaptive.get(e.getPlayer().getUniqueId());
+        if (cap == null || !cap.carried) return;
+        e.setCancelled(true);
+        struggle(cap, e.getPlayer());
     }
 
     /** A carried captive can't simply hop off: sneaking is their struggle. */
@@ -769,9 +850,7 @@ final class CaptureManager implements Listener {
         Player p = e.getPlayer();
         items.unlockFor(p);
         clearStaleHood(p);
-        for (Capture cap : byCaptive.values()) {
-            if (cap.carried) { Player v = Bukkit.getPlayer(cap.captive); if (v != null) p.hideEntity(plugin, v); }
-        }
+
     }
 
     // ---------------------------------------------------------------- the invisible anchor
