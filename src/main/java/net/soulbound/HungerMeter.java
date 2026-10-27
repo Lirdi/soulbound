@@ -183,15 +183,15 @@ final class HungerMeter implements Listener {
         }
     }
 
-    /** The data pack keeps a running total of gold and mob offerings; turn its increases into Hunger. */
+    /** The data pack keeps a climbing count of offering points (#hunger: stars, kings' apples, redstone); turn each rise into Hunger. */
     private void pollDatapack() {
         Objective o = Bukkit.getScoreboardManager().getMainScoreboard().getObjective(objective);
         if (o == null) return;
-        int s = o.getScore("#total").getScore();
-        if (lastScore == Integer.MIN_VALUE) { lastScore = s; return; }
-        int delta = s >= lastScore ? s - lastScore : s + 25 - lastScore;   // the pack takes 25 off each time it blesses the realm
+        int s = o.getScore("#hunger").getScore();
+        if (lastScore == Integer.MIN_VALUE || s < lastScore) { lastScore = s; return; }
+        int delta = s - lastScore;
         lastScore = s;
-        if (delta > 0 && delta < 200) add(delta * perOfferPoint);
+        if (delta > 0) add(delta * perOfferPoint);
     }
 
     @EventHandler
