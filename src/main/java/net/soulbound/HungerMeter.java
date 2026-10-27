@@ -67,7 +67,7 @@ final class HungerMeter implements Listener {
 
     void loadSettings() {
         FileConfiguration c = plugin.getConfig();
-        perSacrifice = c.getDouble("hunger.per-sacrifice", 12);
+        perSacrifice = c.getDouble("hunger.per-sacrifice", 40);
         perOfferPoint = c.getDouble("hunger.per-offering-point", 0.5);
         objective = c.getString("hunger.datapack-objective", "sacrifice.offer");
         try { zone = ZoneId.of(c.getString("hunger.timezone", "Europe/London")); } catch (Exception ex) { zone = ZoneId.of("Europe/London"); }

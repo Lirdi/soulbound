@@ -62,6 +62,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.capture-no-immunity", true);
             saveConfig();
         }
+        // one-off: a human sacrifice now feeds 40% of Moloch's hunger (was 12%)
+        if (!getConfig().getBoolean("migrated.sacrifice-feeds-40", false)) {
+            getConfig().set("hunger.per-sacrifice", 40);
+            getConfig().set("migrated.sacrifice-feeds-40", true);
+            saveConfig();
+        }
         store = new Store(this);
         zones = new Zones(this);
         leash = new LeashItem(this);

@@ -103,7 +103,7 @@ curse:
 
 hunger:
   # Moloch's Hunger fills from 0 to 100. A full meter books his awakening.
-  per-sacrifice: 12
+  per-sacrifice: 40
   # Each point of the data pack's offering total (gold ingot 1, mob 3, gold block 5) adds this much.
   per-offering-point: 0.5
   datapack-objective: "sacrifice.offer"
