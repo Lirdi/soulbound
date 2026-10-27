@@ -72,8 +72,7 @@ public final class Archangels implements Listener {
                 Location at = spot(l);
                 if (at == null) continue;
                 w.spawn(at, Ghast.class, g -> {
-                    g.customName(Component.text("Archangel", NamedTextColor.GOLD));
-                    g.setCustomNameVisible(false);
+                    // no name tag: the death message already calls them Archangels
                     double hp = Math.max(1, plugin.getConfig().getDouble("archangels.ghasts.health", 40));
                     var mh = g.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
                     if (mh != null) { mh.setBaseValue(hp); g.setHealth(hp); }
