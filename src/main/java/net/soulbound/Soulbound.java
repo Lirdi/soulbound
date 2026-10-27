@@ -195,6 +195,7 @@ public final class Soulbound extends JavaPlugin {
     HaloItem halo() { return halo; }
     MolochGear gear() { return gear; }
     BloodPriest priest() { return priest; }
+    Tartare tartare() { return tartare; }
     GodGear godGear() { return godGear; }
     QuantumGear quantum() { return quantum; }
     public ScreenCrack cracks() { return cracks; }

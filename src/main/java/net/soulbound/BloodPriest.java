@@ -48,7 +48,9 @@ final class BloodPriest implements Listener {
     private final LeashItem leash;
     private final NamespacedKey key;
     private final Set<UUID> priests = new HashSet<>();
-    private int hoodPrice, cudgelPrice, shacklesPrice;
+    private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice;
+    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines;
+    private final java.util.Map<UUID, Long> lastSaid = new java.util.HashMap<>();
     private double lookRange;
     private List<String> sacrificeLines;
     private String sacrificeBroadcast, firstLine;
@@ -66,6 +68,11 @@ final class BloodPriest implements Listener {
         hoodPrice = c.getInt("priest.price.hood", 6);
         cudgelPrice = c.getInt("priest.price.cudgel", 10);
         shacklesPrice = c.getInt("priest.price.shackles", 16);
+        tartarePrice = c.getInt("priest.price.tartare", 2);
+        hoodLines = lines(c, "hood", "Pull it tight. Their breathing sounds better muffled.");
+        cudgelLines = lines(c, "cudgel", "From behind. Always from behind. Let them wonder who it was.");
+        shacklesLines = lines(c, "shackles", "When they're dazed, close the iron. Wrists first. Then they're yours.");
+        tartareLines = lines(c, "tartare", "Beef. Yes. Let's call it beef.", "If it twitches, just keep chewing.");
         lookRange = c.getDouble("priest.look-range", 16);
         sacrificeLines = c.getStringList("priest.sacrifice-lines");
         if (sacrificeLines.isEmpty()) sacrificeLines = List.of(
@@ -75,6 +82,11 @@ final class BloodPriest implements Listener {
                 "Do you know why I'm called the Blood Priest? Because I did exactly what you just did. Many, many times.");
         firstLine = c.getString("priest.first-sacrifice-line", "Look at your hands. Now look at me. Now we're the same.");
         sacrificeBroadcast = c.getString("priest.sacrifice-broadcast", "The Blood Priest smiles.");
+    }
+
+    private static List<String> lines(FileConfiguration c, String item, String... fallback) {
+        List<String> l = c.getStringList("priest.trade-lines." + item);
+        return l.isEmpty() ? List.of(fallback) : l;
     }
 
     void start() {
@@ -107,7 +119,7 @@ final class BloodPriest implements Listener {
                     .build());
             m.customName(Component.text("Blood Priest", NamedTextColor.DARK_RED, TextDecoration.BOLD));
             m.setCustomNameVisible(true);
-            m.setDescription(Component.text("Trades for gold", NamedTextColor.GOLD));
+            m.setDescription(Component.text("Trades Available", NamedTextColor.GOLD));
             m.setImmovable(true);
             m.setInvulnerable(true);
             m.setSilent(true);
@@ -208,10 +220,39 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.HOOD, 1), hoodPrice));
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
+        if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
         m.setRecipes(list);
+        open.add(m);
         p.openInventory(MenuType.MERCHANT.builder().merchant(m).title(Component.text("Blood Priest", NamedTextColor.DARK_RED)).build(p));
         p.playSound(p.getLocation(), "minecraft:entity.evoker.ambient", 0.8f, 0.7f);
     }
+
+    /** A deal is struck: he whispers something about what you just bought (once every few seconds, not per item). */
+    @EventHandler(ignoreCancelled = true)
+    public void onPurchase(io.papermc.paper.event.player.PlayerPurchaseEvent e) {
+        if (!(e.getPlayer().getOpenInventory().getTopInventory() instanceof org.bukkit.inventory.MerchantInventory inv)) return;
+        if (!isOurs(inv.getMerchant())) return;
+        ItemStack out = e.getTrade().getResult();
+        List<String> pool;
+        AbductionItems.Kind k = captures.items.kindOf(out);
+        if (k == AbductionItems.Kind.HOOD) pool = hoodLines;
+        else if (k == AbductionItems.Kind.CUDGEL) pool = cudgelLines;
+        else if (leash.isSpecial(out)) pool = shacklesLines;
+        else if (plugin.tartare() != null && out.isSimilar(plugin.tartare().create(1))) pool = tartareLines;
+        else return;
+        Player p = e.getPlayer();
+        long now = System.currentTimeMillis();
+        Long last = lastSaid.get(p.getUniqueId());
+        if (last != null && now - last < 4000) return;
+        lastSaid.put(p.getUniqueId(), now);
+        String line = pool.get(java.util.concurrent.ThreadLocalRandom.current().nextInt(pool.size()));
+        p.sendMessage(Component.text("The Blood Priest whispers: ", NamedTextColor.DARK_RED, TextDecoration.ITALIC)
+                .append(Component.text(line, NamedTextColor.RED, TextDecoration.ITALIC)));
+        p.playSound(p.getLocation(), "minecraft:entity.evoker.ambient", 0.6f, 0.6f);
+    }
+
+    private final java.util.Set<Merchant> open = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());
+    private boolean isOurs(Merchant m) { return open.contains(m); }
 
     /** Gold ingots up to a stack; past that, the price is asked in gold blocks. */
     private static MerchantRecipe recipe(ItemStack out, int gold) {

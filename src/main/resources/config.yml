@@ -418,6 +418,18 @@ priest:
     hood: 6
     cudgel: 10
     shackles: 16
+    tartare: 2
+  # What he whispers when you buy each thing (one picked at random).
+  trade-lines:
+    hood:
+      - "Pull it tight. Their breathing sounds better muffled."
+    cudgel:
+      - "From behind. Always from behind. Let them wonder who it was."
+    shackles:
+      - "When they're dazed, close the iron. Wrists first. Then they're yours."
+    tartare:
+      - "Beef. Yes. Let's call it beef."
+      - "If it twitches, just keep chewing."
   # He turns to watch the nearest player within this many blocks.
   look-range: 16
   # The first time a player sacrifices someone, he whispers this to them.
