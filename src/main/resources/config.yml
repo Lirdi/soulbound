@@ -32,6 +32,14 @@ capture:
   broadcast: true
   # The only commands a captive can use (everything else is blocked, so no /home or /spawn escapes).
   captive-allowed-commands: [msg, tell, w, r, reply, me, report, helpop, rules, list, ping, moloch]
+  # Carrying a captive over your shoulder (sneak + right-click them with the leash). Where their body lies, in blocks
+  # from your feet: up, out to your left, and forward. Tune these if the body floats or sinks into you.
+  carry:
+    up: 1.05
+    side: 0.32
+    forward: 0.0
+  # Turns the shackles and the hood to face the right way (only change if they appear backwards).
+  prop-yaw-offset: 180
 
 safety:
   # No captures at all in these worlds.

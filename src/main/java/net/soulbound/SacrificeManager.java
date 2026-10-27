@@ -85,7 +85,7 @@ final class SacrificeManager implements Listener {
         for (Capture cap : captures.all()) {
             if (cap.ritual) continue;
             Player victim = Bukkit.getPlayer(cap.captive), captor = Bukkit.getPlayer(cap.captor);
-            if (victim == null || captor == null || !zones.inPit(victim.getLocation())) continue;
+            if (victim == null || captor == null || !zones.inPit(captures.bodyAt(cap, victim))) continue;
             String no = refusal(captor, victim);
             if (no != null) {
                 long now = System.currentTimeMillis();

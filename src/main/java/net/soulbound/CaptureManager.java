@@ -52,8 +52,10 @@ import java.util.UUID;
 /** Capturing a weakened player with a lead: the leash, the drag, the struggle and every way it ends. */
 final class CaptureManager implements Listener {
     static final String ANCHOR_TAG = "soulbound_anchor";
+    static final String PROP_TAG = "soulbound_captive_prop";
+    static final String HOOD_TEAM = "sb_hooded";
 
-    enum End { STRUGGLE, BROKEN, TIMEOUT, LET_GO, DEATH, QUIT, MOVED, SHUTDOWN, SACRIFICED }
+    enum End { STRUGGLE, BROKEN, TIMEOUT, LET_GO, DEATH, QUIT, MOVED, SHUTDOWN, SACRIFICED, RESCUED }
 
     private final Soulbound plugin;
     private final LeashItem leash;
@@ -62,6 +64,11 @@ final class CaptureManager implements Listener {
     private final Map<UUID, Long> immuneUntil = new HashMap<>();
     /** Teleports this plugin makes itself, so the teleport guard lets them through. */
     private final Set<UUID> ownTeleport = new HashSet<>();
+    /** Dismounts this plugin makes itself (putting a carried captive down). */
+    private final Set<UUID> ownDismount = new HashSet<>();
+    private final Map<UUID, Long> dazedUntil = new HashMap<>();
+    final AbductionItems items;
+    private double carryUp, carrySide, carryForward, propYaw;
     private BukkitTask task;
     private long tick;
 
@@ -74,6 +81,7 @@ final class CaptureManager implements Listener {
     CaptureManager(Soulbound plugin, LeashItem leash) {
         this.plugin = plugin;
         this.leash = leash;
+        this.items = new AbductionItems(plugin);
         loadSettings();
     }
 
@@ -92,12 +100,19 @@ final class CaptureManager implements Listener {
         disabledWorlds = c.getStringList("safety.disabled-worlds");
         spawnSafeRadius = c.getDouble("safety.spawn-safe-radius", 48);
         killOnLogout = "kill".equalsIgnoreCase(c.getString("logout.captive", "kill"));
+        carryUp = c.getDouble("capture.carry.up", 1.05);
+        carrySide = c.getDouble("capture.carry.side", 0.32);
+        carryForward = c.getDouble("capture.carry.forward", 0.0);
+        propYaw = c.getDouble("capture.prop-yaw-offset", 180);
         allowedCommands = new ArrayList<>();
         for (String s : c.getStringList("capture.captive-allowed-commands")) allowedCommands.add(s.toLowerCase(java.util.Locale.ROOT));
     }
 
     void start() {
-        for (World w : Bukkit.getWorlds()) for (Rabbit r : w.getEntitiesByClass(Rabbit.class)) if (r.getScoreboardTags().contains(ANCHOR_TAG)) r.remove();
+        for (World w : Bukkit.getWorlds()) for (Entity en : w.getEntities())
+            if (en.getScoreboardTags().contains(ANCHOR_TAG) || en.getScoreboardTags().contains(PROP_TAG)) en.remove();
+        items.registerRecipes();
+        for (Player p : Bukkit.getOnlinePlayers()) { items.unlockFor(p); clearStaleHood(p); }
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tickAll, 1L, 1L);
     }
 
@@ -120,6 +135,8 @@ final class CaptureManager implements Listener {
      */
     boolean carryThrough(Player captor, Location to) {
         Capture cap = byCaptor.get(captor.getUniqueId());
+        boolean wasCarried = cap != null && cap.carried;
+        if (wasCarried) stopCarry(cap, false);
         portalCarry.add(captor.getUniqueId());
         boolean ok;
         try { ok = captor.teleport(to); } finally { portalCarry.remove(captor.getUniqueId()); }
@@ -131,7 +148,17 @@ final class CaptureManager implements Listener {
         Location behind = to.clone();
         if (back.lengthSquared() > 1e-4) behind.subtract(back.normalize().multiply(1.5));
         teleportCaptive(cap, victim, behind);
+        if (wasCarried) Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            Player c2 = Bukkit.getPlayer(cap.captor), v2 = Bukkit.getPlayer(cap.captive);
+            if (isActive(cap) && !cap.ritual && c2 != null && v2 != null) startCarry(cap, c2, v2);
+        }, 2L);
         return true;
+    }
+
+    /** Where the captive's body really is: on the captor's shoulder when carried. */
+    Location bodyAt(Capture cap, Player victim) {
+        if (cap.carried) { Player c = Bukkit.getPlayer(cap.captor); if (c != null) return c.getLocation(); }
+        return victim.getLocation();
     }
 
     /** Move a captive somewhere (the sacrifice uses this), past the teleport guard. */
@@ -147,12 +174,38 @@ final class CaptureManager implements Listener {
         if (e.getHand() != EquipmentSlot.HAND) return;
         if (!(e.getRightClicked() instanceof Player victim)) return;
         Player captor = e.getPlayer();
-        if (captor.getInventory().getItemInMainHand().getType() != Material.LEAD) return;
+        org.bukkit.inventory.ItemStack hand = captor.getInventory().getItemInMainHand();
+        Capture held = byCaptive.get(victim.getUniqueId());
+        // a friend cuts the chains and pulls the sack off
+        if (hand.getType() == Material.SHEARS && held != null && !held.captor.equals(captor.getUniqueId()) && !byCaptive.containsKey(captor.getUniqueId())) {
+            e.setCancelled(true);
+            if (held.ritual) { captor.sendActionBar(Component.text("Too late for shears. Break the ritual!", NamedTextColor.RED)); return; }
+            if (broadcast) Bukkit.broadcast(Component.text(captor.getName() + " cut " + victim.getName() + " free.", NamedTextColor.GREEN));
+            end(held, End.RESCUED);
+            sound(victim.getLocation(), "minecraft:entity.sheep.shear", 1f, 0.8f);
+            return;
+        }
+        // the hood goes over a bound captive's head
+        if (items.isHood(hand)) {
+            e.setCancelled(true);
+            if (held == null) { captor.sendActionBar(Component.text("Bind them first. Only a captive can be hooded.", NamedTextColor.RED)); return; }
+            if (held.hooded) { captor.sendActionBar(Component.text(victim.getName() + " is already hooded.", NamedTextColor.GRAY)); return; }
+            hood(held, victim);
+            if (captor.getGameMode() != GameMode.CREATIVE) hand.setAmount(hand.getAmount() - 1);
+            return;
+        }
+        if (hand.getType() != Material.LEAD) return;
         if (!leash.captures(captor.getInventory().getItemInMainHand())) {
             if (e.getRightClicked() instanceof Player) captor.sendActionBar(Component.text("A plain lead won't hold a person. Craft a " + leashName() + ".", NamedTextColor.RED));
             return;
         }
         e.setCancelled(true);
+        Capture mine = byCaptor.get(captor.getUniqueId());
+        if (mine != null && mine.captive.equals(victim.getUniqueId())) {
+            if (captor.isSneaking()) startCarry(mine, captor, victim);
+            else captor.sendActionBar(Component.text("Sneak and right-click to sling " + victim.getName() + " over your shoulder.", NamedTextColor.GRAY));
+            return;
+        }
         String refusal = whyNot(captor, victim);
         if (refusal != null) { captor.sendActionBar(Component.text(refusal, NamedTextColor.RED)); return; }
         begin(captor, victim);
@@ -171,7 +224,8 @@ final class CaptureManager implements Listener {
         World w = victim.getWorld();
         if (disabledWorlds.contains(w.getName())) return "No captures in this world.";
         if (spawnSafeRadius > 0 && victim.getLocation().distance(w.getSpawnLocation()) < spawnSafeRadius) return "No captures this close to spawn.";
-        if (victim.getHealth() > maxHealth) return victim.getName() + " is too strong. Wear them down to " + hearts(maxHealth) + " first.";
+        double limit = isDazed(victim) ? maxHealth + 4 : maxHealth;
+        if (victim.getHealth() > limit) return victim.getName() + " is too strong. Wear them down to " + hearts(maxHealth) + " first.";
         return null;
     }
 
@@ -189,6 +243,8 @@ final class CaptureManager implements Listener {
         Title.Times t = Title.Times.times(Duration.ofMillis(200), Duration.ofMillis(2000), Duration.ofMillis(600));
         victim.showTitle(Title.title(Component.text("Captured", NamedTextColor.DARK_RED, TextDecoration.BOLD),
                 Component.text("by " + captor.getName() + ". Tap sneak to struggle.", NamedTextColor.GRAY), t));
+        cap.shackleShow = prop(victim, items.shackles(), 0.9375f);
+        sound(victim.getLocation(), "minecraft:block.chain.place", 1f, 0.7f);
         captor.showTitle(Title.title(Component.empty(), Component.text("You captured " + victim.getName(), NamedTextColor.RED), t));
         sound(victim.getLocation(), "minecraft:entity.leash_knot.place", 1f, 0.6f);
         if (broadcast) Bukkit.broadcast(Component.text(captor.getName() + " has captured " + victim.getName() + ".", NamedTextColor.DARK_RED));
@@ -209,6 +265,7 @@ final class CaptureManager implements Listener {
         // the clock stands still at the temple and during the ritual, so the climb isn't a race against it
         if (cap.ritual || plugin.zones().inTemple(victim.getLocation())) cap.endsAt++;
         if (cap.ritual) {
+            tickProps(cap, victim);
             Rabbit ra = cap.anchor;
             if (ra != null && ra.isValid() && !ra.isLeashed()) ra.setLeashHolder(captor);
             return;
@@ -217,6 +274,23 @@ final class CaptureManager implements Listener {
         if (requireLead && !leash.captures(captor.getInventory().getItemInMainHand())
                 && !leash.captures(captor.getInventory().getItemInOffHand())) { end(cap, End.LET_GO); return; }
 
+        if (cap.carried) tickCarry(cap, captor, victim);
+        else { tickProps(cap, victim); drag(cap, captor, victim); }
+
+        if ((tick - cap.startedAt) % 10 == 0) {
+            applyEffects(captor, victim);
+            if (cap.hooded) victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
+            long left = Math.max(0, cap.endsAt - tick);
+            cap.captorBar.progress(clamp((float) left / durationTicks));
+            cap.captorBar.name(Component.text((cap.carried ? "Carrying " : "Holding ") + victim.getName() + "  ·  " + (left / 20) + "s"
+                    + (cap.carried ? "  ·  sneak + right-click to put down" : "")));
+            int need = Math.max(0, strugglePresses - cap.struggles);
+            cap.captiveBar.progress(clamp((float) need / strugglePresses));
+            cap.captiveBar.name(Component.text((cap.hooded ? "Hooded" : "Captured by " + captor.getName()) + "  ·  tap sneak to struggle (" + need + ")"));
+        }
+    }
+
+    private void drag(Capture cap, Player captor, Player victim) {
         // the drag: free within the slack, pulled beyond it, snapped back if it gets silly
         Location cl = captor.getLocation(), vl = victim.getLocation();
         double d = cl.distance(vl);
@@ -243,15 +317,6 @@ final class CaptureManager implements Listener {
             if (!a.isLeashed() || !captor.equals(a.getLeashHolder())) a.setLeashHolder(captor);
         }
 
-        if ((tick - cap.startedAt) % 10 == 0) {
-            applyEffects(captor, victim);
-            long left = Math.max(0, cap.endsAt - tick);
-            cap.captorBar.progress(clamp((float) left / durationTicks));
-            cap.captorBar.name(Component.text("Holding " + victim.getName() + "  ·  " + (left / 20) + "s"));
-            int need = Math.max(0, strugglePresses - cap.struggles);
-            cap.captiveBar.progress(clamp((float) need / strugglePresses));
-            cap.captiveBar.name(Component.text("Captured by " + captor.getName() + "  ·  tap sneak to struggle (" + need + ")"));
-        }
     }
 
     private void attachAnchor(Capture cap, Player captor, Player victim) {
@@ -278,11 +343,13 @@ final class CaptureManager implements Listener {
         victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, true, false, true));
         victim.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 40, 4, true, false, true));
         victim.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 40, 2, true, false, true));
-        if (captorSlowness) captor.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, true, false, true));
+        Capture cap = byCaptor.get(captor.getUniqueId());
+        if (captorSlowness && (cap == null || !cap.carried)) captor.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 0, true, false, true));
         victim.setSprinting(false);
     }
 
     private void teleportCaptive(Capture cap, Player victim, Location to) {
+        if (cap.carried) stopCarry(cap, false);
         if (cap.anchor != null && cap.anchor.isValid()) victim.removePassenger(cap.anchor);
         to.setYaw(victim.getLocation().getYaw());
         to.setPitch(victim.getLocation().getPitch());
@@ -296,6 +363,9 @@ final class CaptureManager implements Listener {
         if (byCaptive.remove(cap.captive) == null) return;
         byCaptor.remove(cap.captor);
         Player captor = Bukkit.getPlayer(cap.captor), victim = Bukkit.getPlayer(cap.captive);
+        if (cap.carried) stopCarry(cap, false);
+        if (cap.hooded && victim != null) unhood(cap, victim);
+        removeProps(cap);
         if (cap.anchor != null && cap.anchor.isValid()) cap.anchor.remove();
         if (captor != null) { captor.hideBossBar(cap.captorBar); if (captorSlowness) captor.removePotionEffect(PotionEffectType.SLOWNESS); }
         if (victim != null) {
@@ -335,6 +405,13 @@ final class CaptureManager implements Listener {
                 if (captor != null) captor.sendActionBar(Component.text("You let " + vn + " go.", NamedTextColor.GRAY));
             }
             case SACRIFICED -> { }
+            case RESCUED -> {
+                if (victim != null) {
+                    victim.showTitle(Title.title(Component.text("Free!", NamedTextColor.GREEN, TextDecoration.BOLD), Component.text("Someone cut your chains.", NamedTextColor.GRAY)));
+                    victim.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 100, 1, true, false, true));
+                }
+                if (captor != null) captor.sendActionBar(Component.text(vn + " was cut free.", NamedTextColor.RED));
+            }
             case QUIT, DEATH, MOVED, SHUTDOWN -> {
                 if (victim != null && why != End.SHUTDOWN) victim.sendActionBar(Component.text("The lead falls away.", NamedTextColor.GRAY));
                 if (captor != null && why != End.SHUTDOWN) captor.sendActionBar(Component.text("The lead falls away.", NamedTextColor.GRAY));
@@ -362,7 +439,17 @@ final class CaptureManager implements Listener {
         Capture cap = byCaptor.get(p.getUniqueId());
         if (cap == null) return;
         cap.captorDamage += e.getFinalDamage();
-        if (cap.captorDamage >= captorBreakDamage) end(cap, End.BROKEN);
+        if (cap.captorDamage < captorBreakDamage) return;
+        if (cap.carried) {
+            cap.captorDamage = 0;
+            stopCarry(cap, true);
+            p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 2, true, false, true));
+            Player v = Bukkit.getPlayer(cap.captive);
+            p.sendActionBar(Component.text("You stagger and drop " + (v != null ? v.getName() : "them") + "!", NamedTextColor.RED));
+            sound(p.getLocation(), "minecraft:entity.player.attack.knockback", 1f, 0.6f);
+            return;
+        }
+        end(cap, End.BROKEN);
     }
 
     @EventHandler
@@ -416,11 +503,21 @@ final class CaptureManager implements Listener {
         Entity src = e.getDamager();
         if (src instanceof Projectile pr && pr.getShooter() instanceof Entity shooter) src = shooter;
         if (src instanceof Player p && byCaptive.containsKey(p.getUniqueId())) e.setCancelled(true);
+        if (src instanceof Player p && carrying(p)) { e.setCancelled(true); p.sendActionBar(Component.text("Your hands are full.", NamedTextColor.GRAY)); }
     }
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent e) {
-        if (byCaptive.containsKey(e.getPlayer().getUniqueId())) e.setCancelled(true);
+        if (byCaptive.containsKey(e.getPlayer().getUniqueId())) { e.setCancelled(true); return; }
+        Player p = e.getPlayer();
+        if (!carrying(p)) return;
+        e.setCancelled(true);   // hands full
+        if (e.getHand() == EquipmentSlot.HAND && p.isSneaking()
+                && (e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR || e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK)) {
+            Capture cap = byCaptor.get(p.getUniqueId());
+            stopCarry(cap, true);
+            sound(p.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.7f);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -440,7 +537,7 @@ final class CaptureManager implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onConsume(PlayerItemConsumeEvent e) {
-        if (byCaptive.containsKey(e.getPlayer().getUniqueId())) e.setCancelled(true);
+        if (byCaptive.containsKey(e.getPlayer().getUniqueId()) || carrying(e.getPlayer())) e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -464,6 +561,205 @@ final class CaptureManager implements Listener {
         if (allowedCommands.contains(cmd)) return;
         e.setCancelled(true);
         e.getPlayer().sendActionBar(Component.text("You're on a lead. You can only message, report or struggle.", NamedTextColor.RED));
+    }
+
+    // ---------------------------------------------------------------- the abduction: cudgel, hood, carry
+
+    boolean isDazed(Player p) { Long u = dazedUntil.get(p.getUniqueId()); return u != null && u > System.currentTimeMillis(); }
+    private boolean carrying(Player p) { Capture c = byCaptor.get(p.getUniqueId()); return c != null && c.carried; }
+
+    /** The cudgel: a weakened player struck from behind is dazed for a few seconds. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onCudgel(EntityDamageByEntityEvent e) {
+        if (!(e.getDamager() instanceof Player hitter) || !(e.getEntity() instanceof Player victim)) return;
+        if (!items.isCudgel(hitter.getInventory().getItemInMainHand()) || byCaptive.containsKey(victim.getUniqueId())) return;
+        Vector toHitter = hitter.getLocation().toVector().subtract(victim.getLocation().toVector()).setY(0);
+        Vector facing = victim.getLocation().getDirection().setY(0);
+        if (toHitter.lengthSquared() < 1e-4 || facing.lengthSquared() < 1e-4) return;
+        if (toHitter.normalize().dot(facing.normalize()) > -0.2) return;                     // not from behind
+        if (victim.getHealth() - e.getFinalDamage() > maxHealth + 4) return;                 // not weak enough
+        dazedUntil.put(victim.getUniqueId(), System.currentTimeMillis() + 3000);
+        victim.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 3, true, false, true));
+        victim.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 9, true, false, true));
+        victim.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 120, 0, true, false, false));
+        victim.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 60, 3, true, false, true));
+        victim.setSprinting(false);
+        victim.showTitle(Title.title(Component.empty(), Component.text("Dazed!", NamedTextColor.YELLOW, TextDecoration.BOLD),
+                Title.Times.times(Duration.ofMillis(100), Duration.ofMillis(1200), Duration.ofMillis(400))));
+        sound(victim.getLocation(), "minecraft:block.anvil.land", 0.5f, 1.9f);
+        for (int i = 0; i < 6; i++) {
+            int d = i * 10;
+            Bukkit.getScheduler().runTaskLater(plugin, () -> { if (victim.isOnline()) victim.getWorld().spawnParticle(org.bukkit.Particle.WAX_OFF, victim.getEyeLocation().add(0, 0.6, 0), 6, 0.3, 0.1, 0.3, 0.2); }, d);
+        }
+    }
+
+    private void hood(Capture cap, Player victim) {
+        cap.hooded = true;
+        org.bukkit.scoreboard.Scoreboard sb = Bukkit.getScoreboardManager().getMainScoreboard();
+        org.bukkit.scoreboard.Team old = sb.getEntryTeam(victim.getName());
+        cap.prevTeam = old != null ? old.getName() : null;
+        org.bukkit.scoreboard.Team t = sb.getTeam(HOOD_TEAM);
+        if (t == null) { t = sb.registerNewTeam(HOOD_TEAM); t.setOption(org.bukkit.scoreboard.Team.Option.NAME_TAG_VISIBILITY, org.bukkit.scoreboard.Team.OptionStatus.NEVER); }
+        t.addEntry(victim.getName());
+        cap.prevListName = victim.playerListName();
+        victim.playerListName(Component.text("Hooded figure", NamedTextColor.DARK_GRAY));
+        victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 60, 0, true, false, false));
+        victim.showTitle(Title.title(Component.text("Hooded", NamedTextColor.DARK_RED, TextDecoration.BOLD), Component.text("You can't see. Nobody knows it's you.", NamedTextColor.GRAY)));
+        sound(victim.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.6f);
+        if (cap.carried) { if (cap.body != null && cap.body.isValid()) cap.body.getEquipment().setHelmet(items.worn()); }
+        else { cap.hoodShow = prop(victim, items.worn(), 0.586f); victim.hideEntity(plugin, cap.hoodShow); }
+    }
+
+    private void unhood(Capture cap, Player victim) {
+        cap.hooded = false;
+        org.bukkit.scoreboard.Scoreboard sb = Bukkit.getScoreboardManager().getMainScoreboard();
+        org.bukkit.scoreboard.Team t = sb.getTeam(HOOD_TEAM);
+        if (t != null) t.removeEntry(victim.getName());
+        if (cap.prevTeam != null) { org.bukkit.scoreboard.Team old = sb.getTeam(cap.prevTeam); if (old != null) old.addEntry(victim.getName()); }
+        victim.playerListName(cap.prevListName);
+        victim.removePotionEffect(PotionEffectType.BLINDNESS);
+        if (cap.hoodShow != null) { cap.hoodShow.remove(); cap.hoodShow = null; }
+    }
+
+    /** A hood left on by a crash: take it off when they come back. */
+    private void clearStaleHood(Player p) {
+        org.bukkit.scoreboard.Team t = Bukkit.getScoreboardManager().getMainScoreboard().getTeam(HOOD_TEAM);
+        if (t != null && t.hasEntry(p.getName()) && !byCaptive.containsKey(p.getUniqueId())) t.removeEntry(p.getName());
+    }
+
+    /** A display that follows the captive: the shackles on their body, the hood on their head. */
+    private org.bukkit.entity.ItemDisplay prop(Player victim, org.bukkit.inventory.ItemStack item, float scale) {
+        return victim.getWorld().spawn(victim.getLocation(), org.bukkit.entity.ItemDisplay.class, d -> {
+            d.setItemStack(item);
+            d.setItemDisplayTransform(org.bukkit.entity.ItemDisplay.ItemDisplayTransform.NONE);
+            d.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(), new org.joml.AxisAngle4f(),
+                    new org.joml.Vector3f(scale, scale, scale), new org.joml.AxisAngle4f()));
+            d.setTeleportDuration(2);
+            d.setPersistent(false);
+            d.addScoreboardTag(PROP_TAG);
+        });
+    }
+
+    private void tickProps(Capture cap, Player victim) {
+        float body = victim.getBodyYaw() + (float) propYaw;
+        if (cap.shackleShow == null || !cap.shackleShow.isValid()) cap.shackleShow = prop(victim, items.shackles(), 0.9375f);
+        Location s = victim.getLocation().add(0, victim.isSneaking() ? 0.8 : 0.9375, 0);
+        s.setYaw(body); s.setPitch(0);
+        cap.shackleShow.teleport(s);
+        if (cap.hooded) {
+            if (cap.hoodShow == null || !cap.hoodShow.isValid()) { cap.hoodShow = prop(victim, items.worn(), 0.586f); victim.hideEntity(plugin, cap.hoodShow); }
+            Location h = victim.getEyeLocation();
+            h.setYaw(victim.getLocation().getYaw() + (float) propYaw); h.setPitch(-victim.getLocation().getPitch());
+            cap.hoodShow.teleport(h);
+        }
+    }
+
+    private void removeProps(Capture cap) {
+        if (cap.shackleShow != null) { cap.shackleShow.remove(); cap.shackleShow = null; }
+        if (cap.hoodShow != null) { cap.hoodShow.remove(); cap.hoodShow = null; }
+    }
+
+    /** Sling the captive over your shoulder: they ride you, hidden; their body lies across your shoulder. */
+    private void startCarry(Capture cap, Player captor, Player victim) {
+        if (cap.carried || cap.ritual) return;
+        if (cap.anchor != null && cap.anchor.isValid()) { victim.removePassenger(cap.anchor); cap.anchor.remove(); }
+        cap.anchor = null;
+        removeProps(cap);
+        victim.setVelocity(new Vector());
+        if (victim.isInsideVehicle()) victim.leaveVehicle();
+        if (!captor.addPassenger(victim)) { captor.sendActionBar(Component.text("You can't lift them here.", NamedTextColor.RED)); return; }
+        cap.carried = true;
+        cap.captorDamage = 0;
+        for (Player o : Bukkit.getOnlinePlayers()) if (!o.equals(victim)) o.hideEntity(plugin, victim);
+        Location at = shoulder(captor);
+        cap.body = captor.getWorld().spawn(at, org.bukkit.entity.Mannequin.class, m -> {
+            m.setProfile(io.papermc.paper.datacomponent.item.ResolvableProfile.resolvableProfile(victim.getPlayerProfile()));
+            m.setDescription(null);
+            m.setImmovable(true);
+            m.setAI(false);
+            m.setGravity(false);
+            m.setInvulnerable(true);
+            m.setSilent(true);
+            m.setCollidable(false);
+            m.setPersistent(false);
+            m.addScoreboardTag(PROP_TAG);
+            m.setPose(org.bukkit.entity.Pose.SWIMMING, true);
+            if (cap.hooded) m.getEquipment().setHelmet(items.worn());
+        });
+        captor.removePotionEffect(PotionEffectType.SLOWNESS);
+        sound(captor.getLocation(), "minecraft:item.armor.equip_leather", 1f, 0.5f);
+        victim.sendActionBar(Component.text("You're slung over " + captor.getName() + "'s shoulder.", NamedTextColor.RED));
+        captor.sendActionBar(Component.text("You sling " + victim.getName() + " over your shoulder. Sneak + right-click to put them down.", NamedTextColor.GRAY));
+    }
+
+    /** Put them down (or drop them): back on their feet beside you, chained, still on the lead. */
+    private void stopCarry(Capture cap, boolean announce) {
+        if (!cap.carried) return;
+        cap.carried = false;
+        Player captor = Bukkit.getPlayer(cap.captor), victim = Bukkit.getPlayer(cap.captive);
+        if (cap.body != null) { cap.body.remove(); cap.body = null; }
+        if (victim == null) return;
+        ownDismount.add(victim.getUniqueId());
+        try { victim.leaveVehicle(); } finally { ownDismount.remove(victim.getUniqueId()); }
+        for (Player o : Bukkit.getOnlinePlayers()) o.showEntity(plugin, victim);
+        if (captor != null) {
+            Location down = captor.getLocation();
+            Vector side = new Vector(Math.cos(Math.toRadians(down.getYaw())), 0, Math.sin(Math.toRadians(down.getYaw())));
+            Location to = down.clone().add(side.multiply(0.6));
+            if (!to.getBlock().isPassable() || !to.clone().add(0, 1, 0).getBlock().isPassable()) to = down;
+            ownTeleport.add(victim.getUniqueId());
+            try { victim.teleport(to); } finally { ownTeleport.remove(victim.getUniqueId()); }
+            if (announce) victim.sendActionBar(Component.text("You hit the ground, still in chains.", NamedTextColor.RED));
+        }
+    }
+
+    private Location shoulder(Player captor) {
+        double yaw = Math.toRadians(captor.getBodyYaw());
+        Vector fwd = new Vector(-Math.sin(yaw), 0, Math.cos(yaw)), left = new Vector(Math.cos(yaw), 0, Math.sin(yaw));
+        Location l = captor.getLocation().add(0, captor.isSneaking() ? carryUp - 0.3 : carryUp, 0)
+                .add(left.multiply(carrySide)).add(fwd.multiply(carryForward));
+        l.setYaw(captor.getBodyYaw() + 180f);   // head down the back, legs over the front
+        l.setPitch(0);
+        return l;
+    }
+
+    private void tickCarry(Capture cap, Player captor, Player victim) {
+        if (!captor.getPassengers().contains(victim)) {
+            if (!captor.addPassenger(victim)) { stopCarry(cap, false); return; }
+        }
+        captor.setSprinting(false);
+        if (cap.body == null || !cap.body.isValid()) { cap.carried = false; startCarry(cap, captor, victim); return; }
+        Location at = shoulder(captor);
+        cap.body.teleport(at);
+        cap.body.setBodyYaw(at.getYaw());
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onSprint(org.bukkit.event.player.PlayerToggleSprintEvent e) {
+        if (e.isSprinting() && carrying(e.getPlayer())) e.setCancelled(true);
+    }
+
+    /** A carried captive can't simply hop off: sneaking is their struggle. */
+    @EventHandler(ignoreCancelled = true)
+    public void onDismount(org.bukkit.event.entity.EntityDismountEvent e) {
+        if (!(e.getEntity() instanceof Player p)) return;
+        Capture cap = byCaptive.get(p.getUniqueId());
+        if (cap != null && cap.carried && !ownDismount.contains(p.getUniqueId())) e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onPropHurt(EntityDamageEvent e) {
+        if (e.getEntity().getScoreboardTags().contains(PROP_TAG)) e.setCancelled(true);
+    }
+
+    @EventHandler
+    public void onJoin(org.bukkit.event.player.PlayerJoinEvent e) {
+        Player p = e.getPlayer();
+        items.unlockFor(p);
+        clearStaleHood(p);
+        for (Capture cap : byCaptive.values()) {
+            if (cap.carried) { Player v = Bukkit.getPlayer(cap.captive); if (v != null) p.hideEntity(plugin, v); }
+        }
     }
 
     // ---------------------------------------------------------------- the invisible anchor
