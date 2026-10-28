@@ -914,16 +914,22 @@ final class GodManager implements Listener {
     // ---- Day 5: angels, and Judgement
 
     private void angels(List<Player> f, Entity g) {
-        int n = Math.min(14, 3 + (int) Math.round(f.size() * 1.5));
+        // fewer than before, but each one three times the size and far stronger
+        int n = Math.min(plugin.getConfig().getInt("god.angels.max", 7), 2 + f.size());
+        double scale = plugin.getConfig().getDouble("god.angels.scale", 3), hp = plugin.getConfig().getDouble("god.angels.health", 36),
+               dmg = plugin.getConfig().getDouble("god.angels.damage", 7);
         Location from = g.getLocation().add(0, height() * 0.6, 0);
         for (int i = 0; i < n; i++) {
-            Location at = from.clone().add(rnd.nextGaussian() * 3, rnd.nextGaussian() * 2, rnd.nextGaussian() * 3);
+            Location at = from.clone().add(rnd.nextGaussian() * 5, rnd.nextGaussian() * 2.5, rnd.nextGaussian() * 5);
             Vex v = at.getWorld().spawn(at, Vex.class, vx -> {
                 vx.customName(Component.text("Angel", NamedTextColor.GOLD));
                 vx.setLimitedLifetime(true);
                 vx.setLimitedLifetimeTicks(20 * 30);
                 vx.setPersistent(false);
                 vx.addScoreboardTag(ANGEL);
+                var sc = vx.getAttribute(org.bukkit.attribute.Attribute.SCALE); if (sc != null) sc.setBaseValue(scale);
+                var mh = vx.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH); if (mh != null) { mh.setBaseValue(hp); vx.setHealth(hp); }
+                var ad = vx.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE); if (ad != null) ad.setBaseValue(dmg);
             });
             angels.add(v.getUniqueId());
             List<Player> pick = new ArrayList<>(f);

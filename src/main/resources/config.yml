@@ -370,6 +370,12 @@ island:
 heaven-beds:
   carried-home: true
 god:
+  # The angels he calls down on the fifth and sixth days: how many at most, how big, their health and their hit.
+  angels:
+    max: 7
+    scale: 3
+    health: 36
+    damage: 7
   # God's battle music (organ, choir, bells), on the Jukebox/Note Blocks volume slider, for everyone near the main island.
   music: true
   music-volume: 1.0
