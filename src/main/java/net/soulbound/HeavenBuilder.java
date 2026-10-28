@@ -34,6 +34,11 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
     }
     void stop() { if (task != null) task.cancel(); if (fontTask != null) fontTask.cancel(); }
 
+    /** Heaven's gilding is polished sulfur now (gold on older builds still counts, and is replaced on the next rebuild). */
+    static final Material GILT = gilt();
+    private static Material gilt() { Material m = Material.matchMaterial("POLISHED_SULFUR"); return m != null ? m : Material.GOLD_BLOCK; }
+    static boolean gilt(Material m) { return m == GILT || m == Material.GOLD_BLOCK; }
+
     private World end() {
         for (World w : Bukkit.getWorlds()) if (w.getEnvironment() == World.Environment.THE_END) return w;
         return null;
@@ -52,6 +57,8 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             store.set("heaven.throne", uid); store.save();
         }
         if (!uid.equals(store.data.getString("heaven.pillars"))) { pillars(w); store.set("heaven.pillars", uid); store.save(); }
+        // one-off: the gold on Heaven's buildings becomes polished sulfur
+        if (!uid.equals(store.data.getString("heaven.sulfur")) && portalY(w) >= 0) { rebuild(); store.set("heaven.sulfur", uid); store.save(); }
         // whenever the game puts obsidian back on a tower (a respawn, a reset), turn it to wax again
         else if (obsidianShowing(w)) pillars(w);
         // the Rotunda and the Ten Candles came later: build them once on a Heaven made before them
@@ -78,16 +85,16 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         // a clear way through, and a white path
         for (int x = 92; x <= 97; x++) for (int z = -2; z <= 2; z++) {
             for (int y = y0; y <= y0 + 7; y++) set(w, x, y, z, Material.AIR.createBlockData());
-            set(w, x, y0 - 1, z, (z == 0 ? Material.GOLD_BLOCK : Material.SMOOTH_QUARTZ).createBlockData());
+            set(w, x, y0 - 1, z, (z == 0 ? GILT : Material.SMOOTH_QUARTZ).createBlockData());
         }
         for (int side : new int[]{-3, 3}) {
             set(w, gx, y0, side, Material.CHISELED_QUARTZ_BLOCK.createBlockData());
             for (int y = y0 + 1; y <= y0 + 8; y++) {
-                BlockData d = (y == y0 + 3 || y == y0 + 6 ? Material.GOLD_BLOCK : Material.QUARTZ_PILLAR).createBlockData();
+                BlockData d = (y == y0 + 3 || y == y0 + 6 ? GILT : Material.QUARTZ_PILLAR).createBlockData();
                 if (d instanceof Orientable o) o.setAxis(org.bukkit.Axis.Y);
                 set(w, gx, y, side, d);
             }
-            set(w, gx, y0 + 9, side, Material.GOLD_BLOCK.createBlockData());
+            set(w, gx, y0 + 9, side, GILT.createBlockData());
             set(w, gx, y0 + 10, side, Material.LANTERN.createBlockData());
             // the gates themselves, swung open towards the island
             for (int y = y0; y <= y0 + 5; y++) for (int x = gx - 3; x <= gx - 1; x++) {
@@ -97,7 +104,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             }
         }
         // the arch, with a pearl at its crown
-        for (int z = -3; z <= 3; z++) set(w, gx, y0 + 9, z, (Math.abs(z) == 3 ? Material.GOLD_BLOCK : Material.QUARTZ_BRICKS).createBlockData());
+        for (int z = -3; z <= 3; z++) set(w, gx, y0 + 9, z, (Math.abs(z) == 3 ? GILT : Material.QUARTZ_BRICKS).createBlockData());
         for (int z = -1; z <= 1; z++) set(w, gx, y0 + 10, z, Material.QUARTZ_BRICKS.createBlockData());
         set(w, gx, y0 + 11, 0, Material.SEA_LANTERN.createBlockData());
         set(w, gx, y0 + 8, 0, Material.CHISELED_QUARTZ_BLOCK.createBlockData());
@@ -129,7 +136,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             int g = 40;
             for (int y = top; y > 1; y--) {
                 Material m = w.getBlockAt(cx + r + 3, y, cz).getType();
-                if (m.isAir() || !m.isSolid() || m == Material.GOLD_BLOCK || m == Material.SMOOTH_QUARTZ_SLAB || m == Material.WHITE_CARPET) continue;
+                if (m.isAir() || !m.isSolid() || gilt(m) || m == Material.SMOOTH_QUARTZ_SLAB || m == Material.WHITE_CARPET) continue;
                 g = y + 1; break;
             }
             for (int y = Math.max(1, g - 6); y <= top; y++)
@@ -155,8 +162,8 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             for (int x = cx - R; x <= cx + R; x++) for (int z = cz - R; z <= cz + R; z++) {
                 double d = Math.hypot(x - cx, z - cz);
                 if (d <= r + 0.5 || d > r + 3.5) continue;
-                if (d <= r + 1.5) { setIfFree(w, x, g, z, Material.GOLD_BLOCK.createBlockData()); setIfFree(w, x, g + 1, z, Material.GOLD_BLOCK.createBlockData()); }
-                else if (d <= r + 2.5) setIfFree(w, x, g, z, Material.GOLD_BLOCK.createBlockData());
+                if (d <= r + 1.5) { setIfFree(w, x, g, z, GILT.createBlockData()); setIfFree(w, x, g + 1, z, GILT.createBlockData()); }
+                else if (d <= r + 2.5) setIfFree(w, x, g, z, GILT.createBlockData());
                 else {
                     setIfFree(w, x, g, z, Material.SMOOTH_QUARTZ_SLAB.createBlockData());
                     if (hash(x, z) % 6 == 0) setIfFree(w, x, g + 1, z, Material.WHITE_CARPET.createBlockData());
@@ -178,7 +185,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
 
     private static boolean pillarBlock(Material m) {
         return m == Material.OBSIDIAN || m == Material.SMOOTH_QUARTZ || m == Material.QUARTZ_PILLAR || m == Material.CHISELED_QUARTZ_BLOCK
-                || m == Material.GOLD_BLOCK || m == Material.BONE_BLOCK || m == Material.WHITE_CONCRETE;
+                || gilt(m) || m == Material.BONE_BLOCK || m == Material.WHITE_CONCRETE;
     }
 
     private static int hash(int x, int z) { return ((x * 73856093) ^ (z * 19349663)) & 0xffff; }
@@ -187,7 +194,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
     private static void setIfFree(World w, int x, int y, int z, BlockData d) {
         Block b = w.getBlockAt(x, y, z);
         Material m = b.getType();
-        if (m.isAir() || !m.isSolid() || m == Material.GOLD_BLOCK || m == Material.SMOOTH_QUARTZ_SLAB || m == Material.END_STONE)
+        if (m.isAir() || !m.isSolid() || gilt(m) || m == Material.SMOOTH_QUARTZ_SLAB || m == Material.END_STONE)
             if (m != Material.BEDROCK && m != Material.END_PORTAL && m != Material.END_GATEWAY && m != Material.IRON_BARS) b.setBlockData(d, false);
     }
 
@@ -235,8 +242,8 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         }
         return null;
     }
-    private static boolean rimBlock(Block b) { Material m = b.getType(); return m == Material.BEDROCK || m == Material.SMOOTH_QUARTZ || m == Material.GOLD_BLOCK; }
-    private static boolean capBlock(Block b) { Material m = b.getType(); return m == Material.BEDROCK || m == Material.GOLD_BLOCK; }
+    private static boolean rimBlock(Block b) { Material m = b.getType(); return m == Material.BEDROCK || m == Material.SMOOTH_QUARTZ || gilt(m); }
+    private static boolean capBlock(Block b) { Material m = b.getType(); return m == Material.BEDROCK || gilt(m); }
     private static boolean socket(int dx, int dz) { return (Math.abs(dx) == 3 && dz == 0) || (dx == 0 && Math.abs(dz) == 3); }
 
     void font(World w, boolean force) {
@@ -255,7 +262,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             Material m = b.getType();
             if (dx == 0 && dz == 0) {
                 if (m != Material.BEDROCK) continue;
-                BlockData d = (dy == 0 ? Material.CHISELED_QUARTZ_BLOCK : dy == 3 ? Material.GOLD_BLOCK : Material.QUARTZ_PILLAR).createBlockData();
+                BlockData d = (dy == 0 ? Material.CHISELED_QUARTZ_BLOCK : dy == 3 ? GILT : Material.QUARTZ_PILLAR).createBlockData();
                 if (d instanceof Orientable or) or.setAxis(org.bukkit.Axis.Y);
                 b.setBlockData(d, false);
                 continue;
@@ -267,7 +274,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
                 continue;
             }
             if (m != Material.BEDROCK) continue;
-            Material to = dy == 0 && socket(dx, dz) ? Material.GOLD_BLOCK : Material.SMOOTH_QUARTZ;
+            Material to = dy == 0 && socket(dx, dz) ? GILT : Material.SMOOTH_QUARTZ;
             b.setBlockData(to.createBlockData(), false);
         }
         // a quartz step round the basin, with four little lamps on the diagonals
@@ -298,7 +305,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         if (it == null || it.getType() != Material.END_CRYSTAL) return;
         Block b = e.getClickedBlock();
         World w = b.getWorld();
-        if (w.getEnvironment() != World.Environment.THE_END || b.getType() != Material.GOLD_BLOCK) return;
+        if (w.getEnvironment() != World.Environment.THE_END || !gilt(b.getType())) return;
         int[] o = podium(w);
         if (o == null || b.getY() != o[1] || !socket(b.getX() - o[0], b.getZ() - o[2])) return;
         e.setCancelled(true);
@@ -316,7 +323,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
     private int portalY(World w) {
         for (int y = 120; y > 0; y--) {
             Material m = w.getBlockAt(0, y, 0).getType();
-            if (m == Material.BEDROCK || (m == Material.GOLD_BLOCK && w.getBlockAt(0, y - 1, 0).getType() == Material.QUARTZ_PILLAR)) return y;   // bedrock, or the font's gold cap
+            if (m == Material.BEDROCK || (gilt(m) && w.getBlockAt(0, y - 1, 0).getType() == Material.QUARTZ_PILLAR)) return y;   // bedrock, or the font's gold cap
         }
         return -1;
     }
@@ -360,13 +367,13 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         }
         // the back, tall and gold-edged, crowned with a pearl
         for (int x = -3; x <= 3; x++) for (int y = g + 3; y <= g + 12; y++)
-            set(w, x, y, -19, (Math.abs(x) == 3 || y == g + 12 ? Material.GOLD_BLOCK : (y % 3 == 0 ? Material.CHISELED_QUARTZ_BLOCK : Material.QUARTZ_BLOCK)).createBlockData());
-        for (int x = -1; x <= 1; x++) set(w, x, g + 13, -19, Material.GOLD_BLOCK.createBlockData());
+            set(w, x, y, -19, (Math.abs(x) == 3 || y == g + 12 ? GILT : (y % 3 == 0 ? Material.CHISELED_QUARTZ_BLOCK : Material.QUARTZ_BLOCK)).createBlockData());
+        for (int x = -1; x <= 1; x++) set(w, x, g + 13, -19, GILT.createBlockData());
         set(w, 0, g + 14, -19, Material.SEA_LANTERN.createBlockData());
         // armrests
         for (int side : new int[]{-3, 3}) {
             for (int z = -18; z <= -16; z++) set(w, side, g + 3, z, Material.QUARTZ_PILLAR.createBlockData());
-            set(w, side, g + 4, -16, Material.GOLD_BLOCK.createBlockData());
+            set(w, side, g + 4, -16, GILT.createBlockData());
         }
     }
 
@@ -395,7 +402,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
                 double th = k * 2 * Math.PI / rays;
                 ray = d * Math.abs(Math.sin(ang - th)) < 0.5 && Math.cos(ang - th) > 0;
             }
-            Material m = (d > 7.5 && d <= 8.5) || d > 16.5 ? Material.CHISELED_QUARTZ_BLOCK : ray && d <= 16.5 ? Material.GOLD_BLOCK : Material.SMOOTH_QUARTZ;
+            Material m = (d > 7.5 && d <= 8.5) || d > 16.5 ? Material.CHISELED_QUARTZ_BLOCK : ray && d <= 16.5 ? GILT : Material.SMOOTH_QUARTZ;
             set(w, x, Y, z, m.createBlockData());
         }
         // the columns
@@ -407,7 +414,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             cols.add(((long) x << 32) ^ (z & 0xffffffffL));
             set(w, x, Y + 1, z, Material.CHISELED_QUARTZ_BLOCK.createBlockData());
             for (int y = Y + 2; y <= Y + 8; y++) set(w, x, y, z, pillarY());
-            set(w, x, Y + 9, z, Material.GOLD_BLOCK.createBlockData());
+            set(w, x, Y + 9, z, GILT.createBlockData());
             set(w, x, Y + 12, z, Material.END_ROD.createBlockData());
         }
         // the entablature
@@ -416,7 +423,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             if (d <= 14.4 || d > 15.6 || (Math.abs(x) <= 8 && z < -10)) continue;
             set(w, x, Y + 10, z, Material.QUARTZ_BRICKS.createBlockData());
             boolean col = cols.contains(((long) x << 32) ^ (z & 0xffffffffL));
-            set(w, x, Y + 11, z, (col ? Material.GOLD_BLOCK : Material.SMOOTH_QUARTZ_SLAB).createBlockData());
+            set(w, x, Y + 11, z, (col ? GILT : Material.SMOOTH_QUARTZ_SLAB).createBlockData());
         }
         for (int k = 0; k < 16; k++) {
             double a = (k + 1) * 2 * Math.PI / 16;
@@ -438,7 +445,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
                 if (Math.hypot(x - ccx, z - ccz) <= 9.5) continue;
                 for (int yy = y + 1; yy <= y + 5; yy++) set(w, x, yy, z, Material.AIR.createBlockData());
                 for (int yy = y - 1; yy >= y - 15 && !w.getBlockAt(x, yy, z).getType().isSolid(); yy--) set(w, x, yy, z, Material.SMOOTH_QUARTZ.createBlockData());
-                set(w, x, y, z, (Math.abs(z) == 2 ? Material.QUARTZ_BRICKS : z == 0 ? Material.GOLD_BLOCK : Material.SMOOTH_QUARTZ).createBlockData());
+                set(w, x, y, z, (Math.abs(z) == 2 ? Material.QUARTZ_BRICKS : z == 0 ? GILT : Material.SMOOTH_QUARTZ).createBlockData());
                 if (yn == y - 1 && x + 1 <= x1) set(w, x + 1, y, z, Material.SMOOTH_QUARTZ_SLAB.createBlockData());   // a half step down
                 if (yn == y + 1) set(w, x, y + 1, z, Material.SMOOTH_QUARTZ_SLAB.createBlockData());                // a half step up
             }

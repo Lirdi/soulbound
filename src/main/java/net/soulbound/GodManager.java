@@ -1056,7 +1056,7 @@ final class GodManager implements Listener {
         Location from = seatSpot(g.getWorld()).add(0, 6, -1);
         say(pick("You want the throne? HAVE IT.", "Catch, you ungrateful lot!", "I never liked that chair."));
         from.getWorld().playSound(from, "minecraft:block.stone.break", 6f, 0.5f);
-        Material[] chunks = {Material.QUARTZ_BLOCK, Material.SMOOTH_QUARTZ, Material.GOLD_BLOCK, Material.CHISELED_QUARTZ_BLOCK};
+        Material[] chunks = {Material.QUARTZ_BLOCK, Material.SMOOTH_QUARTZ, HeavenBuilder.GILT, Material.CHISELED_QUARTZ_BLOCK};
         for (Player p : f) {
             for (int k = 0; k < 2; k++) {
                 Location to = p.getLocation().add(rnd.nextGaussian() * 2, 0, rnd.nextGaussian() * 2);
