@@ -172,6 +172,8 @@ boss:
   effective-health-per-fighter: 700
   # His moves come quicker with bigger crowds (5% per extra fighter, up to 40% faster). Base gap between moves:
   seconds-between-moves: 7
+  # He chases one fighter for about this long, then turns on someone else (everyone gets a turn).
+  focus-seconds: 10
 
   # --- his normal attacks ---
   # His punch (the vanilla warden hits for 30, which one-shots most players).

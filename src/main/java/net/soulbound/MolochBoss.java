@@ -119,6 +119,11 @@ final class MolochBoss implements Listener {
     private int moveTick, nextMoveIn = 100;
     private Vector moveDir;
     private Location moveTarget, lastPos;
+    // rotating focus: who he's chasing right now, until when, and who he's already hunted this round
+    private UUID focus;
+    private long focusUntil;
+    private final Set<UUID> hunted = new HashSet<>();
+    private double focusSeconds = 10;
     private Vector leapV;
     // the grab: who he's holding, how hard the others have hit him since, and whether we're letting go on purpose
     private double grabSqueeze, grabThrowDamage, grabBreak, grabDamage;
@@ -172,6 +177,7 @@ final class MolochBoss implements Listener {
         boomCap = c.getDouble("boss.sonic-boom-max-damage", 8);
         projectileMultiplier = c.getDouble("boss.projectile-damage", 0.5);
         moveGap = Math.max(2, c.getDouble("boss.seconds-between-moves", 7));
+        focusSeconds = Math.max(3, c.getDouble("boss.focus-seconds", 10));
         ringDamage = c.getDouble("boss.fire-ring-damage", 6);
         ringRadius = c.getDouble("boss.fire-ring-radius", 8);
         chargeDamage = c.getDouble("boss.charge-damage", 12);
@@ -291,6 +297,7 @@ final class MolochBoss implements Listener {
         w.getChunkAt(c).addPluginChunkTicket(plugin);
         damage.clear(); minions.clear(); champions.clear(); farTicks.clear(); lastSwing.clear();
         half = 0; respawns = 0; phase = 1; crowd = 1;
+        focus = null; focusUntil = 0; hunted.clear();
         lastStun = 0; demonHalves = 0; demonsCalled = false;
         championsCalled = shieldUp = screamed = collapsed = collapsing = frenzy = dying = emerging = false;
         move = lastMove = Move.NONE;
@@ -564,8 +571,10 @@ final class MolochBoss implements Listener {
         }
         if (boss.getTarget() != null && !(boss.getTarget() instanceof Player)) boss.setTarget(null);
         if (!fighters.isEmpty()) {
-            Player near = fighters.stream().min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(boss.getLocation()))).get();
-            boss.setAnger(near, 100);
+            Player prey = focusOn(fighters);
+            // only his prey holds his anger; whoever hits hardest can't keep him forever
+            for (Player p : fighters) if (!p.equals(prey)) boss.clearAnger(p);
+            boss.setAnger(prey, 150);
         }
 
         // the turning points of the fight
@@ -589,6 +598,34 @@ final class MolochBoss implements Listener {
                 f.setShooter(boss);
             });
         }
+    }
+
+    /**
+     * Rotating focus: he chases one fighter for a while, then turns on someone else, preferring those he hasn't hunted
+     * yet this round (and the nearer of them). The new prey is warned.
+     */
+    private Player focusOn(List<Player> fighters) {
+        long now = System.currentTimeMillis();
+        Player cur = focus == null ? null : Bukkit.getPlayer(focus);
+        if (cur != null && fighters.contains(cur) && now < focusUntil) return cur;
+        List<Player> pool = new ArrayList<>();
+        for (Player p : fighters) if (!hunted.contains(p.getUniqueId()) && (fighters.size() == 1 || !p.equals(cur))) pool.add(p);
+        if (pool.isEmpty()) {   // everyone's had a turn: start a new round
+            hunted.clear();
+            for (Player p : fighters) if (fighters.size() == 1 || !p.equals(cur)) pool.add(p);
+        }
+        // the nearer half of the pool, then pick at random from it
+        pool.sort(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(boss.getLocation())));
+        List<Player> near = pool.subList(0, Math.max(1, (pool.size() + 1) / 2));
+        Player next = near.get(rnd.nextInt(near.size()));
+        hunted.add(next.getUniqueId());
+        focusUntil = now + (long) (focusSeconds * 1000 * (0.8 + rnd.nextDouble() * 0.4));
+        if (!next.getUniqueId().equals(focus) && fighters.size() > 1) {
+            next.sendActionBar(Component.text("Moloch turns his eyes on you.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+            next.playSound(next.getLocation(), "minecraft:entity.warden.angry", 1f, 0.6f);
+        }
+        focus = next.getUniqueId();
+        return next;
     }
 
     private void updateBar(long left) {
