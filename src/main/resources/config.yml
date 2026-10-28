@@ -405,6 +405,10 @@ god:
   # him or answers "I've come to challenge you"; each later day starts as his health drops by another seventh.
   # Smite (a pillar of light, then lightning: move!) runs through every day.
   smite-damage: 8
+  # Leave him alone this long and he heals back up (the Days roll back with his health). 0 = never heals.
+  heal-after-seconds: 40
+  # How fast: this share of his health per second (0.05 = full in 20 seconds).
+  heal-per-second: 0.05
   # He scales to the crowd like Moloch: he lasts as if he had this much health, plus more per fighter in the End
   # (1 player: 1600, 5: 4400, 10: 7900). His damage also grows 15% each day of the week.
   effective-health-base: 900

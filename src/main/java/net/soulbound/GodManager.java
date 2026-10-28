@@ -126,7 +126,8 @@ final class GodManager implements Listener {
     private UUID fightDragon;
     /** True while God is fighting (not holding court on his throne, not dead and gone). */
     boolean fighting() { return fightDragon != null && !peaceful; }
-    private boolean peaceful = true, judged, lowSaid, deathSaid, napping, hadFighters, idleSaid;
+    private boolean peaceful = true, judged, lowSaid, deathSaid, napping, hadFighters, idleSaid, healingSaid;
+    private long lastHurtAt = System.currentTimeMillis();
     private int day, nextAbility = 160, napTicks, nextNap, saltTicks = -1, emptyTicks, nearTicks;
     private double napDamage;
     private long lastLine, lastHitLine;
@@ -400,6 +401,8 @@ final class GodManager implements Listener {
 
     private void onHurtBy(Player p, double amount) {
         damageBy.merge(p.getUniqueId(), amount, Double::sum);
+        lastHurtAt = System.currentTimeMillis();
+        healingSaid = false;
         if (peaceful) { strikeFirst(p); return; }
         if (napping) {
             napDamage += amount;
@@ -428,6 +431,30 @@ final class GodManager implements Listener {
             if ((p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE) && !p.isDead()
                     && Math.hypot(p.getLocation().getX(), p.getLocation().getZ()) < 160) out.add(p);
         return out;
+    }
+
+    /**
+     * Leave him alone for a while and he gets his breath back: after this long without being struck, he heals steadily
+     * back to full, and the Days roll back with his health (so a group can't chip him down over many tries).
+     */
+    private void tickRecovery(EnderDragon d, Entity g) {
+        if (d == null || !d.isValid() || dying(d)) return;
+        double quiet = plugin.getConfig().getDouble("god.heal-after-seconds", 40);
+        if (quiet <= 0 || System.currentTimeMillis() - lastHurtAt < quiet * 1000) return;
+        var a = d.getAttribute(Attribute.MAX_HEALTH);
+        double max = a != null ? a.getValue() : 200;
+        if (d.getHealth() >= max) return;
+        double perSecond = plugin.getConfig().getDouble("god.heal-per-second", 0.05);   // share of his health
+        d.setHealth(Math.min(max, d.getHealth() + max * perSecond / 20.0));
+        if (!healingSaid) {
+            healingSaid = true;
+            say(pick("Ah. A little sit-down. Lovely.", "While you're dawdling, I'll just... mend.", "Thank you for the breather."));
+        }
+        if (g != null && tick % 10 == 0) fx(Particle.HEART, g.getLocation().add(0, height() * 0.7, 0), 3, scale * 0.4, 0.02);
+        // the Days roll back with his health, quietly
+        int now = Math.max(1, Math.min(7, 1 + (int) Math.floor((1 - healthShare(d)) * 7)));
+        if (!peaceful && day > now) day = now;
+        if (healthShare(d) > 0.1) lowSaid = false;
     }
 
     private double healthShare(EnderDragon d) {
@@ -473,6 +500,7 @@ final class GodManager implements Listener {
             return;
         }
         tickThorns();
+        tickRecovery(d, g);
         tickMarks(w, d);
         tickFrozen();
         List<Player> f = fighters(w);
