@@ -81,6 +81,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.sacrifice-feeds-40", true);
             saveConfig();
         }
+        // one-off: no more Demons (burning phantoms) in Moloch's fight
+        if (!getConfig().getBoolean("migrated.no-demons", false)) {
+            getConfig().set("boss.demons", false);
+            getConfig().set("migrated.no-demons", true);
+            saveConfig();
+        }
         // one-off: Moloch's Regalia drops more often (15% -> 35%)
         if (!getConfig().getBoolean("migrated.regalia-35", false)) {
             if (getConfig().getDouble("boss.regalia-drop-chance", 0.35) == 0.15) getConfig().set("boss.regalia-drop-chance", 0.35);

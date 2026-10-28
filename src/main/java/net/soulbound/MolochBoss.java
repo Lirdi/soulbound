@@ -188,7 +188,7 @@ final class MolochBoss implements Listener {
         stunSeconds = Math.max(1, c.getInt("boss.stun-seconds", 5));
         stunChance = Math.max(0, Math.min(1, c.getDouble("boss.stun-chance", 0.35)));
         stunCooldown = Math.max(0, c.getInt("boss.stun-cooldown-seconds", 45));
-        demonsOn = c.getBoolean("boss.demons", true);
+        demonsOn = c.getBoolean("boss.demons", false);
         demonEvery = Math.max(5, c.getDouble("boss.demon-every-seconds", 20));
         demonMax = Math.max(1, c.getInt("boss.demon-max", 6));
         stunMultiplier = c.getDouble("boss.stun-damage-multiplier", 2.0);

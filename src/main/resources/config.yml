@@ -202,7 +202,7 @@ boss:
   stun-chance: 0.35
   stun-cooldown-seconds: 45
   # Demons: while he's alive, burning phantoms swoop down from above the hall every so often.
-  demons: true
+  demons: false
   demon-every-seconds: 20
   # How many can be alive at once (plus one for every two fighters, never more than 12).
   demon-max: 6
