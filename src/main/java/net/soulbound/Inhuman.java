@@ -220,7 +220,7 @@ final class Inhuman implements Listener {
     // ---------------------------------------------------------------- monsters know you
 
     private static boolean boss(Entity e) {
-        return e instanceof Warden || e instanceof Wither || e instanceof EnderDragon || e instanceof org.bukkit.entity.ElderGuardian
+        return e instanceof Warden || e instanceof Wither || e instanceof EnderDragon
                 || e.getScoreboardTags().stream().anyMatch(t -> t.startsWith("soulbound_"));
     }
 
@@ -231,6 +231,22 @@ final class Inhuman implements Listener {
         if (when != null && System.currentTimeMillis() - when < 60_000) return;
         if (e.getReason() == EntityTargetEvent.TargetReason.TARGET_ATTACKED_ENTITY) return;
         e.setCancelled(true);
+    }
+
+    /** Elder guardians leave them be too: no Mining Fatigue curse (unless they've struck one in the last minute). */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onElderCurse(org.bukkit.event.entity.EntityPotionEffectEvent e) {
+        if (!(e.getEntity() instanceof Player p) || !is(p) || e.getNewEffect() == null) return;
+        if (!e.getModifiedType().equals(PotionEffectType.MINING_FATIGUE) || e.getCause() == org.bukkit.event.entity.EntityPotionEffectEvent.Cause.COMMAND
+                || e.getCause() == org.bukkit.event.entity.EntityPotionEffectEvent.Cause.PLUGIN) return;
+        long now = System.currentTimeMillis();
+        boolean elderNear = false;
+        for (org.bukkit.entity.ElderGuardian g : p.getLocation().getNearbyEntitiesByType(org.bukkit.entity.ElderGuardian.class, 56)) {
+            Long when = provoked.get(g.getUniqueId());
+            if (when != null && now - when < 60_000) return;   // you struck it: it curses you like anyone
+            elderNear = true;
+        }
+        if (elderNear) e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
