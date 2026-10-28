@@ -205,6 +205,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             s.sendMessage(line("/sb world gate [here]", "rebuild Moloch's Exit Gate (or move it here)"));
             s.sendMessage(line("/sb world temple", "rebuild the pyramid stairs and side gates"));
             s.sendMessage(line("/sb world setarrival", "portals into his realm arrive where you stand"));
+            s.sendMessage(line("/sb world zephyr", "a Zephyr (Heaven's breeze) in front of you"));
         }
         if (group == null) {
             s.sendMessage(line("/sb reload", "reload config.yml"));
@@ -254,6 +255,11 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
                 switch (what) {
                     case "priest", "gate" -> plugin.legacyMoloch(s, a.length > 2 ? new String[]{what, a[2]} : new String[]{what});
                     case "temple", "setarrival" -> plugin.legacyMoloch(s, new String[]{what});
+                    case "zephyr" -> {
+                        if (!(s instanceof Player p)) { s.sendMessage("Players only."); return true; }
+                        plugin.zephyrs().summon(p.getLocation().add(p.getLocation().getDirection().setY(0).normalize().multiply(4)));
+                        s.sendMessage(ok("A Zephyr rises."));
+                    }
                     default -> help(s, "world");
                 }
             }
@@ -324,7 +330,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             }
             case "god" -> { if (a.length == 2) return filter(List.of("test", "heaven"), a[1]); }
             case "world" -> {
-                if (a.length == 2) return filter(List.of("priest", "gate", "temple", "setarrival"), a[1]);
+                if (a.length == 2) return filter(List.of("priest", "gate", "temple", "setarrival", "zephyr"), a[1]);
                 if (a.length == 3 && a[1].equalsIgnoreCase("priest")) return filter(List.of("remove"), a[2]);
                 if (a.length == 3 && a[1].equalsIgnoreCase("gate")) return filter(List.of("here"), a[2]);
             }

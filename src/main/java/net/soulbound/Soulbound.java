@@ -45,6 +45,7 @@ public final class Soulbound extends JavaPlugin {
     private Inhuman inhuman;
     private Grace grace;
     private EdenMask eden;
+    private Zephyrs zephyrs;
     private IslandGuard island;
     private ScreenCrack cracks;
 
@@ -180,6 +181,9 @@ public final class Soulbound extends JavaPlugin {
         inhuman.start();
         grace = new Grace(this);
         eden = new EdenMask(this);
+        zephyrs = new Zephyrs(this);
+        pm.registerEvents(zephyrs, this);
+        zephyrs.start();
         pm.registerEvents(grace, this);
         SbCommand sb = new SbCommand(this);
         pm.registerEvents(sb, this);
@@ -255,6 +259,7 @@ public final class Soulbound extends JavaPlugin {
     Inhuman inhuman() { return inhuman; }
     Grace grace() { return grace; }
     EdenMask eden() { return eden; }
+    Zephyrs zephyrs() { return zephyrs; }
     IslandGuard island() { return island; }
     CaptureManager captures() { return captures; }
     LeashItem leash() { return leash; }

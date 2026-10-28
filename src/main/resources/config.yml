@@ -546,3 +546,16 @@ realm-structures:
     - "sacrifice:bloodaltar"
     - "sacrifice:calf"
     - "sacrifice:fortress"
+
+# Zephyrs: Heaven's breezes, roaming the outer islands (never within min-distance of the centre, nor during God's fight).
+# Their wind charge does 'damage' and lifts you with Levitation; Heaven's Slow Falling lets you back down.
+zephyrs:
+  enabled: true
+  min-distance-from-centre: 300
+  max-per-player: 2
+  # Chance every 5 seconds, per player out on the islands, that one more arrives.
+  chance: 0.25
+  health: 30
+  damage: 5
+  levitation-seconds: 3
+  levitation-level: 2
