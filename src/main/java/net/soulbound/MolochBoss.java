@@ -66,7 +66,7 @@ import java.util.UUID;
  * Moloch's awakening, fought in the arena under the pyramid by everyone together.
  *
  * He scales live with the number of fighters in the hall. Between his normal warden attacks he picks moves:
- * the bull charge (dodge it into a pillar and he topples over, stunned and open), the leap slam, furnace breath,
+ * the bull charge (dodge it into a pillar and he topples over, stunned and open), the leap slam, the Cross of Fire, furnace breath,
  * the fire ring and the chain pull (for anyone hanging back). Arrows only ever do half damage, and his Soulfire Ward
  * burns them and throws fire back, more so when people lean on bows. At 75% his golden champions shield him,
  * at 50% he screams, at 25% he collapses and feeds, and below that he's in a frenzy. When he dies he cracks, crashes to the floor and bursts apart.
@@ -78,7 +78,7 @@ final class MolochBoss implements Listener {
             "NETHER_PORTAL", "VILLAGE_DEFENSE", "VILLAGE_INVASION", "SILVERFISH_BLOCK", "RAID", "LIGHTNING", "ENDER_PEARL", "SPAWNER", "TRIAL_SPAWNER");
 
     private enum Stage { WAVE, BREAK, BOSS }
-    private enum Move { NONE, RING, CHARGE, LEAP, BREATH, CHAIN, STUN, GRAB }
+    private enum Move { NONE, RING, CHARGE, LEAP, BREATH, CHAIN, STUN, GRAB, CROSS }
 
     private static final List<String> DEFAULT_WAVES = List.of("vindicator:4", "blaze:3,magma_cube:2", "wither_skeleton:3,piglin_brute:1");
     private static final List<String> DEFAULT_WAVE_NAMES = List.of("The cult rises", "Fire from below", "His honour guard");
@@ -125,6 +125,11 @@ final class MolochBoss implements Listener {
     private final Set<UUID> hunted = new HashSet<>();
     private double focusSeconds = 10;
     private Vector leapV;
+    // the Cross of Fire: he leaps to the dais and burns four lines across the hall
+    private boolean crossOn = true, crossKills = true, crossDiagonal, crossLanded;
+    private int crossStart;
+    private double crossWarn = 3.5, crossHalfWidth = 2.0, crossCooldown = 40, crossDamage = 40;
+    private long lastCross;
     // the grab: who he's holding, how hard the others have hit him since, and whether we're letting go on purpose
     private double grabSqueeze, grabThrowDamage, grabBreak, grabDamage;
     private int grabSeconds;
@@ -194,6 +199,12 @@ final class MolochBoss implements Listener {
         stunMultiplier = c.getDouble("boss.stun-damage-multiplier", 2.0);
         slamDamage = c.getDouble("boss.slam-damage", 12);
         slamRadius = c.getDouble("boss.slam-radius", 6);
+        crossOn = c.getBoolean("boss.cross.enabled", true);
+        crossKills = c.getBoolean("boss.cross.instant-kill", true);
+        crossWarn = Math.max(1.5, c.getDouble("boss.cross.warning-seconds", 3.5));
+        crossHalfWidth = c.getDouble("boss.cross.beam-width", 5) / 2.0;
+        crossCooldown = c.getDouble("boss.cross.cooldown-seconds", 40);
+        crossDamage = c.getDouble("boss.cross.damage", 40);
         breathDamage = c.getDouble("boss.breath-damage", 3);
         breathRange = c.getDouble("boss.breath-range", 14);
         chainRange = c.getDouble("boss.chain-range", 14);
@@ -666,6 +677,7 @@ final class MolochBoss implements Listener {
             case CHAIN -> tickChain();
             case GRAB -> tickGrab();
             case STUN -> tickStun();
+            case CROSS -> tickCross();
         }
     }
 
@@ -680,6 +692,7 @@ final class MolochBoss implements Listener {
         if (far != null && far.getLocation().distance(boss.getLocation()) > chainRange) w.put(Move.CHAIN, 3);
         Player close = nearest(f);
         if (close != null && close.getLocation().distance(boss.getLocation()) <= grabReach()) w.put(Move.GRAB, 3);
+        if (crossOn && phase >= 2 && System.currentTimeMillis() - lastCross >= crossCooldown * 1000L) w.put(Move.CROSS, 3);
         w.remove(lastMove);   // never the same move twice in a row
         int total = w.values().stream().mapToInt(Integer::intValue).sum(), roll = rnd.nextInt(Math.max(1, total));
         Move pick = Move.CHARGE;
@@ -692,6 +705,7 @@ final class MolochBoss implements Listener {
             case BREATH -> startBreath(any);
             case CHAIN -> startChain(far);
             case GRAB -> startGrab(close);
+            case CROSS -> startCross();
             default -> startCharge(any);
         }
     }
@@ -1038,6 +1052,118 @@ final class MolochBoss implements Listener {
         out.setZ(Math.max(c.getZ() - 26, Math.min(c.getZ() + 26, out.getZ())));
         out.setY(c.getY() - 1);   // the hall floor
         return out;
+    }
+
+    // ---- the Cross of Fire: he leaps back onto his dais, draws breath while four burning lines mark the floor, then
+    //      looses four beams across the hall. Anyone standing in a line burns to nothing - unless a pillar stands between
+    //      them and him. Step out of the lines, or get behind a pillar.
+
+    private void startCross() {
+        beginMove(Move.CROSS, null);
+        lastCross = System.currentTimeMillis();
+        crossDiagonal = rnd.nextBoolean();
+        crossLanded = false;
+        crossStart = 0;
+        Location at = boss.getLocation(), d = dais();
+        if (Math.hypot(at.getX() - d.getX(), at.getZ() - d.getZ()) < 2.5) { crossLanded = true; crossStart = 0; }
+        boss.getWorld().playSound(at, "minecraft:entity.warden.sonic_charge", 3f, 0.5f);
+        sayNear(at, "Moloch returns to his altar...", NamedTextColor.DARK_RED);
+    }
+
+    private Vector[] crossDirs() {
+        double k = crossDiagonal ? Math.sqrt(0.5) : 1;
+        return crossDiagonal
+                ? new Vector[]{new Vector(k, 0, k), new Vector(-k, 0, k), new Vector(k, 0, -k), new Vector(-k, 0, -k)}
+                : new Vector[]{new Vector(1, 0, 0), new Vector(-1, 0, 0), new Vector(0, 0, 1), new Vector(0, 0, -1)};
+    }
+
+    private void tickCross() {
+        moveTick++;
+        Location c = zones.arenaCentre();
+        if (!crossLanded) {
+            if (moveTick == 1) launch(boss.getLocation(), dais());
+            if (moveTick == 2 && leapV != null) boss.setVelocity(new Vector(leapV.getX() * 0.91, (leapV.getY() - 0.08) * 0.98, leapV.getZ() * 0.91));
+            if (moveTick % 2 == 0) fx(Particle.CLOUD, boss.getLocation().add(0, 1, 0), 3, 0.8, 0.01, null);
+            if ((moveTick > 6 && boss.isOnGround()) || moveTick > 70) {
+                crossLanded = true;
+                crossStart = moveTick;
+                boss.setVelocity(new Vector(0, 0, 0));
+                Location at = boss.getLocation();
+                at.getWorld().playSound(at, "minecraft:block.anvil.land", 3f, 0.4f);
+                fx(Particle.BLOCK, at.clone().add(0, 0.3, 0), 150, 2, 0.2, Material.POLISHED_BLACKSTONE_BRICKS.createBlockData());
+            }
+            return;
+        }
+        int t = moveTick - crossStart, warn = (int) (crossWarn * 20);
+        Location o = boss.getLocation();
+        double floorY = c.getY() + 0.15;
+        if (t == 1) {
+            o.getWorld().playSound(o, "minecraft:entity.warden.sonic_charge", 4f, 0.5f);
+            playNear(o, "moloch:furnace", 2f, 0.7f);
+            for (Player p : fighters()) p.showTitle(Title.title(Component.text("CROSS OF FIRE", NamedTextColor.RED, TextDecoration.BOLD),
+                    Component.text("Get out of the lines, or behind a pillar!", NamedTextColor.GOLD),
+                    Title.Times.times(Duration.ofMillis(100), Duration.ofMillis(2000), Duration.ofMillis(400))));
+        }
+        if (t < warn) {
+            // the four lines burn into the floor, brighter as the moment comes
+            int every = t > warn - 20 ? 2 : 4;
+            if (t % every == 0) for (Vector d : crossDirs()) {
+                Vector side = new Vector(-d.getZ(), 0, d.getX());
+                for (double r = 3; r < 42; r += 1.5) {
+                    Location mid = o.clone().add(d.clone().multiply(r)); mid.setY(floorY);
+                    fx(Particle.DUST, mid, 1, 0.1, 0, WARN);
+                    fx(Particle.DUST, mid.clone().add(side.clone().multiply(crossHalfWidth)), 1, 0.05, 0, WARN);
+                    fx(Particle.DUST, mid.clone().add(side.clone().multiply(-crossHalfWidth)), 1, 0.05, 0, WARN);
+                    if (t > warn - 20 && rnd.nextInt(4) == 0) fx(Particle.FLAME, mid, 1, crossHalfWidth * 0.5, 0.01, null);
+                }
+            }
+            if (t % 10 == 0) o.getWorld().playSound(o, "minecraft:entity.warden.heartbeat", 3f, 0.6f + 0.1f * t / 10f);
+            face(o.clone().add(crossDirs()[(t / 10) % 4]));
+            return;
+        }
+        if (t == warn) {
+            o.getWorld().playSound(o, "minecraft:entity.warden.sonic_boom", 5f, 0.5f);
+            o.getWorld().playSound(o, "minecraft:entity.generic.explode", 4f, 0.5f);
+            o.getWorld().playSound(o, "minecraft:entity.blaze.shoot", 4f, 0.4f);
+        }
+        if (t <= warn + 10) {
+            if (t % 2 == 0) for (Vector d : crossDirs()) for (double r = 3; r < 42; r += 2) {
+                Location at = o.clone().add(d.clone().multiply(r)); at.setY(floorY + 1.2);
+                fx(Particle.SONIC_BOOM, at, 1, 0, 0, null);
+                fx(Particle.FLAME, at, 4, crossHalfWidth * 0.6, 0.05, null);
+            }
+            for (Player p : fighters()) {
+                if (moveHit.contains(p.getUniqueId()) || !inCross(p, o)) continue;
+                moveHit.add(p.getUniqueId());
+                p.getWorld().spawnParticle(Particle.LAVA, p.getLocation().add(0, 1, 0), 20, 0.3, 0.6, 0.3, 0);
+                p.setFireTicks(100);
+                p.damage(crossKills ? 1_000_000 : crossDamage, boss);
+            }
+            return;
+        }
+        endMove();
+    }
+
+    /** In one of the four lines, with nothing solid between them and him. */
+    private boolean inCross(Player p, Location o) {
+        Location pl = p.getLocation();
+        Vector rel = new Vector(pl.getX() - o.getX(), 0, pl.getZ() - o.getZ());
+        boolean inLine = false;
+        for (Vector d : crossDirs()) {
+            double along = rel.dot(d);
+            if (along < 0 || along > 45) continue;
+            double perp = Math.abs(rel.getX() * d.getZ() - rel.getZ() * d.getX());
+            if (perp <= crossHalfWidth + 0.3) { inLine = true; break; }
+        }
+        if (!inLine) return false;
+        // a pillar between you and him shelters you: trace from his altar to your chest
+        Location chest = pl.clone().add(0, 1.3, 0);   // above the dais step, below a pillar's top
+        Location from = new Location(o.getWorld(), o.getX(), chest.getY(), o.getZ());
+        Vector dir = chest.toVector().subtract(from.toVector());
+        double dist = dir.length();
+        if (dist < 0.5) return true;
+        org.bukkit.util.RayTraceResult hit = o.getWorld().rayTraceBlocks(from, dir.normalize(), dist, org.bukkit.FluidCollisionMode.NEVER, true);
+        return hit == null || hit.getHitBlock() == null;
     }
 
     // ---- furnace breath: the furnace in his belly roars up and he breathes a cone of fire, sweeping after his victim

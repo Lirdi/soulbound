@@ -174,6 +174,16 @@ boss:
   seconds-between-moves: 7
   # He chases one fighter for about this long, then turns on someone else (everyone gets a turn).
   focus-seconds: 10
+  # Cross of Fire (from 75% health down): he leaps back onto his dais, four burning lines mark the floor for
+  # warning-seconds, then four beams cross the hall (a + or an x). Standing in a line kills you - unless a pillar
+  # stands between you and him. Turn instant-kill off to deal 'damage' instead.
+  cross:
+    enabled: true
+    instant-kill: true
+    damage: 40
+    warning-seconds: 3.5
+    beam-width: 5
+    cooldown-seconds: 40
 
   # --- his normal attacks ---
   # His punch (the vanilla warden hits for 30, which one-shots most players).
