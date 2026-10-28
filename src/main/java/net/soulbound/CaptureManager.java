@@ -203,6 +203,7 @@ final class CaptureManager implements Listener {
             if (held == null) { captor.sendActionBar(Component.text("Bind them first. Only a captive can be hooded.", NamedTextColor.RED)); return; }
             if (held.hooded) { captor.sendActionBar(Component.text(victim.getName() + " is already hooded.", NamedTextColor.GRAY)); return; }
             hood(held, victim);
+            hoodedAt.put(captor.getUniqueId(), tick);
             if (captor.getGameMode() != GameMode.CREATIVE) hand.setAmount(hand.getAmount() - 1);
             return;
         }
@@ -553,10 +554,23 @@ final class CaptureManager implements Listener {
         if (src instanceof Player p && carrying(p)) { e.setCancelled(true); p.sendActionBar(Component.text("Your hands are full.", NamedTextColor.GRAY)); }
     }
 
+    /** When someone just pulled a hood over a captive's head (the same click also tries to put one on their own). */
+    private final Map<UUID, Long> hoodedAt = new HashMap<>();
+
     @EventHandler(priority = EventPriority.HIGH)
     public void onInteract(PlayerInteractEvent e) {
         if (byCaptive.containsKey(e.getPlayer().getUniqueId())) { e.setCancelled(true); return; }
         Player p = e.getPlayer();
+        // hooding a captive is one right-click on them: don't also pull a hood over your own head
+        if (items.isHood(e.getItem()) && (e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR || e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK)) {
+            Long at = hoodedAt.get(p.getUniqueId());
+            boolean justHooded = at != null && tick - at <= 4;
+            boolean aimingAtCaptive = false;
+            var hit = p.getWorld().rayTraceEntities(p.getEyeLocation(), p.getEyeLocation().getDirection(), 4.5, 0.3,
+                    en -> en instanceof Player other && !other.equals(p));
+            if (hit != null && hit.getHitEntity() instanceof Player target && byCaptive.containsKey(target.getUniqueId())) aimingAtCaptive = true;
+            if (justHooded || aimingAtCaptive) { e.setCancelled(true); return; }
+        }
         if (!carrying(p)) return;
         e.setCancelled(true);   // hands full
         if (e.getHand() == EquipmentSlot.HAND && p.isSneaking()
