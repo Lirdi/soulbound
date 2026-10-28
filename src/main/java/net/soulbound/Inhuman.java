@@ -75,7 +75,7 @@ import java.util.UUID;
  * Resistance and Speed. Raw meat feeds and fills you; rotten flesh no longer sickens you; every other food leaves you
  * hungrier. But the living hate you: livestock, wolves and cats attack, iron golems hunt you, villagers flee unless
  * you hide your face under a Hood (and then they charge more), and only zombie villagers trade with you freely.
- * You can't sleep, and Heaven will never let you in again.
+ * You can't sleep, the sun burns a bare head, and Heaven will never let you in again.
  */
 final class Inhuman implements Listener {
     private static final Particle.DustOptions DARK = new Particle.DustOptions(Color.fromRGB(70, 6, 14), 0.9f);
@@ -85,6 +85,7 @@ final class Inhuman implements Listener {
     private final Map<UUID, Long> provoked = new HashMap<>();      // monsters an inhuman player has struck
     private final Map<UUID, Long> lastBite = new HashMap<>();
     private final Map<UUID, Long> lastWarn = new HashMap<>();
+    private final Map<UUID, Long> lastSunWarn = new HashMap<>();
     private final Map<UUID, List<MerchantRecipe>> zombieStock = new HashMap<>();
     private final Map<Merchant, Object> merchants = new java.util.WeakHashMap<>();   // our merchant -> the villager / zombie it speaks for
     private int tick;
@@ -262,6 +263,7 @@ final class Inhuman implements Listener {
                 p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 100, 0, true, false, true));
             }
             if (!playing) continue;
+            if (tick % 2 == 0) sun(p, now);
             for (Entity e : p.getNearbyEntities(range, range / 2, range)) {
                 if (e instanceof IronGolem g) { if (g.getTarget() == null) g.setTarget(p); continue; }
                 if (e instanceof org.bukkit.entity.Snowman sg) { if (sg.getTarget() == null) sg.setTarget(p); continue; }
@@ -287,6 +289,27 @@ final class Inhuman implements Listener {
             lastBite.keySet().removeIf(id -> Bukkit.getEntity(id) == null);
             provoked.values().removeIf(t -> now - t > 60_000);
         }
+    }
+
+    /**
+     * The sun burns the inhuman, like the undead: out under the open sky in daylight with nothing on your head, you catch
+     * fire. Anything worn on the head shades you (a Hood, a helmet, a pumpkin, a mob head...), and it never wears out.
+     * Shade, rain, water, night, and the worlds without a sun are all safe.
+     */
+    private void sun(Player p, long now) {
+        if (!plugin.getConfig().getBoolean("inhuman.sun-burns", true)) return;
+        World w = p.getWorld();
+        if (w.getEnvironment() != World.Environment.NORMAL || !w.isDayTime() || !w.isClearWeather()) return;
+        if (p.isInWater() || p.isInRain() || p.isInPowderedSnow()) return;
+        ItemStack head = p.getInventory().getHelmet();
+        if (head != null && !head.getType().isAir()) return;
+        if (p.getEyeLocation().getBlock().getLightFromSky() < 15) return;
+        p.setFireTicks(Math.max(p.getFireTicks(), 160));
+        Long last = lastSunWarn.get(p.getUniqueId());
+        if (last == null || now - last > 20_000) {
+            lastSunWarn.put(p.getUniqueId(), now);
+            p.sendMessage(Component.text("The sun burns what you've become. Cover your head, or keep to the shade.", NamedTextColor.GOLD, TextDecoration.ITALIC));
+        } else p.sendActionBar(Component.text("The sun burns you. Cover your head.", NamedTextColor.GOLD));
     }
 
     /** A snow golem's snowball stings the inhuman: half a heart and a moment's chill. */
