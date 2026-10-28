@@ -534,7 +534,7 @@ inhuman:
   raw-meat-bonus-food: 3
   raw-meat-bonus-saturation: 4.0
 
-# The Heart of Light (the Heart of Darkness, mended in gold). Eaten by the inhuman, it makes them human again; eaten by
+# The Angel Engine (the Heart of Darkness, mended in gold). Eaten by the inhuman, it makes them human again; eaten by
 # anyone else it Graces them for good: undead take more damage from them, Heaven's Archangel ghasts leave them be (not
 # while God Himself is fighting), and a Second Wind of Regeneration I lifts them when they fall low.
 # Eating the Heart of Darkness takes Grace away. /sb player <player> grace [on|off] to set it by hand.
@@ -583,7 +583,7 @@ world-egg:
   radius: 40
 
 # The Peacekeeper: a great still vex by the Pearly Gates (/sb world peacekeeper). He sells the Breath of Eden, the
-# Heart of Light (which the inhuman can only get as a gift: they can't come up to Heaven), Levitation and gate frames.
+# Angel Engine (which the inhuman can only get as a gift: they can't come up to Heaven), Levitation and gate frames.
 peacekeeper:
   scale: 2.2
   levitation-seconds: 20

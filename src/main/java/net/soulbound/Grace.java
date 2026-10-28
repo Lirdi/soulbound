@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * The Heart of Light: the Heart of Darkness, mended in gold.
+ * The Angel Engine: the Heart of Darkness, mended in gold.
  *
  * Eaten by someone inhuman, it makes them human again. Eaten by anyone else, it Graces them for good: undead take more
  * damage from them, the Archangel ghasts of Heaven leave them be (God's own host still fights them while He does), and
@@ -66,7 +66,7 @@ final class Grace implements Listener {
     ItemStack heart() {
         ItemStack it = new ItemStack(Material.APPLE);
         ItemMeta m = it.getItemMeta();
-        m.displayName(Component.text("Heart of Light", NamedTextColor.WHITE, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.displayName(Component.text("Angel Engine", NamedTextColor.WHITE, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         m.lore(List.of(
                 Component.text("Broken once. Mended in gold.", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, true),
                 Component.text("Eat it, and remember who you are.", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
@@ -82,6 +82,23 @@ final class Grace implements Listener {
         it.setItemMeta(m);
         return it;
     }
+
+    /** Hearts made before the rename are renamed (and re-lored) when they turn up in an inventory. */
+    private void rename(ItemStack it) {
+        if (!isHeart(it)) return;
+        ItemStack fresh = heart();
+        var m = it.getItemMeta(); var f = fresh.getItemMeta();
+        if (java.util.Objects.equals(m.displayName(), f.displayName())) return;
+        m.displayName(f.displayName());
+        m.lore(f.lore());
+        it.setItemMeta(m);
+    }
+
+    @EventHandler
+    public void onJoinRename(org.bukkit.event.player.PlayerJoinEvent e) { for (ItemStack it : e.getPlayer().getInventory().getContents()) rename(it); }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onHeldRename(org.bukkit.event.player.PlayerItemHeldEvent e) { rename(e.getPlayer().getInventory().getItem(e.getNewSlot())); }
 
     boolean isHeart(ItemStack it) {
         return it != null && it.hasItemMeta() && it.getItemMeta().getPersistentDataContainer().has(heartKey, PersistentDataType.BYTE);

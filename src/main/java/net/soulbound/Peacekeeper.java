@@ -44,7 +44,7 @@ import java.util.UUID;
 
 /**
  * The Peacekeeper: a great, still vex that keeps watch by the Pearly Gates and trades with whoever comes up to Heaven.
- * He sells the Breath of Eden, the Heart of Light (the only cure for the inhuman, who can never come up here to buy it:
+ * He sells the Breath of Eden, the Angel Engine (the only cure for the inhuman, who can never come up here to buy it:
  * someone has to bring it down to them), splash potions of Levitation and the frames for a Gate of Heaven.
  * Placed with /sb world peacekeeper, removed with /sb world peacekeeper remove.
  */
@@ -189,10 +189,11 @@ final class Peacekeeper implements Listener {
         List<MerchantRecipe> list = new ArrayList<>();
         ItemStack tears = tear.clone(); tears.setAmount(Math.max(1, c.getInt("peacekeeper.price.breath-of-eden-tears", 2)));
         list.add(deal(plugin.eden().create(), tears));
-        list.add(deal(plugin.grace().heart(), new ItemStack(Material.DRAGON_EGG, Math.max(1, c.getInt("peacekeeper.price.heart-of-light-eggs", 1)))));
         list.add(deal(levitation(), new ItemStack(Material.DIAMOND, Math.max(1, Math.min(64, c.getInt("peacekeeper.price.levitation-diamonds", 10))))));
         ItemStack oneTear = tear.clone(); oneTear.setAmount(Math.max(1, c.getInt("peacekeeper.price.gate-frames-tears", 1)));
         list.add(deal(new ItemStack(Material.END_PORTAL_FRAME, Math.max(1, c.getInt("peacekeeper.gate-frames", 3))), oneTear));
+        // last of all, the Angel Engine
+        list.add(deal(plugin.grace().heart(), new ItemStack(Material.DRAGON_EGG, Math.max(1, c.getInt("peacekeeper.price.heart-of-light-eggs", 1)))));
         Merchant m = Bukkit.createMerchant();
         m.setRecipes(list);
         open.add(m);

@@ -61,6 +61,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         // Blood Priest
         m.put("beef_tartare", new Item("Blood Priest", () -> one(p.tartare().create(1))));
         m.put("heart_of_darkness", new Item("Blood Priest", () -> one(p.inhuman().heart())));
+        m.put("angel_engine", new Item("Grace", () -> one(p.grace().heart())));
         m.put("heart_of_light", new Item("Grace", () -> one(p.grace().heart())));
         m.put("breath_of_eden", new Item("Heaven", () -> one(p.eden().create())));
         // Moloch
@@ -185,7 +186,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             s.sendMessage(line("/sb player <player> curse [minutes]", "Moloch's curse"));
             s.sendMessage(line("/sb player <player> uncurse", "lift it (and they can be offered again)"));
             s.sendMessage(line("/sb player <player> inhuman [on|off]", "the Heart of Darkness, without eating it"));
-            s.sendMessage(line("/sb player <player> grace [on|off]", "the Heart of Light's blessing, without eating it"));
+            s.sendMessage(line("/sb player <player> grace [on|off]", "the Angel Engine's blessing, without eating it"));
             s.sendMessage(line("/sb player <player> resetlimits", "sacrifice cooldown and daily count"));
         }
         if (group == null || group.equals("moloch")) {
