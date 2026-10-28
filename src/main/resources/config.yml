@@ -22,6 +22,12 @@ capture:
   captor-break-damage: 6.0
   # Sneak presses the captive needs to struggle free.
   struggle-presses: 30
+  # Only this many tugs a second count (an autoclicker gains nothing), and progress drains this fast when they stop.
+  struggle-max-per-second: 4
+  struggle-decay-per-second: 1.5
+  # Harder to struggle free when hooded, and when carried (multiplies struggle-presses).
+  struggle-hooded-multiplier: 1.5
+  struggle-carried-multiplier: 1.25
   # Freshly bound captives can't struggle at all for this long, in seconds.
   struggle-delay-seconds: 25
   # The captive can wander this far before being pulled back, in blocks.
@@ -29,7 +35,7 @@ capture:
   # Beyond this distance the captive is snapped to the captor.
   snap-distance: 9.0
   # After being freed, a player can't be captured again for this long, in seconds.
-  immunity-seconds: 0
+  immunity-seconds: 180
   # Slow the captor down while dragging someone.
   captor-slowness: true
   # Announce captures and escapes in chat to everyone.

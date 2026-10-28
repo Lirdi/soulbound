@@ -76,7 +76,8 @@ final class CaptureManager implements Listener {
 
     // settings
     private double maxHealth, captorBreakDamage, slack, snapDistance, spawnSafeRadius;
-    private int durationTicks, strugglePresses, immunitySeconds, struggleDelayTicks;
+    private int durationTicks, strugglePresses, immunitySeconds, struggleDelayTicks, struggleGapTicks;
+    private double struggleDecay, hoodedHarder, carriedHarder;
     private boolean requireLead, captorSlowness, broadcast, killOnLogout;
     private List<String> disabledWorlds = new ArrayList<>(), allowedCommands = new ArrayList<>();
 
@@ -96,9 +97,13 @@ final class CaptureManager implements Listener {
         captorBreakDamage = c.getDouble("capture.captor-break-damage", 6.0);
         strugglePresses = Math.max(1, c.getInt("capture.struggle-presses", 30));
         struggleDelayTicks = Math.max(0, c.getInt("capture.struggle-delay-seconds", 25)) * 20;
+        struggleGapTicks = Math.max(1, (int) Math.round(20.0 / Math.max(0.5, c.getDouble("capture.struggle-max-per-second", 4))));
+        struggleDecay = Math.max(0, c.getDouble("capture.struggle-decay-per-second", 1.5));
+        hoodedHarder = Math.max(1, c.getDouble("capture.struggle-hooded-multiplier", 1.5));
+        carriedHarder = Math.max(1, c.getDouble("capture.struggle-carried-multiplier", 1.25));
         slack = c.getDouble("capture.slack", 4.0);
         snapDistance = Math.max(slack + 1, c.getDouble("capture.snap-distance", 9.0));
-        immunitySeconds = c.getInt("capture.immunity-seconds", 0);
+        immunitySeconds = c.getInt("capture.immunity-seconds", 180);
         captorSlowness = c.getBoolean("capture.captor-slowness", true);
         broadcast = c.getBoolean("capture.broadcast", true);
         disabledWorlds = c.getStringList("safety.disabled-worlds");
@@ -290,6 +295,9 @@ final class CaptureManager implements Listener {
         if (tick >= cap.endsAt) { end(cap, End.TIMEOUT); return; }
         if (requireLead && !hasLeash(captor)) { end(cap, End.LET_GO); return; }
 
+        // stop struggling and the chains settle back: progress drains away
+        if (cap.struggles > 0 && tick - cap.lastStruggleTick > 20 && struggleDecay > 0) cap.struggles = Math.max(0, cap.struggles - struggleDecay / 20.0);
+
         if (cap.carried) tickCarry(cap, captor, victim);
         else if (tick < cap.thrownUntil) steerIntoPit(victim);
         else drag(cap, captor, victim);
@@ -302,8 +310,9 @@ final class CaptureManager implements Listener {
             cap.captorBar.progress(clamp((float) left / durationTicks));
             cap.captorBar.name(Component.text((cap.carried ? "Carrying " : "Holding ") + victim.getName() + "  ·  " + (left / 20) + "s"
                     + (cap.carried ? "  ·  sneak + right-click to put down" : "")));
-            int need = Math.max(0, strugglePresses - cap.struggles);
-            cap.captiveBar.progress(clamp((float) need / strugglePresses));
+            double total = pressesNeeded(cap);
+            int need = (int) Math.ceil(Math.max(0, total - cap.struggles));
+            cap.captiveBar.progress(clamp((float) (need / total)));
             long wait = cap.startedAt + struggleDelayTicks - tick;
             cap.captiveBar.name(Component.text((cap.hooded ? "Hooded" : "Captured by " + captor.getName()) + "  ·  "
                     + (wait > 0 ? "too tightly bound to struggle (" + (wait / 20 + 1) + "s)" : "tap sneak to struggle (" + need + ")")));
@@ -450,17 +459,23 @@ final class CaptureManager implements Listener {
         struggle(cap, e.getPlayer());
     }
 
-    private final Map<UUID, Long> lastStruggle = new HashMap<>();
+    /** Hooded, it's harder to fight what you can't see; slung over a shoulder, there's nothing to push against. */
+    private double pressesNeeded(Capture cap) {
+        return strugglePresses * (cap.hooded ? hoodedHarder : 1) * (cap.carried ? carriedHarder : 1);
+    }
+
     private void struggle(Capture cap, Player p) {
         long wait = cap.startedAt + struggleDelayTicks - tick;
         if (wait > 0) {   // freshly bound: too tight to fight yet
             p.sendActionBar(Component.text("The chains are too tight. You can struggle in " + (wait / 20 + 1) + "s.", NamedTextColor.RED));
             return;
         }
-        if (Long.valueOf(tick).equals(lastStruggle.put(p.getUniqueId(), tick))) return;
+        // at most a few tugs a second count, however fast the key is hammered
+        if (tick - cap.lastStruggleTick < struggleGapTicks) return;
+        cap.lastStruggleTick = tick;
         cap.struggles++;
         sound(bodyAt(cap, p), "minecraft:block.chain.step", 0.8f, 1.4f);
-        if (cap.struggles >= strugglePresses) end(cap, End.STRUGGLE);
+        if (cap.struggles >= pressesNeeded(cap)) end(cap, End.STRUGGLE);
     }
 
     // ---------------------------------------------------------------- what breaks it
@@ -934,12 +949,13 @@ final class CaptureManager implements Listener {
         victim.setVelocity(v);
     }
 
-    /** A captive isn't killed by the fall or the flames: Moloch takes them, nothing else. */
+    /** A captive isn't hurt by being dragged about (falls, walls, water, cactus...), nor by the pit's flames: Moloch takes them. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onCaptiveHurt(EntityDamageEvent e) {
         if (!(e.getEntity() instanceof Player p) || !byCaptive.containsKey(p.getUniqueId())) return;
         String c = e.getCause().name();
-        if (c.equals("FALL")) e.setCancelled(true);
+        if (c.equals("FALL") || c.equals("SUFFOCATION") || c.equals("CRAMMING") || c.equals("FLY_INTO_WALL") || c.equals("DROWNING")
+                || c.equals("CONTACT") || c.equals("FREEZE") || c.equals("HOT_FLOOR")) { e.setCancelled(true); if (c.equals("DROWNING")) p.setRemainingAir(p.getMaximumAir()); }
         else if ((c.contains("FIRE") || c.equals("LAVA") || c.equals("HOT_FLOOR")) && plugin.zones().inPit(p.getLocation())) { e.setCancelled(true); p.setFireTicks(0); }
     }
 

@@ -15,7 +15,8 @@ final class Capture {
     final BossBar captiveBar;
     /** Invisible anchor riding the captive, so a real lead can be drawn to it. */
     Rabbit anchor;
-    int struggles;
+    double struggles;
+    long lastStruggleTick = -1000;
     double captorDamage;
     /** Being held in the fire pit for the sacrifice. */
     boolean ritual;

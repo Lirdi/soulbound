@@ -95,6 +95,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.no-demons", true);
             saveConfig();
         }
+        // one-off: 3 minutes before an escaped player can be captured again
+        if (!getConfig().getBoolean("migrated.capture-immunity-180", false)) {
+            if (getConfig().getInt("capture.immunity-seconds", 180) == 0) getConfig().set("capture.immunity-seconds", 180);
+            getConfig().set("migrated.capture-immunity-180", true);
+            saveConfig();
+        }
         // one-off: fewer Zephyrs (one at a time, about one a minute)
         if (!getConfig().getBoolean("migrated.zephyrs-fewer", false)) {
             if (getConfig().getDouble("zephyrs.chance", 0.08) == 0.25) getConfig().set("zephyrs.chance", 0.08);
