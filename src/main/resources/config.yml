@@ -460,6 +460,10 @@ priest:
     tartare:
       - "Beef. Yes. Let's call it beef."
       - "If it twitches, just keep chewing."
+    heart:
+      - "He won't let you back into His house after this. Good. It's cold up there."
+      - "His gates won't open for you now. Don't knock. He never answers anyway."
+      - "No more Heaven for you. Don't worry. The view from down here is warmer."
   # He turns to watch the nearest player within this many blocks.
   look-range: 16
   # The first time a player sacrifices someone, he whispers this to them.
@@ -472,3 +476,15 @@ priest:
     - "Do you know why I'm called the Blood Priest? Because I did exactly what you just did. Many, many times."
   # And everyone sees this. Leave it empty ("") to turn it off.
   sacrifice-broadcast: "The Blood Priest smiles."
+
+# The Heart of Darkness (the Blood Priest sells it for the Egg of Potential, once you've bought everything else he has).
+# Eating it makes you inhuman: monsters ignore you (unless you hit them), +2 hearts, Fire Resistance and Speed in
+# Moloch's realm, raw meat feeds and fills you, rotten flesh doesn't sicken you, other food makes you hungrier.
+# But animals, wolves, cats and iron golems attack you, villagers flee (wear a Hood to trade, at higher prices;
+# zombie villagers trade with you freely), you can't sleep, and you can never enter the End.
+# /moloch inhuman <player> [off] to set or clear it by hand.
+inhuman:
+  extra-health: 4
+  animal-range: 10
+  animal-damage: 2
+  hooded-price-multiplier: 1.5

@@ -49,7 +49,8 @@ final class BloodPriest implements Listener {
     private final NamespacedKey key;
     private final Set<UUID> priests = new HashSet<>();
     private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice;
-    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines;
+    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines;
+    private final NamespacedKey boughtKey;
     private final java.util.Map<UUID, Long> lastSaid = new java.util.HashMap<>();
     private double lookRange;
     private List<String> sacrificeLines;
@@ -60,6 +61,7 @@ final class BloodPriest implements Listener {
         this.captures = captures;
         this.leash = leash;
         this.key = new NamespacedKey(plugin, "blood_priest");
+        this.boughtKey = new NamespacedKey(plugin, "priest_bought");
         load();
     }
 
@@ -73,6 +75,9 @@ final class BloodPriest implements Listener {
         cudgelLines = lines(c, "cudgel", "From behind. Always from behind. Let them wonder who it was.");
         shacklesLines = lines(c, "shackles", "When they're dazed, close the iron. Wrists first. Then they're yours.");
         tartareLines = lines(c, "tartare", "Beef. Yes. Let's call it beef.", "If it twitches, just keep chewing.");
+        heartLines = lines(c, "heart", "He won't let you back into His house after this. Good. It's cold up there.",
+                "His gates won't open for you now. Don't knock. He never answers anyway.",
+                "No more Heaven for you. Don't worry. The view from down here is warmer.");
         lookRange = c.getDouble("priest.look-range", 16);
         sacrificeLines = c.getStringList("priest.sacrifice-lines");
         if (sacrificeLines.isEmpty()) sacrificeLines = List.of(
@@ -221,6 +226,12 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
         if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
+        // the last thing he sells, only to someone who's bought everything else: the Heart of Darkness, for the Egg of Potential
+        if (boughtAll(p) && plugin.inhuman() != null && !plugin.inhuman().is(p)) {
+            MerchantRecipe h = new MerchantRecipe(plugin.inhuman().heart(), 0, Integer.MAX_VALUE, false);
+            h.addIngredient(new ItemStack(Material.DRAGON_EGG, 1));
+            list.add(h);
+        }
         m.setRecipes(list);
         open.add(m);
         p.openInventory(MenuType.MERCHANT.builder().merchant(m).title(Component.text("Blood Priest", NamedTextColor.DARK_RED)).build(p));
@@ -234,13 +245,23 @@ final class BloodPriest implements Listener {
         if (!isOurs(inv.getMerchant())) return;
         ItemStack out = e.getTrade().getResult();
         List<String> pool;
+        String what;
         AbductionItems.Kind k = captures.items.kindOf(out);
-        if (k == AbductionItems.Kind.HOOD) pool = hoodLines;
-        else if (k == AbductionItems.Kind.CUDGEL) pool = cudgelLines;
-        else if (leash.isSpecial(out)) pool = shacklesLines;
-        else if (plugin.tartare() != null && out.isSimilar(plugin.tartare().create(1))) pool = tartareLines;
+        if (k == AbductionItems.Kind.HOOD) { pool = hoodLines; what = "hood"; }
+        else if (k == AbductionItems.Kind.CUDGEL) { pool = cudgelLines; what = "cudgel"; }
+        else if (leash.isSpecial(out)) { pool = shacklesLines; what = "shackles"; }
+        else if (plugin.tartare() != null && out.isSimilar(plugin.tartare().create(1))) { pool = tartareLines; what = "tartare"; }
+        else if (plugin.inhuman() != null && plugin.inhuman().isHeart(out)) { pool = heartLines; what = "heart"; lastSaid.remove(e.getPlayer().getUniqueId()); }
         else return;
         Player p = e.getPlayer();
+        boolean before = boughtAll(p);
+        markBought(p, what);
+        if (!before && boughtAll(p)) Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!p.isOnline()) return;
+            p.sendMessage(Component.text("The Blood Priest whispers: ", NamedTextColor.DARK_RED, TextDecoration.ITALIC)
+                    .append(Component.text("You've bought everything I had. Except the one thing that matters. Bring me the egg.", NamedTextColor.RED, TextDecoration.ITALIC)));
+            p.playSound(p.getLocation(), "minecraft:entity.warden.heartbeat", 1f, 0.8f);
+        }, 60L);
         long now = System.currentTimeMillis();
         Long last = lastSaid.get(p.getUniqueId());
         if (last != null && now - last < 4000) return;
@@ -249,6 +270,19 @@ final class BloodPriest implements Listener {
         p.sendMessage(Component.text("The Blood Priest whispers: ", NamedTextColor.DARK_RED, TextDecoration.ITALIC)
                 .append(Component.text(line, NamedTextColor.RED, TextDecoration.ITALIC)));
         p.playSound(p.getLocation(), "minecraft:entity.evoker.ambient", 0.6f, 0.6f);
+    }
+
+    private static final List<String> ALL = List.of("hood", "cudgel", "shackles", "tartare");
+
+    private void markBought(Player p, String what) {
+        String had = p.getPersistentDataContainer().getOrDefault(boughtKey, PersistentDataType.STRING, "");
+        if (!(","+had+",").contains(","+what+",")) p.getPersistentDataContainer().set(boughtKey, PersistentDataType.STRING, had.isEmpty() ? what : had + "," + what);
+    }
+
+    boolean boughtAll(Player p) {
+        String had = "," + p.getPersistentDataContainer().getOrDefault(boughtKey, PersistentDataType.STRING, "") + ",";
+        for (String a : ALL) if (!had.contains("," + a + ",")) return false;
+        return true;
     }
 
     private final java.util.Set<Merchant> open = java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>());

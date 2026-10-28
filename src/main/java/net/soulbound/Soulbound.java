@@ -42,6 +42,7 @@ public final class Soulbound extends JavaPlugin {
     private MolochGear gear;
     private BloodPriest priest;
     private Archangels archangels;
+    private Inhuman inhuman;
     private ScreenCrack cracks;
 
     @Override
@@ -152,6 +153,9 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(island, this);
         island.start();
         pm.registerEvents(new HeavenBeds(this), this);
+        inhuman = new Inhuman(this, captures);
+        pm.registerEvents(inhuman, this);
+        inhuman.start();
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
@@ -220,6 +224,7 @@ public final class Soulbound extends JavaPlugin {
     Store store() { return store; }
     GodManager god() { return god; }
     Archangels archangels() { return archangels; }
+    Inhuman inhuman() { return inhuman; }
     GodGear godGear() { return godGear; }
     QuantumGear quantum() { return quantum; }
     public ScreenCrack cracks() { return cracks; }
@@ -334,6 +339,15 @@ public final class Soulbound extends JavaPlugin {
                 sender.sendMessage(Component.text(remove ? priest.removeNear(p) : priest.spawn(p), NamedTextColor.GREEN));
                 return true;
             }
+            case "inhuman" -> {
+                if (!admin(sender)) return true;
+                Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
+                if (t == null) { sender.sendMessage(Component.text("/moloch inhuman <player> [off]", NamedTextColor.GRAY)); return true; }
+                boolean off = args.length > 2 && args[2].equalsIgnoreCase("off");
+                inhuman.set(t, !off);
+                sender.sendMessage(Component.text(t.getName() + (off ? " is human again." : " is no longer human."), NamedTextColor.GREEN));
+                return true;
+            }
             case "temple" -> {
                 if (!admin(sender)) return true;
                 sender.sendMessage(Component.text(portals.templeWorks(), NamedTextColor.GREEN));
@@ -358,6 +372,7 @@ public final class Soulbound extends JavaPlugin {
                 if (args[2].equalsIgnoreCase("chains")) { for (int i = 0; i < 4; i++) t.getInventory().addItem(leash.create(1)); sender.sendMessage(Component.text("Gave " + t.getName() + " 4 " + getConfig().getString("leash.name", "Cultist's Shackles") + ".", NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("cute")) { sender.sendMessage(Component.text(cute.adminGive(t, args.length > 3 ? args[3] : "all"), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("kraken")) { sender.sendMessage(Component.text(kraken.adminGive(t), NamedTextColor.GREEN)); return true; }
+                if (args[2].equalsIgnoreCase("heart")) { t.getInventory().addItem(inhuman.heart()); sender.sendMessage(Component.text("Gave " + t.getName() + " the Heart of Darkness.", NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("tartare")) { sender.sendMessage(Component.text(tartare.adminGive(t, 16), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("cortex")) { sender.sendMessage(Component.text(parasite.adminGiveCrown(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("parasite")) { sender.sendMessage(Component.text(parasite.adminGive(t), NamedTextColor.GREEN)); return true; }
@@ -431,7 +446,7 @@ public final class Soulbound extends JavaPlugin {
                 if (sender instanceof Player p && curses.secondsLeft(p) > 0)
                     sender.sendMessage(Component.text("You're cursed for " + CurseManager.clock(curses.secondsLeft(p)) + " more.", NamedTextColor.DARK_PURPLE));
                 if (sender.hasPermission("soulbound.admin"))
-                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | resetlimits [player] | priest [remove] | gate [here] | setarrival | reload", NamedTextColor.GRAY));
+                    sender.sendMessage(Component.text("Admin: /moloch awaken | stop | hunger <n> | curse <player> [min] | uncurse <player> | resetlimits [player] | priest [remove] | inhuman <player> [off] | gate [here] | setarrival | reload", NamedTextColor.GRAY));
                 return true;
             }
         }
@@ -468,7 +483,7 @@ public final class Soulbound extends JavaPlugin {
         boolean admin = sender.hasPermission("soulbound.admin");
         if (command.getName().equalsIgnoreCase("god")) return args.length == 1 ? List.of("challenge", "lost", "forgive", "look") : List.of();
         if (command.getName().equalsIgnoreCase("moloch")) {
-            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "resetlimits", "priest", "gate", "temple", "carry", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
+            if (args.length == 1) return admin ? List.of("awaken", "stop", "hunger", "curse", "uncurse", "resetlimits", "priest", "inhuman", "gate", "temple", "carry", "setarrival", "god", "heaven", "halo", "gear", "bloodmoon", "leave", "reload") : List.of("leave");
             return null;   // player names
         }
         if (args.length == 1) return admin ? List.of("release", "give", "reload") : List.of("release");
