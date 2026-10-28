@@ -226,7 +226,7 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
         if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
-        // the last thing he sells, only to someone who's bought everything else: the Heart of Darkness, for the Egg of Potential
+        // the last thing he sells, only to someone who's bought everything else: the Heart of Darkness, for the World Egg
         if (boughtAll(p) && plugin.inhuman() != null && !plugin.inhuman().is(p)) {
             MerchantRecipe h = new MerchantRecipe(plugin.inhuman().heart(), 0, Integer.MAX_VALUE, false);
             h.addIngredient(new ItemStack(Material.DRAGON_EGG, 1));

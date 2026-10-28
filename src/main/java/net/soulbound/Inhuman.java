@@ -72,7 +72,7 @@ import java.util.UUID;
  * The Heart of Darkness and what eating it makes you: no longer human.
  *
  * Monsters leave you be (unless you strike them), you carry two more hearts, and in Moloch's realm you have Fire
- * Resistance and Speed. Raw meat feeds and fills you; rotten flesh no longer sickens you; every other food leaves you
+ * Resistance and Speed. Raw meat feeds and fills you; rotten flesh, spider eyes and poisonous potatoes no longer sicken you; every other food leaves you
  * hungrier. But the living hate you: livestock, wolves and cats attack, iron golems hunt you, villagers flee unless
  * you hide your face under a Hood (and then they charge more), and only zombie villagers trade with you freely.
  * You can't sleep, the sun burns a bare head, and Heaven will never let you in again.
@@ -169,8 +169,10 @@ final class Inhuman implements Listener {
                 p.setSaturation(Math.min(p.getFoodLevel(), p.getSaturation() + bonusSat));
                 p.removePotionEffect(PotionEffectType.HUNGER);
                 p.removePotionEffect(PotionEffectType.POISON);
-            } else if (t == Material.ROTTEN_FLESH) {
+            } else if (t == Material.ROTTEN_FLESH || t == Material.SPIDER_EYE || t == Material.POISONOUS_POTATO) {
+                // what sickens the living is just food to them
                 p.removePotionEffect(PotionEffectType.HUNGER);
+                p.removePotionEffect(PotionEffectType.POISON);
             } else {
                 p.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 30 * 20, 1, false, true, true));
                 p.sendActionBar(Component.text("It tastes of ash. You're hungrier than before.", NamedTextColor.DARK_RED));
