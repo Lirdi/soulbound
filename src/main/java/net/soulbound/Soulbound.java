@@ -151,6 +151,7 @@ public final class Soulbound extends JavaPlugin {
         IslandGuard island = new IslandGuard(this);
         pm.registerEvents(island, this);
         island.start();
+        pm.registerEvents(new HeavenBeds(this), this);
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
