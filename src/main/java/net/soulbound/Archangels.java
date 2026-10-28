@@ -43,7 +43,37 @@ public final class Archangels implements Listener {
         this.ghastKey = new NamespacedKey(plugin, "archangel_ghast");
     }
 
-    void start() { plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickGhasts, 200L, 100L); }
+    void start() {
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickGhasts, 200L, 100L);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::lockOn, 40L, 20L);
+    }
+
+    /**
+     * Vanilla ghasts only notice players within about 4 blocks of their own height, so an Archangel above or below you
+     * would drift straight past. Every second, each one without a target picks the nearest player it can see.
+     */
+    private void lockOn() {
+        double range = plugin.getConfig().getDouble("archangels.ghasts.sight", 48);
+        for (World w : plugin.getServer().getWorlds()) {
+            if (w.getEnvironment() != World.Environment.THE_END) continue;
+            for (Ghast g : w.getEntitiesByClass(Ghast.class)) {
+                if (!isArchangel(g)) continue;
+                org.bukkit.entity.LivingEntity cur = g.getTarget();
+                if (cur instanceof Player cp && cp.isValid() && !cp.isDead() && hunted(cp)
+                        && cp.getLocation().distanceSquared(g.getLocation()) < range * range * 1.5) continue;
+                Player best = null;
+                double bd = range * range;
+                for (Player p : w.getPlayers()) {
+                    if (!hunted(p)) continue;
+                    double d = p.getLocation().distanceSquared(g.getLocation());
+                    if (d < bd && g.hasLineOfSight(p)) { bd = d; best = p; }
+                }
+                if (best != null) g.setTarget(best);
+            }
+        }
+    }
+
+    private static boolean hunted(Player p) { return p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE; }
 
     boolean isArchangel(Entity e) { return e instanceof Ghast && e.getPersistentDataContainer().has(ghastKey, PersistentDataType.BYTE); }
 
@@ -102,7 +132,7 @@ public final class Archangels implements Listener {
         ThreadLocalRandom r = ThreadLocalRandom.current();
         for (int tries = 0; tries < 8; tries++) {
             double a = r.nextDouble(Math.PI * 2), d = 40 + r.nextDouble(30);
-            Location at = from.clone().add(Math.cos(a) * d, 8 + r.nextDouble(22), Math.sin(a) * d);
+            Location at = from.clone().add(Math.cos(a) * d, 2 + r.nextDouble(10), Math.sin(a) * d);
             if (at.getY() > at.getWorld().getMaxHeight() - 8) continue;
             if (nearestPlayer(at, 24) != null) continue;
             boolean clear = true;

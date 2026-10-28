@@ -352,6 +352,8 @@ archangels:
     max-per-player: 3
     # Every 5 seconds, the chance one more appears near a player out there (0.2 = roughly one every 25 seconds until the max).
     chance: 0.2
+    # How far they can spot a player (they need a clear line of sight).
+    sight: 48
     # Their health (40 = 20 hearts; a normal ghast has 10).
     health: 40
     # Damage they take from their own fireball knocked back at them (10 = 5 hearts, so four hits). -1 = vanilla instant kill.
