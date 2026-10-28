@@ -470,6 +470,8 @@ heaven-air:
   mining-fatigue-level: 3
   # Hunger from the thin air, every 2 seconds (4 = one food point). 0 = off.
   thin-air-exhaustion: 0.0
+  # Wearing the Breath of Eden lifts both effects; set this true to keep Slow Falling on mask wearers.
+  mask-keeps-slow-falling: false
 
 # The Blood Priest (/moloch priest to place him, /moloch priest remove). He sells the abduction tools for gold.
 # Prices are in gold ingots; anything over 64 is asked in gold blocks instead.

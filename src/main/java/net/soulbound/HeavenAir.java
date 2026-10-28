@@ -23,6 +23,12 @@ final class HeavenAir {
     void start() { task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 40L, 40L); }
     void stop() { if (task != null) task.cancel(); }
 
+    /** Take off only Heaven's own (ambient) effect, never a potion the player drank. */
+    private static void clear(Player p, PotionEffectType t) {
+        PotionEffect e = p.getPotionEffect(t);
+        if (e != null && e.isAmbient() && e.getDuration() <= 70) p.removePotionEffect(t);
+    }
+
     private void tick() {
         var c = plugin.getConfig();
         if (!c.getBoolean("heaven-air.enabled", true)) return;
@@ -38,6 +44,12 @@ final class HeavenAir {
                 if (fight) continue;
                 double x = p.getLocation().getX(), z = p.getLocation().getZ();
                 if (x * x + z * z <= r2) continue;   // God's island: no effects
+                if (plugin.eden() != null && plugin.eden().wearing(p)) {   // the Breath of Eden: Heaven's air suits you
+                    clear(p, PotionEffectType.MINING_FATIGUE);
+                    if (c.getBoolean("heaven-air.mask-keeps-slow-falling", false)) { if (floaty) p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 70, 0, true, false, true)); }
+                    else clear(p, PotionEffectType.SLOW_FALLING);
+                    continue;
+                }
                 if (floaty) p.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 70, 0, true, false, true));
                 if (fatigue > 0) p.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 70, fatigue - 1, true, false, true));
                 if (thin > 0) p.setExhaustion(p.getExhaustion() + thin);

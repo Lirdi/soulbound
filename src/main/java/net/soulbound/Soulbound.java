@@ -44,6 +44,7 @@ public final class Soulbound extends JavaPlugin {
     private Archangels archangels;
     private Inhuman inhuman;
     private Grace grace;
+    private EdenMask eden;
     private IslandGuard island;
     private ScreenCrack cracks;
 
@@ -178,6 +179,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(inhuman, this);
         inhuman.start();
         grace = new Grace(this);
+        eden = new EdenMask(this);
         pm.registerEvents(grace, this);
         SbCommand sb = new SbCommand(this);
         pm.registerEvents(sb, this);
@@ -252,6 +254,7 @@ public final class Soulbound extends JavaPlugin {
     Archangels archangels() { return archangels; }
     Inhuman inhuman() { return inhuman; }
     Grace grace() { return grace; }
+    EdenMask eden() { return eden; }
     IslandGuard island() { return island; }
     CaptureManager captures() { return captures; }
     LeashItem leash() { return leash; }
