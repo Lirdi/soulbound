@@ -206,6 +206,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             s.sendMessage(line("/sb world temple", "rebuild the pyramid stairs and side gates"));
             s.sendMessage(line("/sb world setarrival", "portals into his realm arrive where you stand"));
             s.sendMessage(line("/sb world zephyr", "a Zephyr (Heaven's breeze) in front of you"));
+            s.sendMessage(line("/sb world peacekeeper [remove]", "place (or remove) the Peacekeeper here"));
         }
         if (group == null) {
             s.sendMessage(line("/sb reload", "reload config.yml"));
@@ -255,6 +256,11 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
                 switch (what) {
                     case "priest", "gate" -> plugin.legacyMoloch(s, a.length > 2 ? new String[]{what, a[2]} : new String[]{what});
                     case "temple", "setarrival" -> plugin.legacyMoloch(s, new String[]{what});
+                    case "peacekeeper" -> {
+                        if (!(s instanceof Player p)) { s.sendMessage("Players only."); return true; }
+                        boolean remove = a.length > 2 && a[2].equalsIgnoreCase("remove");
+                        s.sendMessage(ok(remove ? plugin.peacekeeper().removeNear(p) : plugin.peacekeeper().spawn(p)));
+                    }
                     case "zephyr" -> {
                         if (!(s instanceof Player p)) { s.sendMessage("Players only."); return true; }
                         plugin.zephyrs().summon(p.getLocation().add(p.getLocation().getDirection().setY(0).normalize().multiply(4)));
@@ -330,8 +336,8 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             }
             case "god" -> { if (a.length == 2) return filter(List.of("test", "heaven"), a[1]); }
             case "world" -> {
-                if (a.length == 2) return filter(List.of("priest", "gate", "temple", "setarrival", "zephyr"), a[1]);
-                if (a.length == 3 && a[1].equalsIgnoreCase("priest")) return filter(List.of("remove"), a[2]);
+                if (a.length == 2) return filter(List.of("priest", "peacekeeper", "gate", "temple", "setarrival", "zephyr"), a[1]);
+                if (a.length == 3 && (a[1].equalsIgnoreCase("priest") || a[1].equalsIgnoreCase("peacekeeper"))) return filter(List.of("remove"), a[2]);
                 if (a.length == 3 && a[1].equalsIgnoreCase("gate")) return filter(List.of("here"), a[2]);
             }
             case "help" -> { if (a.length == 2) return filter(List.of("give", "player", "moloch", "god", "world"), a[1]); }

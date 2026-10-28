@@ -581,3 +581,15 @@ roads:
 # inventory (and earns Atlas), instead of it teleporting away. Only within this many blocks of the End's centre.
 world-egg:
   radius: 40
+
+# The Peacekeeper: a great still vex by the Pearly Gates (/sb world peacekeeper). He sells the Breath of Eden, the
+# Heart of Light (which the inhuman can only get as a gift: they can't come up to Heaven), Levitation and gate frames.
+peacekeeper:
+  scale: 2.2
+  levitation-seconds: 20
+  gate-frames: 3
+  price:
+    breath-of-eden-tears: 2
+    heart-of-light-eggs: 1
+    levitation-diamonds: 10
+    gate-frames-tears: 1
