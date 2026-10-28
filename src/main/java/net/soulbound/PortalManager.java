@@ -81,11 +81,15 @@ final class PortalManager implements Listener {
 
     /** On start: raise the Exit Gate the first time the realm is there. */
     void start() {
-        if (enabled && gateBox == null && zones.world() != null) {
-            String r = buildGate(gateX, gateZ);
-            plugin.getLogger().info(r);
-        }
-        if (enabled && zones.world() != null && !store.data.getBoolean("temple.works-v1", false)) plugin.getLogger().info(templeWorks());
+        if (!enabled || zones.world() == null) return;
+        // a realm we haven't worked on yet (first start, or the dimension was reset): the Exit Gate, the stairways,
+        // the causeways and the side gates all go up again
+        String uid = zones.world().getUID().toString();
+        boolean fresh = !uid.equals(store.data.getString("temple.realm-uid"));
+        if (fresh || gateBox == null) plugin.getLogger().info(buildGate(gateX, gateZ));
+        if (fresh || !store.data.getBoolean("temple.works-v1", false)) plugin.getLogger().info(templeWorks());
+        store.set("temple.realm-uid", uid);
+        store.save();
     }
 
     /**
