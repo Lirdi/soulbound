@@ -524,3 +524,11 @@ grace:
   second-wind-below: 6
   second-wind-seconds: 5
   second-wind-cooldown-seconds: 60
+
+# Moloch's realm: these structures never generate within min-distance blocks of the temple (new chunks only).
+realm-structures:
+  min-distance: 500
+  keep-away:
+    - "sacrifice:bloodaltar"
+    - "sacrifice:calf"
+    - "sacrifice:fortress"

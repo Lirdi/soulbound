@@ -167,6 +167,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(island, this);
         island.start();
         pm.registerEvents(new HeavenBeds(this), this);
+        pm.registerEvents(new RealmStructures(this), this);
         inhuman = new Inhuman(this, captures);
         pm.registerEvents(inhuman, this);
         inhuman.start();
