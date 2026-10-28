@@ -817,7 +817,7 @@ final class GodManager implements Listener {
         int n = Math.min(order.size(), 1 + rnd.nextInt(3));
         for (int i = 0; i < n; i++) {
             Player p = order.get(i);
-            p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 70, 1, false, false, true));
+            p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, (int) Math.round(20 * plugin.getConfig().getDouble("god.rapture-seconds", 6)), 1, false, false, true));
             fx(Particle.END_ROD, p.getLocation().add(0, 1, 0), 30, 0.5, 0.05);
             p.playSound(p.getLocation(), "minecraft:block.beacon.power_select", 1f, 1.8f);
             p.sendActionBar(Component.text("You are lifted up. Hope you can land.", NamedTextColor.GOLD));

@@ -406,6 +406,8 @@ god:
   # Smite (a pillar of light, then lightning: move!) runs through every day.
   smite-damage: 8
   # Leave him alone this long and he heals back up (the Days roll back with his health). 0 = never heals.
+  # Rapture (from the second day): how long the players he lifts keep rising.
+  rapture-seconds: 6
   heal-after-seconds: 40
   # How fast: this share of his health per second (0.05 = full in 20 seconds).
   heal-per-second: 0.05
