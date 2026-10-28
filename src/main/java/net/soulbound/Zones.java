@@ -59,7 +59,12 @@ final class Zones {
     boolean inArena(Location l) {
         if (!inRealm(l)) return false;
         double dx = Math.abs(l.getX() - arenaX), dz = Math.abs(l.getZ() - arenaZ), d = Math.max(dx, dz), g = Math.min(dx, dz);
-        if (d <= arenaRadius && l.getY() >= arenaY - 3 && l.getY() <= 122) return true;
+        if (d <= arenaRadius && l.getY() >= arenaY - 3 && l.getY() <= 122) {
+            // the hall is roofed by the pyramid: anyone with open sky over their head is outside it, on the pyramid's
+            // steps or terraces (the shaft under the fire pit, right in the middle, still counts)
+            if (d > 8 && l.getWorld().getHighestBlockYAt(l.getBlockX(), l.getBlockZ()) <= l.getBlockY()) return false;
+            return true;
+        }
         // the first stretch of each doorway counts too, so nobody can hide in a doorway out of his reach
         return g >= 9.5 && g <= 14.5 && d <= arenaRadius + 12 && l.getY() >= arenaY - 3 && l.getY() <= arenaY + 6;
     }
