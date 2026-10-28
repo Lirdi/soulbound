@@ -96,6 +96,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.no-demons", true);
             saveConfig();
         }
+        // one-off: at most 2 Archangel ghasts per player (was 3)
+        if (!getConfig().getBoolean("migrated.archangels-2", false)) {
+            if (getConfig().getInt("archangels.ghasts.max-per-player", 2) == 3) getConfig().set("archangels.ghasts.max-per-player", 2);
+            getConfig().set("migrated.archangels-2", true);
+            saveConfig();
+        }
         // one-off: Moloch's Regalia makes you 1.5x bigger again (a config left at 1.1 is brought back up)
         if (!getConfig().getBoolean("migrated.regalia-scale-15", false)) {
             if (getConfig().getDouble("boss.regalia-set-scale", 1.5) < 1.5) getConfig().set("boss.regalia-set-scale", 1.5);
