@@ -28,7 +28,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
 
     private BukkitTask fontTask;
     void start() {
-        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tryBuild, 100L, 1200L);
+        task = Bukkit.getScheduler().runTaskTimer(plugin, this::tryBuild, 20L, 100L);   // every 5 seconds: build as soon as the portal is there
         // the game puts the bedrock back whenever the dragon dies or is respawned, so keep the font painted
         fontTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> { World w = end(); if (w != null) font(w, false); }, 120L, 100L);
     }
@@ -190,7 +190,14 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         if (e.getEntityType() != org.bukkit.entity.EntityType.ENDER_DRAGON || e.getLocation().getWorld().getEnvironment() != World.Environment.THE_END) return;
         if (!plugin.getConfig().getBoolean("god.build-heaven", true)) return;
         World w = e.getLocation().getWorld();
-        Bukkit.getScheduler().runTaskLater(plugin, () -> pillars(w), 100L);
+        // the game raises the new towers over a few seconds; re-marble them as they go up so the obsidian barely shows
+        for (long t : new long[]{10L, 30L, 60L, 100L, 160L, 240L}) Bukkit.getScheduler().runTaskLater(plugin, () -> pillars(w), t);
+    }
+
+    /** Someone arrives in the End: build Heaven straight away if it isn't built yet. */
+    @org.bukkit.event.EventHandler
+    public void onArrive(org.bukkit.event.player.PlayerChangedWorldEvent e) {
+        if (e.getPlayer().getWorld().getEnvironment() == World.Environment.THE_END) Bukkit.getScheduler().runTaskLater(plugin, this::tryBuild, 10L);
     }
 
     // ---------------------------------------------------------------- the Holy Font
