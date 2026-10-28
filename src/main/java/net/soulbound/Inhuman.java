@@ -161,8 +161,10 @@ final class Inhuman implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!p.isOnline()) return;
             if (raw) {
-                p.setFoodLevel(Math.min(20, p.getFoodLevel() + 6));
-                p.setSaturation(Math.min(p.getFoodLevel(), p.getSaturation() + 10f));
+                int bonusFood = plugin.getConfig().getInt("inhuman.raw-meat-bonus-food", 3);
+                float bonusSat = (float) plugin.getConfig().getDouble("inhuman.raw-meat-bonus-saturation", 4.0);
+                p.setFoodLevel(Math.min(20, p.getFoodLevel() + bonusFood));
+                p.setSaturation(Math.min(p.getFoodLevel(), p.getSaturation() + bonusSat));
                 p.removePotionEffect(PotionEffectType.HUNGER);
                 p.removePotionEffect(PotionEffectType.POISON);
             } else if (t == Material.ROTTEN_FLESH) {

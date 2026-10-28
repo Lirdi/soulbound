@@ -502,3 +502,6 @@ inhuman:
   hooded-price-multiplier: 1.5
   # Snow golems hunt the inhuman too; their snowballs do this much damage to them (and chill them).
   snowball-damage: 1
+  # Raw meat (and Beef Tartare) feeds the inhuman this much on top of its normal value.
+  raw-meat-bonus-food: 3
+  raw-meat-bonus-saturation: 4.0
