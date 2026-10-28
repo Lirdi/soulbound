@@ -156,6 +156,9 @@ public final class Soulbound extends JavaPlugin {
         inhuman = new Inhuman(this, captures);
         pm.registerEvents(inhuman, this);
         inhuman.start();
+        SbCommand sb = new SbCommand(this);
+        pm.registerEvents(sb, this);
+        if (getCommand("soulbound") != null) { getCommand("soulbound").setExecutor(sb); getCommand("soulbound").setTabCompleter(sb); }
         pm.registerEvents(new Listener() {
             @EventHandler public void onJoin(PlayerJoinEvent e) { leash.unlockFor(e.getPlayer()); }
         }, this);
@@ -225,6 +228,12 @@ public final class Soulbound extends JavaPlugin {
     GodManager god() { return god; }
     Archangels archangels() { return archangels; }
     Inhuman inhuman() { return inhuman; }
+    CaptureManager captures() { return captures; }
+    LeashItem leash() { return leash; }
+    Cute cute() { return cute; }
+    KrakenBeard kraken() { return kraken; }
+    Parasite parasite() { return parasite; }
+    CurseManager curses() { return curses; }
     GodGear godGear() { return godGear; }
     QuantumGear quantum() { return quantum; }
     public ScreenCrack cracks() { return cracks; }
@@ -233,11 +242,20 @@ public final class Soulbound extends JavaPlugin {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (command.getName().equalsIgnoreCase("moloch")) return moloch(sender, args);
+        if (command.getName().equalsIgnoreCase("moloch")) {
+            String hint = args.length > 0 ? NEW_FORM.get(args[0].toLowerCase(java.util.Locale.ROOT)) : null;
+            if (hint != null && sender.hasPermission("soulbound.admin"))
+                sender.sendMessage(Component.text("Tip: this lives under " + hint + " now (the old command still works).", NamedTextColor.DARK_GRAY));
+            return moloch(sender, args);
+        }
         if (command.getName().equalsIgnoreCase("god")) {
             if (sender instanceof Player p && args.length > 0) god.choose(p, args[0]);
             return true;
         }
+        return soulbound(sender, args);
+    }
+
+    private boolean soulbound(CommandSender sender, String[] args) {
         String sub = args.length > 0 ? args[0].toLowerCase() : "";
         switch (sub) {
             case "release" -> {
@@ -274,6 +292,21 @@ public final class Soulbound extends JavaPlugin {
             }
         }
     }
+
+    private static final java.util.Map<String, String> NEW_FORM = java.util.Map.ofEntries(
+            java.util.Map.entry("awaken", "/sb moloch awaken"), java.util.Map.entry("stop", "/sb moloch stop"),
+            java.util.Map.entry("hunger", "/sb moloch hunger"), java.util.Map.entry("bloodmoon", "/sb moloch bloodmoon"),
+            java.util.Map.entry("curse", "/sb player <name> curse"), java.util.Map.entry("uncurse", "/sb player <name> uncurse"),
+            java.util.Map.entry("inhuman", "/sb player <name> inhuman"), java.util.Map.entry("resetlimits", "/sb player <name> resetlimits"),
+            java.util.Map.entry("gear", "/sb give <player> <item>  (or /sb items)"), java.util.Map.entry("halo", "/sb give <player> halo"),
+            java.util.Map.entry("priest", "/sb world priest"), java.util.Map.entry("gate", "/sb world gate"), java.util.Map.entry("temple", "/sb world temple"),
+            java.util.Map.entry("setarrival", "/sb world setarrival"), java.util.Map.entry("god", "/sb god test"), java.util.Map.entry("heaven", "/sb god heaven"),
+            java.util.Map.entry("reload", "/sb reload"));
+
+    boolean legacyMoloch(CommandSender sender, String[] args) { return moloch(sender, args); }
+
+    /** /sb release (and the old /soulbound forms) for players. */
+    boolean legacySoulbound(CommandSender sender, String[] args) { return soulbound(sender, args); }
 
     private boolean moloch(CommandSender sender, String[] args) {
         String sub = args.length > 0 ? args[0].toLowerCase() : "";

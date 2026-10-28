@@ -6,8 +6,8 @@ description: Capture, sacrifice and Moloch himself.
 authors: [Lirdi]
 commands:
   soulbound:
-    description: Release your captive, or reload the config.
-    usage: /soulbound <release|give|reload>
+    description: Soulbound admin controls (/sb help), and /sb release to let your captive go.
+    usage: /sb <give|items|player|moloch|god|world|reload|release|help>
     aliases: [sb]
   moloch:
     description: Moloch's state, and admin controls for his awakening.
