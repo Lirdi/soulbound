@@ -115,8 +115,8 @@ hunger:
   # Moloch's Hunger fills from 0 to 100. A full meter books his awakening.
   per-sacrifice: 40
   # Each offering point from the data pack adds this much (redstone dust 2, redstone block 18,
-  # enchanted golden apple 20, nether star 40 points per item; so at 0.5: 1%, 9%, 10%, 20%).
-  per-offering-point: 0.5
+  # enchanted golden apple 100, nether star 200, Egg of Potential 300 points; so at 0.1: 0.2%, 1.8%, 10%, 20%, 30%).
+  per-offering-point: 0.1
   datapack-objective: "sacrifice.offer"
   # He only rises at one of these times, so everyone can be there. Days in English, 24-hour clock.
   awakening-slots:

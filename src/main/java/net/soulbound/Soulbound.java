@@ -81,6 +81,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.sacrifice-feeds-40", true);
             saveConfig();
         }
+        // one-off: offering points are now 0.1% each (the data pack scaled its points up to match; redstone got cheaper)
+        if (!getConfig().getBoolean("migrated.offer-points-0.1", false)) {
+            if (getConfig().getDouble("hunger.per-offering-point", 0.1) == 0.5) getConfig().set("hunger.per-offering-point", 0.1);
+            getConfig().set("migrated.offer-points-0.1", true);
+            saveConfig();
+        }
         // one-off: no more Demons (burning phantoms) in Moloch's fight
         if (!getConfig().getBoolean("migrated.no-demons", false)) {
             getConfig().set("boss.demons", false);
