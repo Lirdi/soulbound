@@ -366,6 +366,10 @@ island:
   radius: 200
   # Take the iron cages off the crystal towers so every crystal can be shot from the ground.
   remove-crystal-cages: true
+  # Players may pour and scoop up water on the island (lava and everything else stays blocked).
+  allow-water: true
+  # Blocks anyone may still mine on the island.
+  breakable: [IRON_BARS]
 # Beds on the outer Heaven islands don't explode: you doze off and God carries you back to his island.
 heaven-beds:
   carried-home: true

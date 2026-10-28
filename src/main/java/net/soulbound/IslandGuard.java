@@ -57,6 +57,13 @@ final class IslandGuard implements Listener {
         return l.getX() * l.getX() + l.getZ() * l.getZ() < r * r;
     }
 
+    /** Blocks anyone may still mine on the island (iron bars by default). */
+    private boolean breakable(Material m) {
+        for (String n : plugin.getConfig().getStringList("island.breakable"))
+            if (m.name().equalsIgnoreCase(n)) return true;
+        return false;
+    }
+
     private boolean protectedFor(Player p, Location l) {
         return on() && inZone(l) && !p.hasPermission("soulbound.island.build");
     }
@@ -73,6 +80,7 @@ final class IslandGuard implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent e) {
+        if (breakable(e.getBlock().getType())) return;
         if (protectedFor(e.getPlayer(), e.getBlock().getLocation())) { e.setCancelled(true); warn(e.getPlayer()); }
     }
 
@@ -83,11 +91,13 @@ final class IslandGuard implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPour(PlayerBucketEmptyEvent e) {
+        if (e.getBucket() == Material.WATER_BUCKET && plugin.getConfig().getBoolean("island.allow-water", true)) return;
         if (protectedFor(e.getPlayer(), e.getBlock().getLocation())) { e.setCancelled(true); warn(e.getPlayer()); }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onScoop(PlayerBucketFillEvent e) {
+        if (e.getBlockClicked().getType() == Material.WATER && plugin.getConfig().getBoolean("island.allow-water", true)) return;
         if (protectedFor(e.getPlayer(), e.getBlock().getLocation())) { e.setCancelled(true); warn(e.getPlayer()); }
     }
 
