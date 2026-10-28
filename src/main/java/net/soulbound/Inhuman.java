@@ -175,14 +175,14 @@ final class Inhuman implements Listener {
                 p.removePotionEffect(PotionEffectType.POISON);
             } else {
                 p.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 30 * 20, 1, false, true, true));
-                p.sendActionBar(Component.text("It tastes of ash. You're hungrier than before.", NamedTextColor.DARK_RED));
+                hold(p, Component.text("It tastes of ash. You're hungrier than before.", NamedTextColor.DARK_RED));
             }
         });
     }
 
     private void transform(Player p) {
         if (!p.isOnline()) return;
-        if (is(p)) { p.sendActionBar(Component.text("There's nothing left in you to lose.", NamedTextColor.DARK_RED)); return; }
+        if (is(p)) { hold(p, Component.text("There's nothing left in you to lose.", NamedTextColor.DARK_RED)); return; }
         boolean wasGraced = plugin.grace() != null && plugin.grace().is(p);
         if (wasGraced) plugin.grace().set(p, false);
         set(p, true);
@@ -201,6 +201,12 @@ final class Inhuman implements Listener {
             grant(p, "sacrifice:moloch/inhuman");
             p.sendMessage(Component.text("You are no longer human. Monsters know you now; the living don't. Heaven's gates are shut to you.", NamedTextColor.DARK_RED));
         }, 90L);
+    }
+
+    /** An action-bar line that stays up about six seconds instead of three, so it can be read. */
+    private void hold(Player p, Component c) {
+        p.sendActionBar(c);
+        for (long t : new long[]{40L, 80L}) Bukkit.getScheduler().runTaskLater(plugin, () -> { if (p.isOnline()) p.sendActionBar(c); }, t);
     }
 
     private void whisper(Player p, String line, long delay) {
@@ -389,7 +395,7 @@ final class Inhuman implements Listener {
         if (!is(p)) return;
         e.setCancelled(true);
         p.setRespawnLocation(e.getBed().getLocation().add(0.5, 0.6, 0.5), true);
-        p.sendActionBar(Component.text("Monsters don't sleep. (Your spawn is set.)", NamedTextColor.DARK_RED));
+        hold(p, Component.text("Monsters don't sleep. (Your spawn is set.)", NamedTextColor.DARK_RED));
     }
 
     // ---------------------------------------------------------------- villagers
@@ -407,10 +413,10 @@ final class Inhuman implements Listener {
             v.getWorld().playSound(v.getLocation(), "minecraft:entity.villager.hurt", 1f, 1.3f);
             Vector away = v.getLocation().toVector().subtract(p.getLocation().toVector()).setY(0);
             if (away.lengthSquared() > 0.001) v.setVelocity(away.normalize().multiply(0.6).setY(0.3));
-            p.sendActionBar(Component.text("It screams and backs away. Hide your face.", NamedTextColor.DARK_RED));
+            hold(p, Component.text("It screams and backs away. Hide your face.", NamedTextColor.DARK_RED));
             return;
         }
-        if (v.getRecipes().isEmpty()) { p.sendActionBar(Component.text("It has nothing to sell.", NamedTextColor.GRAY)); return; }
+        if (v.getRecipes().isEmpty()) { hold(p, Component.text("It has nothing to sell.", NamedTextColor.GRAY)); return; }
         double mult = plugin.getConfig().getDouble("inhuman.hooded-price-multiplier", 1.5);
         List<MerchantRecipe> copy = new ArrayList<>();
         for (MerchantRecipe r : v.getRecipes()) copy.add(pricier(r, mult));
@@ -436,7 +442,7 @@ final class Inhuman implements Listener {
     private void tradeZombie(Player p, ZombieVillager z) {
         Villager.Profession prof = z.getVillagerProfession();
         if (prof == null || prof == Villager.Profession.NONE || prof == Villager.Profession.NITWIT) {
-            p.sendActionBar(Component.text("It groans at you. It has nothing to sell.", NamedTextColor.GRAY));
+            hold(p, Component.text("It groans at you. It has nothing to sell.", NamedTextColor.GRAY));
             return;
         }
         List<MerchantRecipe> stock = zombieStock.computeIfAbsent(z.getUniqueId(), id -> {
@@ -456,7 +462,7 @@ final class Inhuman implements Listener {
             } finally { tmp.remove(); }
             return out;
         });
-        if (stock.isEmpty()) { p.sendActionBar(Component.text("It has nothing to sell.", NamedTextColor.GRAY)); return; }
+        if (stock.isEmpty()) { hold(p, Component.text("It has nothing to sell.", NamedTextColor.GRAY)); return; }
         Merchant m = Bukkit.createMerchant();
         m.setRecipes(stock);
         merchants.put(m, z.getUniqueId());
