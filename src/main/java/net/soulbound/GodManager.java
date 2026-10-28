@@ -674,6 +674,7 @@ final class GodManager implements Listener {
 
     private void startFight(Player starter, boolean rude) {
         peaceful = false;
+        if (plugin.island() != null && plugin.getConfig().getBoolean("island.clear-water-on-wake", true)) plugin.island().clearWater();
         EnderDragon dd = dragon();
         if (dd != null) dawn(dd.getWorld());
         EnderDragon d = dragon();

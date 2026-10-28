@@ -368,6 +368,8 @@ island:
   remove-crystal-cages: true
   # Players may pour and scoop up water on the island (lava and everything else stays blocked).
   allow-water: true
+  # When God wakes for a fight, every bucket of water players poured on the island is taken away.
+  clear-water-on-wake: true
   # Blocks anyone may still mine on the island.
   breakable: [IRON_BARS]
 # Beds on the outer Heaven islands don't explode: you doze off and God carries you back to his island.

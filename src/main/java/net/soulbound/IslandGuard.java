@@ -91,7 +91,10 @@ final class IslandGuard implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPour(PlayerBucketEmptyEvent e) {
-        if (e.getBucket() == Material.WATER_BUCKET && plugin.getConfig().getBoolean("island.allow-water", true)) return;
+        if (e.getBucket() == Material.WATER_BUCKET && plugin.getConfig().getBoolean("island.allow-water", true)) {
+            if (on() && inZone(e.getBlock().getLocation())) remember(e.getBlock());
+            return;
+        }
         if (protectedFor(e.getPlayer(), e.getBlock().getLocation())) { e.setCancelled(true); warn(e.getPlayer()); }
     }
 
@@ -182,6 +185,35 @@ final class IslandGuard implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onGrow(StructureGrowEvent e) {
         if (on() && inZone(e.getLocation()) && (e.getPlayer() == null || !e.getPlayer().hasPermission("soulbound.island.build"))) e.setCancelled(true);
+    }
+
+    // ---------------------------------------------------------------- water players pour, wiped when God wakes
+
+    private static String key(Block b) { return b.getWorld().getName() + ";" + b.getX() + ";" + b.getY() + ";" + b.getZ(); }
+
+    private void remember(Block b) {
+        List<String> l = new java.util.ArrayList<>(plugin.store().data.getStringList("island.water"));
+        String k = key(b);
+        if (!l.contains(k)) { l.add(k); plugin.store().set("island.water", l); plugin.store().save(); }
+    }
+
+    /** God wakes to a clean house: every bucket of water poured on His island is taken away. */
+    void clearWater() {
+        List<String> l = plugin.store().data.getStringList("island.water");
+        if (l.isEmpty()) return;
+        for (String k : l) {
+            String[] s = k.split(";");
+            if (s.length != 4) continue;
+            World w = Bukkit.getWorld(s[0]);
+            if (w == null) continue;
+            try {
+                Block b = w.getBlockAt(Integer.parseInt(s[1]), Integer.parseInt(s[2]), Integer.parseInt(s[3]));
+                if (b.getType() == Material.WATER) b.setType(Material.AIR);
+                else if (b.getBlockData() instanceof org.bukkit.block.data.Waterlogged wl && wl.isWaterlogged()) { wl.setWaterlogged(false); b.setBlockData(wl); }
+            } catch (NumberFormatException ignored) {}
+        }
+        plugin.store().set("island.water", null);
+        plugin.store().save();
     }
 
     // ---------------------------------------------------------------- the crystal cages
