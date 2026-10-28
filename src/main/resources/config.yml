@@ -505,3 +505,14 @@ inhuman:
   # Raw meat (and Beef Tartare) feeds the inhuman this much on top of its normal value.
   raw-meat-bonus-food: 3
   raw-meat-bonus-saturation: 4.0
+
+# The Heart of Light (the Heart of Darkness, mended in gold). Eaten by the inhuman, it makes them human again; eaten by
+# anyone else it Graces them for good: undead take more damage from them, Heaven's Archangel ghasts leave them be (not
+# while God Himself is fighting), and a Second Wind of Regeneration I lifts them when they fall low.
+# Eating the Heart of Darkness takes Grace away. /sb player <player> grace [on|off] to set it by hand.
+grace:
+  undead-damage-multiplier: 1.2
+  # Second Wind: at or below this much health (6 = 3 hearts) you get Regeneration I for this long, once per cooldown.
+  second-wind-below: 6
+  second-wind-seconds: 5
+  second-wind-cooldown-seconds: 60

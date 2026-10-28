@@ -151,6 +151,7 @@ final class Inhuman implements Listener {
         Player p = e.getPlayer();
         ItemStack food = e.getItem();
         if (isHeart(food)) { Bukkit.getScheduler().runTask(plugin, () -> transform(p)); return; }
+        if (plugin.grace() != null && plugin.grace().isHeart(food)) return;
         if (!is(p) || !food.getType().isEdible()) return;
         boolean tartare = plugin.tartare() != null && food.isSimilar(plugin.tartare().create(1));
         Material t = food.getType();
@@ -179,7 +180,10 @@ final class Inhuman implements Listener {
     private void transform(Player p) {
         if (!p.isOnline()) return;
         if (is(p)) { p.sendActionBar(Component.text("There's nothing left in you to lose.", NamedTextColor.DARK_RED)); return; }
+        boolean wasGraced = plugin.grace() != null && plugin.grace().is(p);
+        if (wasGraced) plugin.grace().set(p, false);
         set(p, true);
+        if (wasGraced) p.sendMessage(Component.text("The light goes out of you.", NamedTextColor.GRAY, TextDecoration.ITALIC));
         p.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 120, 0, false, false, false));
         p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0, false, false, false));
         p.playSound(p.getLocation(), "minecraft:entity.warden.heartbeat", 1.2f, 1.0f);

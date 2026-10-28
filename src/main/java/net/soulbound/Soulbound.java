@@ -43,6 +43,7 @@ public final class Soulbound extends JavaPlugin {
     private BloodPriest priest;
     private Archangels archangels;
     private Inhuman inhuman;
+    private Grace grace;
     private ScreenCrack cracks;
 
     @Override
@@ -156,6 +157,8 @@ public final class Soulbound extends JavaPlugin {
         inhuman = new Inhuman(this, captures);
         pm.registerEvents(inhuman, this);
         inhuman.start();
+        grace = new Grace(this);
+        pm.registerEvents(grace, this);
         SbCommand sb = new SbCommand(this);
         pm.registerEvents(sb, this);
         if (getCommand("soulbound") != null) { getCommand("soulbound").setExecutor(sb); getCommand("soulbound").setTabCompleter(sb); }
@@ -228,6 +231,7 @@ public final class Soulbound extends JavaPlugin {
     GodManager god() { return god; }
     Archangels archangels() { return archangels; }
     Inhuman inhuman() { return inhuman; }
+    Grace grace() { return grace; }
     CaptureManager captures() { return captures; }
     LeashItem leash() { return leash; }
     Cute cute() { return cute; }

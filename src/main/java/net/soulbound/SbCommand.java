@@ -61,6 +61,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         // Blood Priest
         m.put("beef_tartare", new Item("Blood Priest", () -> one(p.tartare().create(1))));
         m.put("heart_of_darkness", new Item("Blood Priest", () -> one(p.inhuman().heart())));
+        m.put("heart_of_light", new Item("Grace", () -> one(p.grace().heart())));
         // Moloch
         for (MolochGear.Piece pc : MolochGear.Piece.values())
             m.put("moloch_" + pc.name().toLowerCase(Locale.ROOT), new Item("Moloch", () -> one(p.gear().piece(pc))));
@@ -183,6 +184,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             s.sendMessage(line("/sb player <player> curse [minutes]", "Moloch's curse"));
             s.sendMessage(line("/sb player <player> uncurse", "lift it (and they can be offered again)"));
             s.sendMessage(line("/sb player <player> inhuman [on|off]", "the Heart of Darkness, without eating it"));
+            s.sendMessage(line("/sb player <player> grace [on|off]", "the Heart of Light's blessing, without eating it"));
             s.sendMessage(line("/sb player <player> resetlimits", "sacrifice cooldown and daily count"));
         }
         if (group == null || group.equals("moloch")) {
@@ -274,11 +276,18 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
                 plugin.inhuman().set(t, !off);
                 s.sendMessage(ok(t.getName() + (off ? " is human again." : " is no longer human.")));
             }
+            case "grace" -> {
+                boolean off = a.length > 3 && a[3].equalsIgnoreCase("off");
+                if (!off && plugin.inhuman().is(t)) plugin.inhuman().set(t, false);
+                plugin.grace().set(t, !off);
+                s.sendMessage(ok(t.getName() + (off ? " is no longer Graced." : " is Graced.")));
+            }
             case "info" -> {
                 s.sendMessage(Component.text("— " + t.getName() + " —", NamedTextColor.GOLD));
                 int left = plugin.curses().secondsLeft(t);
                 s.sendMessage(Component.text("Curse: " + (left > 0 ? CurseManager.clock(left) + " left" : "none"), NamedTextColor.GRAY));
                 s.sendMessage(Component.text("Inhuman: " + (plugin.inhuman().is(t) ? "yes" : "no"), NamedTextColor.GRAY));
+                s.sendMessage(Component.text("Graced: " + (plugin.grace().is(t) ? "yes" : "no"), NamedTextColor.GRAY));
                 s.sendMessage(Component.text("Bought everything from the Priest: " + (plugin.priest().boughtAll(t) ? "yes (the Heart is unlocked)" : "not yet"), NamedTextColor.GRAY));
                 s.sendMessage(Component.text("Has sacrificed someone: " + (plugin.store().data.getBoolean("sacrifice.first-done." + t.getUniqueId(), false) ? "yes" : "no"), NamedTextColor.GRAY));
                 long last = plugin.store().data.getLong("sacrifice.victims." + t.getUniqueId(), 0);
@@ -303,8 +312,8 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             }
             case "player" -> {
                 if (a.length == 2) return null;
-                if (a.length == 3) return filter(List.of("info", "curse", "uncurse", "inhuman", "resetlimits"), a[2]);
-                if (a.length == 4 && a[2].equalsIgnoreCase("inhuman")) return filter(List.of("on", "off"), a[3]);
+                if (a.length == 3) return filter(List.of("info", "curse", "uncurse", "inhuman", "grace", "resetlimits"), a[2]);
+                if (a.length == 4 && (a[2].equalsIgnoreCase("inhuman") || a[2].equalsIgnoreCase("grace"))) return filter(List.of("on", "off"), a[3]);
                 if (a.length == 4 && a[2].equalsIgnoreCase("curse")) return filter(List.of("15", "45", "120"), a[3]);
             }
             case "moloch" -> {

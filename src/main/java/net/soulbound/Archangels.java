@@ -59,12 +59,13 @@ public final class Archangels implements Listener {
             for (Ghast g : w.getEntitiesByClass(Ghast.class)) {
                 if (!isArchangel(g)) continue;
                 org.bukkit.entity.LivingEntity cur = g.getTarget();
-                if (cur instanceof Player cp && cp.isValid() && !cp.isDead() && hunted(cp)
+                if (cur instanceof Player sp && spared(sp)) g.setTarget(null);
+                if (cur instanceof Player cp && cp.isValid() && !cp.isDead() && hunted(cp) && !spared(cp)
                         && cp.getLocation().distanceSquared(g.getLocation()) < range * range * 1.5) continue;
                 Player best = null;
                 double bd = range * range;
                 for (Player p : w.getPlayers()) {
-                    if (!hunted(p)) continue;
+                    if (!hunted(p) || spared(p)) continue;
                     double d = p.getLocation().distanceSquared(g.getLocation());
                     if (d < bd && g.hasLineOfSight(p)) { bd = d; best = p; }
                 }
@@ -72,6 +73,8 @@ public final class Archangels implements Listener {
             }
         }
     }
+
+    private boolean spared(Player p) { return plugin.grace() != null && plugin.grace().spared(p); }
 
     private static boolean hunted(Player p) { return p.getGameMode() == GameMode.SURVIVAL || p.getGameMode() == GameMode.ADVENTURE; }
 
@@ -167,6 +170,7 @@ public final class Archangels implements Listener {
     public void onFireball(EntityDamageByEntityEvent e) {
         if (!on() || !(e.getEntity() instanceof Player p)) return;
         if (!(e.getDamager() instanceof Fireball fb) || !(fb.getShooter() instanceof Entity shooter) || !isArchangel(shooter)) return;
+        if (spared(p)) { e.setCancelled(true); return; }   // Heaven knows its own: a stray blast passes through them
         smite(e, p);
     }
 
