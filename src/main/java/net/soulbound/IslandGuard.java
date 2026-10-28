@@ -134,7 +134,10 @@ final class IslandGuard implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent e) {
-        if (on()) e.blockList().removeIf(b -> inZone(b.getLocation()));
+        if (!on()) return;
+        boolean any = e.blockList().removeIf(b -> inZone(b.getLocation()));
+        // the dragon "breaking" the throne and pillars it sits in: cancel outright, or the game still plays its smash puff
+        if (any && e.blockList().isEmpty() && e.getEntity() instanceof org.bukkit.entity.EnderDragon) e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
