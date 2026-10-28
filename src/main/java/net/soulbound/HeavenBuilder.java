@@ -52,6 +52,8 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             store.set("heaven.throne", uid); store.save();
         }
         if (!uid.equals(store.data.getString("heaven.pillars"))) { pillars(w); store.set("heaven.pillars", uid); store.save(); }
+        // whenever the game puts obsidian back on a tower (a respawn, a reset), turn it to wax again
+        else if (obsidianShowing(w)) pillars(w);
         // the Rotunda and the Ten Candles came later: build them once on a Heaven made before them
         if (!uid.equals(store.data.getString("heaven.rotunda")) && podium(w) != null) {
             throne(w); pillars(w);
@@ -161,6 +163,17 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
                 }
             }
         }
+    }
+
+    /** Any obsidian left on a tower whose chunk is loaded? (Cheap: one column per tower.) */
+    private static boolean obsidianShowing(World w) {
+        for (int i = 0; i < 10; i++) {
+            double a = 2.0 * (-Math.PI + (Math.PI / 10.0) * i);
+            int cx = (int) Math.floor(42.0 * Math.cos(a)), cz = (int) Math.floor(42.0 * Math.sin(a));
+            if (!w.isChunkLoaded(cx >> 4, cz >> 4)) continue;
+            for (int y = 120; y > 30; y--) if (w.getBlockAt(cx, y, cz).getType() == Material.OBSIDIAN) return true;
+        }
+        return false;
     }
 
     private static boolean pillarBlock(Material m) {
