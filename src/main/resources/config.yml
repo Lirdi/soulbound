@@ -253,7 +253,7 @@ boss:
     - "give %player% minecraft:enchanted_golden_apple 1"
   # His spoils: the top damage dealer takes Moloch's Horns (cosmetic) and a piece of his Regalia (armour a little better
   # than netherite); everyone else who fought has this chance at a piece. Wear all four and you grow this much bigger.
-  regalia-drop-chance: 0.15
+  regalia-drop-chance: 0.35
   regalia-set-scale: 1.5
   # If he survives the fight: a blood moon over his realm AND the main world for this long. Monsters that spawn
   # under it get Strength I and Speed I, and wear full gold armour trimmed in red (it never drops).

@@ -81,6 +81,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.sacrifice-feeds-40", true);
             saveConfig();
         }
+        // one-off: Moloch's Regalia drops more often (15% -> 35%)
+        if (!getConfig().getBoolean("migrated.regalia-35", false)) {
+            if (getConfig().getDouble("boss.regalia-drop-chance", 0.35) == 0.15) getConfig().set("boss.regalia-drop-chance", 0.35);
+            getConfig().set("migrated.regalia-35", true);
+            saveConfig();
+        }
         // one-off: the capture leash is now the Cultist's Shackles
         if (!getConfig().getBoolean("migrated.cultists-shackles", false)) {
             if ("Bondage Leash".equals(getConfig().getString("leash.name", "Bondage Leash"))) getConfig().set("leash.name", "Cultist's Shackles");
