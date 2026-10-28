@@ -57,8 +57,8 @@ final class Zephyrs implements Listener {
             for (Breeze b : w.getEntitiesByClass(Breeze.class)) if (is(b) && (!on || nobodyNear(b.getLocation(), 96))) b.remove();
             if (!on || (plugin.god() != null && plugin.god().fighting())) continue;
             double minR = c.getDouble("zephyrs.min-distance-from-centre", 300);
-            int max = c.getInt("zephyrs.max-per-player", 2);
-            double chance = c.getDouble("zephyrs.chance", 0.25);
+            int max = c.getInt("zephyrs.max-per-player", 1);
+            double chance = c.getDouble("zephyrs.chance", 0.08);
             for (Player p : w.getPlayers()) {
                 if (p.getGameMode() != GameMode.SURVIVAL && p.getGameMode() != GameMode.ADVENTURE) continue;
                 Location l = p.getLocation();

@@ -95,6 +95,13 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.no-demons", true);
             saveConfig();
         }
+        // one-off: fewer Zephyrs (one at a time, about one a minute)
+        if (!getConfig().getBoolean("migrated.zephyrs-fewer", false)) {
+            if (getConfig().getDouble("zephyrs.chance", 0.08) == 0.25) getConfig().set("zephyrs.chance", 0.08);
+            if (getConfig().getInt("zephyrs.max-per-player", 1) == 2) getConfig().set("zephyrs.max-per-player", 1);
+            getConfig().set("migrated.zephyrs-fewer", true);
+            saveConfig();
+        }
         // one-off: Moloch's Regalia drops more often (15% -> 35%)
         if (!getConfig().getBoolean("migrated.regalia-35", false)) {
             if (getConfig().getDouble("boss.regalia-drop-chance", 0.35) == 0.15) getConfig().set("boss.regalia-drop-chance", 0.35);

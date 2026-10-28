@@ -552,9 +552,9 @@ realm-structures:
 zephyrs:
   enabled: true
   min-distance-from-centre: 300
-  max-per-player: 2
-  # Chance every 5 seconds, per player out on the islands, that one more arrives.
-  chance: 0.25
+  max-per-player: 1
+  # Chance every 5 seconds, per player out on the islands, that one more arrives (0.08: about one a minute).
+  chance: 0.08
   health: 30
   damage: 5
   levitation-seconds: 3
