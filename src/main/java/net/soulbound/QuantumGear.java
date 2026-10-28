@@ -72,9 +72,9 @@ final class QuantumGear implements Listener {
     /** The tools: netherite fused with a Quantum Core and a netherite ingot. Harder-hitting, faster, longer-lived. */
     enum Tool {
         SWORD(Material.NETHERITE_SWORD, "Quantum Blade", 9, -2.4, 0),
-        PICKAXE(Material.NETHERITE_PICKAXE, "Quantum Drill", 6, -2.7, 10),
-        AXE(Material.NETHERITE_AXE, "Quantum Cleaver", 11, -2.9, 10),
-        SHOVEL(Material.NETHERITE_SHOVEL, "Quantum Spade", 6.5, -2.9, 10),
+        PICKAXE(Material.NETHERITE_PICKAXE, "Quantum Drill", 6, -2.8, 10),
+        AXE(Material.NETHERITE_AXE, "Quantum Cleaver", 11, -3.0, 10),
+        SHOVEL(Material.NETHERITE_SHOVEL, "Quantum Spade", 6.5, -3.0, 10),
         HOE(Material.NETHERITE_HOE, "Quantum Reaper", 1, 0, 10);
         final Material base; final String title; final double damage, speed, efficiency;
         Tool(Material base, String title, double damage, double speed, double efficiency) {
@@ -142,6 +142,32 @@ final class QuantumGear implements Listener {
         m.getPersistentDataContainer().set(toolKey, PersistentDataType.STRING, t.name());
         it.setItemMeta(m);
         return it;
+    }
+
+    /** Tools made before a change to their swing speed are brought up to date (enchantments, name and wear are kept). */
+    private void refreshSpeed(ItemStack it) {
+        if (it == null || !it.hasItemMeta()) return;
+        ItemMeta m = it.getItemMeta();
+        String name = m.getPersistentDataContainer().get(toolKey, PersistentDataType.STRING);
+        if (name == null) return;
+        Tool t;
+        try { t = Tool.valueOf(name); } catch (IllegalArgumentException ex) { return; }
+        NamespacedKey k = new NamespacedKey(plugin, "quantum_" + t.name().toLowerCase(Locale.ROOT) + "_speed");
+        var mods = m.getAttributeModifiers(Attribute.ATTACK_SPEED);
+        if (mods != null) for (AttributeModifier am : mods) if (am.getKey().equals(k) && am.getAmount() == t.speed) return;
+        if (mods != null) for (AttributeModifier am : new java.util.ArrayList<>(mods)) if (am.getKey().equals(k)) m.removeAttributeModifier(Attribute.ATTACK_SPEED, am);
+        m.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(k, t.speed, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+        it.setItemMeta(m);
+    }
+
+    @EventHandler
+    public void onJoinRefresh(org.bukkit.event.player.PlayerJoinEvent e) {
+        for (ItemStack it : e.getPlayer().getInventory().getContents()) refreshSpeed(it);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onHeldRefresh(org.bukkit.event.player.PlayerItemHeldEvent e) {
+        refreshSpeed(e.getPlayer().getInventory().getItem(e.getNewSlot()));
     }
 
     private static Tool toolFor(Material netherite) {
