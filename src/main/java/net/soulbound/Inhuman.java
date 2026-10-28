@@ -258,6 +258,7 @@ final class Inhuman implements Listener {
             if (!playing) continue;
             for (Entity e : p.getNearbyEntities(range, range / 2, range)) {
                 if (e instanceof IronGolem g) { if (g.getTarget() == null) g.setTarget(p); continue; }
+                if (e instanceof org.bukkit.entity.Snowman sg) { if (sg.getTarget() == null) sg.setTarget(p); continue; }
                 if (e instanceof Wolf w) { if (w.getTarget() == null) { w.setAngry(true); w.setTarget(p); } continue; }
                 if (!livestock(e) || !(e instanceof Mob m) || m.isDead()) continue;
                 if (e instanceof Ageable a && !a.isAdult()) continue;
@@ -280,6 +281,16 @@ final class Inhuman implements Listener {
             lastBite.keySet().removeIf(id -> Bukkit.getEntity(id) == null);
             provoked.values().removeIf(t -> now - t > 60_000);
         }
+    }
+
+    /** A snow golem's snowball stings the inhuman: half a heart and a moment's chill. */
+    @EventHandler(ignoreCancelled = true)
+    public void onSnowball(org.bukkit.event.entity.ProjectileHitEvent e) {
+        if (!(e.getEntity() instanceof org.bukkit.entity.Snowball ball) || !(ball.getShooter() instanceof org.bukkit.entity.Snowman golem)) return;
+        if (!(e.getHitEntity() instanceof Player p) || !is(p)) return;
+        p.damage(plugin.getConfig().getDouble("inhuman.snowball-damage", 1), golem);
+        p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 40, 1, false, true, true));
+        p.setFreezeTicks(Math.min(p.getMaxFreezeTicks(), p.getFreezeTicks() + 40));
     }
 
     // ---------------------------------------------------------------- no Heaven
