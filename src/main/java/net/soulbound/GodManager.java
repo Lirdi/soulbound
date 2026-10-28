@@ -389,6 +389,33 @@ final class GodManager implements Listener {
         }
     }
 
+    /** Anything of God's own: His body, His dragon, His angels, the Archangel ghasts. */
+    private boolean his(Entity e) {
+        if (e == null) return false;
+        if (e instanceof org.bukkit.entity.ComplexEntityPart part) e = part.getParent();
+        if (e instanceof EnderDragon) return true;
+        var tags = e.getScoreboardTags();
+        if (tags.contains(TAG) || tags.contains(ANGEL)) return true;
+        return plugin.archangels() != null && plugin.archangels().isArchangel(e);
+    }
+
+    /** God doesn't hurt His own host: His wings, breath and fire (and the Archangels' fireballs) pass through them. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onHostHurt(EntityDamageByEntityEvent e) {
+        Entity victim = e.getEntity();
+        if (!his(victim) || victim instanceof EnderDragon || victim.getScoreboardTags().contains(TAG)) return;
+        Entity src = e.getDamager();
+        if (src instanceof Projectile pr && pr.getShooter() instanceof Entity sh) src = sh;
+        else if (src instanceof org.bukkit.entity.AreaEffectCloud cloud && cloud.getSource() instanceof Entity sh) src = sh;
+        if (his(src)) e.setCancelled(true);
+    }
+
+    /** His body never catches fire (the crystals' flames, His own fire): He's not for burning. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onGodCombust(org.bukkit.event.entity.EntityCombustEvent e) {
+        if (e.getEntity().getScoreboardTags().contains(TAG)) { e.setCancelled(true); e.getEntity().setFireTicks(0); }
+    }
+
     /** Hits on the dragon's own (invisible) hitbox: double while he naps. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onDragonHurt(EntityDamageByEntityEvent e) {
@@ -471,6 +498,7 @@ final class GodManager implements Listener {
         }
         if (d == null || g == null) { if (fightDragon != null) endFight(); return; }
         if (!d.getUniqueId().equals(fightDragon)) newFight(d);
+        if (g.getFireTicks() > 0) g.setFireTicks(0);   // in case anything set Him alight without asking
         World w = d.getWorld();
 
         if (dying(d)) {
