@@ -140,6 +140,7 @@ final class GodManager implements Listener {
     private final Map<Location, Integer> thorns = new HashMap<>();
     private final Map<UUID, Long> choiceCooldown = new HashMap<>();
     private final Map<UUID, Double> damageBy = new HashMap<>();
+    private UUID lastHit;   // whoever struck him last takes the guaranteed piece of his Vestments
 
     /** A smite on its way: follows its target for a moment, then locks on and strikes. */
     private static final class Mark {
@@ -401,6 +402,7 @@ final class GodManager implements Listener {
 
     private void onHurtBy(Player p, double amount) {
         damageBy.merge(p.getUniqueId(), amount, Double::sum);
+        lastHit = p.getUniqueId();
         lastHurtAt = System.currentTimeMillis();
         healingSaid = false;
         if (peaceful) { strikeFirst(p); return; }
@@ -1132,14 +1134,14 @@ final class GodManager implements Listener {
         nextAbility = 60;
     }
 
-    /** Whoever hurt him most takes his halo. */
+    /** Whoever hurt him most takes his halo; whoever struck last takes a piece of his Vestments. */
     private void awardHalo() {
         UUID top = damageBy.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse(null);
         if (top == null) return;
         String name = Bukkit.getOfflinePlayer(top).getName();
         if (name == null) name = "someone";
         plugin.halo().award(top, name);
-        plugin.godGear().reward(top, new java.util.HashSet<>(damageBy.keySet()));
+        plugin.godGear().reward(lastHit != null ? lastHit : top, new java.util.HashSet<>(damageBy.keySet()));
         // everyone who fought him takes a Tear of God, for the Quantum Core
         for (UUID id : damageBy.keySet()) { Player p = Bukkit.getPlayer(id); if (p != null) plugin.quantum().give(p, QuantumGear.Mat.TEAR); }
         String n = name;
@@ -1173,7 +1175,7 @@ final class GodManager implements Listener {
         clearAngels();
         for (org.bukkit.World ew : Bukkit.getWorlds())
             if (ew.getEnvironment() == org.bukkit.World.Environment.THE_END) plugin.archangels().clearNear(new Location(ew, 0, 64, 0), 260);
-        marks.clear(); frozen.clear(); frozenUntil.clear(); saltImmune.clear(); greeted.clear(); damageBy.clear();
+        marks.clear(); frozen.clear(); frozenUntil.clear(); saltImmune.clear(); greeted.clear(); damageBy.clear(); lastHit = null;
         fightDragon = null;
         peaceful = true;
         judged = lowSaid = deathSaid = hadFighters = idleSaid = false;
