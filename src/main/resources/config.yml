@@ -576,3 +576,8 @@ roads:
   from: 35
   # ...to this far (the roads end here).
   length: 1200
+
+# The World Egg that appears after each defeat of God: the first player to click or hit it takes it into their
+# inventory (and earns Atlas), instead of it teleporting away. Only within this many blocks of the End's centre.
+world-egg:
+  radius: 40
