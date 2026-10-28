@@ -96,6 +96,12 @@ public final class Soulbound extends JavaPlugin {
             getConfig().set("migrated.no-demons", true);
             saveConfig();
         }
+        // one-off: Moloch's Regalia makes you 1.5x bigger again (a config left at 1.1 is brought back up)
+        if (!getConfig().getBoolean("migrated.regalia-scale-15", false)) {
+            if (getConfig().getDouble("boss.regalia-set-scale", 1.5) < 1.5) getConfig().set("boss.regalia-set-scale", 1.5);
+            getConfig().set("migrated.regalia-scale-15", true);
+            saveConfig();
+        }
         // one-off: 3 minutes before an escaped player can be captured again
         if (!getConfig().getBoolean("migrated.capture-immunity-180", false)) {
             if (getConfig().getInt("capture.immunity-seconds", 180) == 0) getConfig().set("capture.immunity-seconds", 180);

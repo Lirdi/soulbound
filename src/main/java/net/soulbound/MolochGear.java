@@ -332,7 +332,8 @@ final class MolochGear implements Listener {
             if (full) {
                 p.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0, true, false, true));
                 if (!was) grow(p);
-                else if (Bukkit.getCurrentTick() % 60 < 20)
+                else refreshSize(p);
+                if (was && Bukkit.getCurrentTick() % 60 < 20)
                     p.getWorld().spawnParticle(Particle.LAVA, p.getLocation().add(0, 1.2 * setScale, 0), 1, 0.3, 0.4, 0.3, 0);
             } else if (was || hasSizeBoost(p)) shrink(p);
         }
@@ -340,12 +341,20 @@ final class MolochGear implements Listener {
 
     private void grow(Player p) {
         empowered.add(p.getUniqueId());
-        AttributeInstance a = p.getAttribute(Attribute.SCALE);
-        if (a != null && a.getModifier(sizeKey) == null)
-            a.addModifier(new AttributeModifier(sizeKey, setScale - 1, AttributeModifier.Operation.ADD_SCALAR, EquipmentSlotGroup.ANY));
+        refreshSize(p);
         p.getWorld().playSound(p.getLocation(), "moloch:furnace", 1.5f, 1.2f);
         p.getWorld().spawnParticle(Particle.FLAME, p.getLocation().add(0, 1, 0), 60, 0.5, 1, 0.5, 0.05);
         p.sendActionBar(Component.text("Moloch's power swells within you.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+    }
+
+    /** Make sure the full-set size boost is exactly the configured size (an older, smaller one is replaced). */
+    private void refreshSize(Player p) {
+        AttributeInstance a = p.getAttribute(Attribute.SCALE);
+        if (a == null) return;
+        AttributeModifier m = a.getModifier(sizeKey);
+        if (m != null && Math.abs(m.getAmount() - (setScale - 1)) < 1e-6) return;
+        if (m != null) a.removeModifier(sizeKey);
+        a.addModifier(new AttributeModifier(sizeKey, setScale - 1, AttributeModifier.Operation.ADD_SCALAR, EquipmentSlotGroup.ANY));
     }
 
     private void shrink(Player p) {
