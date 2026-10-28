@@ -565,3 +565,14 @@ zephyrs:
   damage: 5
   levitation-seconds: 3
   levitation-level: 2
+
+# The four roads of Moloch's realm (out from the temple along both axes) are protected from bedrock to sky: no breaking,
+# placing, pouring, burning or blowing up, unless you have soulbound.realm.build (ops do). The battle hall is left alone.
+roads:
+  protect: true
+  # Blocks either side of the road's centre line.
+  half-width: 12
+  # From this far out from the centre (outside the battle hall)...
+  from: 35
+  # ...to this far (the roads end here).
+  length: 1200

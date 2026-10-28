@@ -28,3 +28,6 @@ permissions:
   soulbound.island.build:
     description: Can build and break on God's main island in the End (everyone else can't).
     default: op
+  soulbound.realm.build:
+    description: Can build and break on the four roads of Moloch's realm (everyone else can't).
+    default: op
