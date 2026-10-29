@@ -230,7 +230,8 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
         if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
-        if (plugin.festering() != null) {   // Festering Flesh, for 13 rotten flesh and 3 fermented spider eyes
+        // a secret, like the Heart: Festering Flesh only shows once you've bought everything else
+        if (boughtAll(p) && plugin.festering() != null) {   // 13 rotten flesh and 3 fermented spider eyes
             MerchantRecipe f = new MerchantRecipe(plugin.festering().create(1), 0, Integer.MAX_VALUE, false);
             f.addIngredient(new ItemStack(Material.ROTTEN_FLESH, Math.max(1, Math.min(64, plugin.getConfig().getInt("priest.price.festering-rotten-flesh", 13)))));
             f.addIngredient(new ItemStack(Material.FERMENTED_SPIDER_EYE, Math.max(1, Math.min(64, plugin.getConfig().getInt("priest.price.festering-spider-eyes", 3)))));
