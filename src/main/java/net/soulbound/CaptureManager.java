@@ -234,13 +234,22 @@ final class CaptureManager implements Listener {
         begin(captor, victim);
     }
 
+    /** An advancement from the Sacrifice data pack (does nothing if the pack isn't installed). */
+    private static void grant(Player p, String id) {
+        org.bukkit.NamespacedKey k = org.bukkit.NamespacedKey.fromString(id);
+        org.bukkit.advancement.Advancement a = k == null ? null : Bukkit.getAdvancement(k);
+        if (a == null) return;
+        org.bukkit.advancement.AdvancementProgress pr = p.getAdvancementProgress(a);
+        for (String c : pr.getRemainingCriteria()) pr.awardCriteria(c);
+    }
+
     private String whyNot(Player captor, Player victim) {
         if (!captor.hasPermission("soulbound.capture")) return "You can't capture players.";
         if (victim.hasPermission("soulbound.immune")) return victim.getName() + " can't be captured.";
         if (victim.getGameMode() != GameMode.SURVIVAL && victim.getGameMode() != GameMode.ADVENTURE) return victim.getName() + " can't be captured right now.";
-        if (byCaptive.containsKey(captor.getUniqueId())) return "You're the one on a lead.";
+        if (byCaptive.containsKey(captor.getUniqueId())) return "You're the one in chains.";
         if (byCaptor.containsKey(captor.getUniqueId())) return "You're already holding someone.";
-        if (byCaptive.containsKey(victim.getUniqueId())) return victim.getName() + " is already on a lead.";
+        if (byCaptive.containsKey(victim.getUniqueId())) return victim.getName() + " is already in chains.";
         if (byCaptor.containsKey(victim.getUniqueId())) return victim.getName() + " is holding someone already.";
         Long until = immuneUntil.get(victim.getUniqueId());
         if (immunitySeconds > 0 && until != null && until > System.currentTimeMillis()) return victim.getName() + " just escaped. Give it " + ((until - System.currentTimeMillis()) / 1000 + 1) + "s.";
@@ -269,6 +278,8 @@ final class CaptureManager implements Listener {
         victim.getInventory().setChestplate(items.wornChains(victim.getInventory().getChestplate()));
         sound(victim.getLocation(), "minecraft:block.chain.place", 1f, 0.7f);
         captor.showTitle(Title.title(Component.empty(), Component.text("You captured " + victim.getName(), NamedTextColor.RED), t));
+        grant(captor, "sacrifice:moloch/root");
+        grant(captor, "sacrifice:moloch/stranger_danger");   // the first person you put in chains
         sound(victim.getLocation(), "minecraft:entity.leash_knot.place", 1f, 0.6f);
         if (broadcast) Bukkit.broadcast(Component.text(captor.getName() + " has captured " + victim.getName() + ".", NamedTextColor.DARK_RED));
     }
@@ -411,7 +422,7 @@ final class CaptureManager implements Listener {
         switch (why) {
             case STRUGGLE -> {
                 if (victim != null) {
-                    victim.showTitle(Title.title(Component.text("Free!", NamedTextColor.GREEN, TextDecoration.BOLD), Component.text("You broke the lead.", NamedTextColor.GRAY)));
+                    victim.showTitle(Title.title(Component.text("Free!", NamedTextColor.GREEN, TextDecoration.BOLD), Component.text("You broke free of the chains.", NamedTextColor.GRAY)));
                     victim.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 100, 1, true, false, true));
                     sound(victim.getLocation(), "minecraft:entity.leash_knot.break", 1f, 0.7f);
                 }
@@ -420,16 +431,16 @@ final class CaptureManager implements Listener {
             }
             case BROKEN -> {
                 if (victim != null) {
-                    victim.showTitle(Title.title(Component.text("Free!", NamedTextColor.GREEN, TextDecoration.BOLD), Component.text("The lead snapped.", NamedTextColor.GRAY)));
+                    victim.showTitle(Title.title(Component.text("Free!", NamedTextColor.GREEN, TextDecoration.BOLD), Component.text("The chains snapped.", NamedTextColor.GRAY)));
                     victim.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 100, 1, true, false, true));
                     sound(victim.getLocation(), "minecraft:entity.leash_knot.break", 1f, 0.7f);
                 }
-                if (captor != null) captor.sendActionBar(Component.text("You took too much damage. The lead snapped.", NamedTextColor.RED));
+                if (captor != null) captor.sendActionBar(Component.text("You took too much damage. The chains snapped.", NamedTextColor.RED));
                 if (broadcast) Bukkit.broadcast(Component.text(vn + " was freed from " + cn + ".", NamedTextColor.GREEN));
             }
             case TIMEOUT -> {
-                if (victim != null) victim.sendActionBar(Component.text("The lead gives way. You're free.", NamedTextColor.GREEN));
-                if (captor != null) captor.sendActionBar(Component.text("The lead gives way. " + vn + " is free.", NamedTextColor.GRAY));
+                if (victim != null) victim.sendActionBar(Component.text("The chains give way. You're free.", NamedTextColor.GREEN));
+                if (captor != null) captor.sendActionBar(Component.text("The chains give way. " + vn + " is free.", NamedTextColor.GRAY));
             }
             case LET_GO -> {
                 if (victim != null) victim.sendActionBar(Component.text(cn + " let you go.", NamedTextColor.GREEN));
@@ -444,8 +455,8 @@ final class CaptureManager implements Listener {
                 if (captor != null) captor.sendActionBar(Component.text(vn + " was cut free.", NamedTextColor.RED));
             }
             case QUIT, DEATH, MOVED, SHUTDOWN -> {
-                if (victim != null && why != End.SHUTDOWN) victim.sendActionBar(Component.text("The lead falls away.", NamedTextColor.GRAY));
-                if (captor != null && why != End.SHUTDOWN) captor.sendActionBar(Component.text("The lead falls away.", NamedTextColor.GRAY));
+                if (victim != null && why != End.SHUTDOWN) victim.sendActionBar(Component.text("The chains fall away.", NamedTextColor.GRAY));
+                if (captor != null && why != End.SHUTDOWN) captor.sendActionBar(Component.text("The chains fall away.", NamedTextColor.GRAY));
             }
         }
     }
@@ -669,7 +680,7 @@ final class CaptureManager implements Listener {
         if (colon >= 0) cmd = cmd.substring(colon + 1);
         if (allowedCommands.contains(cmd)) return;
         e.setCancelled(true);
-        e.getPlayer().sendActionBar(Component.text("You're on a lead. You can only message, report or struggle.", NamedTextColor.RED));
+        e.getPlayer().sendActionBar(Component.text("You're in chains. You can only message, report or struggle.", NamedTextColor.RED));
     }
 
     // ---------------------------------------------------------------- the abduction: cudgel, hood, carry
