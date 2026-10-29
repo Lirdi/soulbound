@@ -535,6 +535,8 @@ inhuman:
   # Raw meat (and Beef Tartare) feeds the inhuman this much on top of its normal value.
   raw-meat-bonus-food: 3
   raw-meat-bonus-saturation: 4.0
+  # Their food bar is the green one the Hunger effect shows (a hidden Hunger that makes them no hungrier).
+  green-hunger: true
   # The inhuman see their own hearts bruised purple (the pack's hardcore hearts, sent only to them).
   hearts:
     enabled: true

@@ -44,6 +44,7 @@ public final class Soulbound extends JavaPlugin {
     private Archangels archangels;
     private Inhuman inhuman;
     private InhumanHearts inhumanHearts;
+    private InhumanHunger inhumanHunger;
     private Grace grace;
     private EdenMask eden;
     private Zephyrs zephyrs;
@@ -210,6 +211,9 @@ public final class Soulbound extends JavaPlugin {
         inhuman = new Inhuman(this, captures);
         pm.registerEvents(inhuman, this);
         inhuman.start();
+        inhumanHunger = new InhumanHunger(this);
+        pm.registerEvents(inhumanHunger, this);
+        inhumanHunger.start();
         grace = new Grace(this);
         eden = new EdenMask(this);
         zephyrs = new Zephyrs(this);
@@ -292,6 +296,7 @@ public final class Soulbound extends JavaPlugin {
     Archangels archangels() { return archangels; }
     Inhuman inhuman() { return inhuman; }
     InhumanHearts inhumanHearts() { return inhumanHearts; }
+    InhumanHunger inhumanHunger() { return inhumanHunger; }
     Grace grace() { return grace; }
     EdenMask eden() { return eden; }
     Zephyrs zephyrs() { return zephyrs; }

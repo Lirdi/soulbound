@@ -133,6 +133,7 @@ final class Inhuman implements Listener {
         else p.getPersistentDataContainer().remove(key);
         applyHearts(p);
         if (plugin.inhumanHearts() != null) plugin.inhumanHearts().changed(p, inhuman);
+        if (plugin.inhumanHunger() != null) plugin.inhumanHunger().changed(p, inhuman);
     }
 
     private void applyHearts(Player p) {
