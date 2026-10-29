@@ -160,7 +160,16 @@ public final class Archangels implements Listener {
     /** Ghasts killed in the End (the Archangels above all) sometimes leave a Dried Angel: a dried ghast, renamed by the pack. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onGhastDeath(org.bukkit.event.entity.EntityDeathEvent e) {
-        if (!(e.getEntity() instanceof Ghast g) || g.getWorld().getEnvironment() != World.Environment.THE_END || g.getKiller() == null) return;
+        if (!(e.getEntity() instanceof Ghast g) || g.getWorld().getEnvironment() != World.Environment.THE_END) return;
+        // their tears are an angel's tears (Nether ghasts' stay ghast tears)
+        for (org.bukkit.inventory.ItemStack it : e.getDrops()) {
+            if (it.getType() != org.bukkit.Material.GHAST_TEAR) continue;
+            var m = it.getItemMeta();
+            m.customName(Component.text("Angel Tear", NamedTextColor.WHITE).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            m.lore(java.util.List.of(Component.text("Wept by an Archangel.", NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, true)));
+            it.setItemMeta(m);
+        }
+        if (g.getKiller() == null) return;
         double chance = plugin.getConfig().getDouble("archangels.ghasts.dried-angel-chance", 0.15);
         if (ThreadLocalRandom.current().nextDouble() < chance) e.getDrops().add(new org.bukkit.inventory.ItemStack(org.bukkit.Material.DRIED_GHAST));
     }
