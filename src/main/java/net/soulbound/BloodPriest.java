@@ -232,6 +232,7 @@ final class BloodPriest implements Listener {
             h.addIngredient(new ItemStack(Material.DRAGON_EGG, 1));
             list.add(h);
         }
+        if (plugin.lore() != null) list.replaceAll(plugin.lore()::fixed);
         m.setRecipes(list);
         open.add(m);
         p.openInventory(MenuType.MERCHANT.builder().merchant(m).title(Component.text("Blood Priest", NamedTextColor.DARK_RED)).build(p));

@@ -45,6 +45,7 @@ public final class Soulbound extends JavaPlugin {
     private Inhuman inhuman;
     private InhumanHearts inhumanHearts;
     private InhumanHunger inhumanHunger;
+    private LoreFixer loreFixer;
     private Grace grace;
     private EdenMask eden;
     private Zephyrs zephyrs;
@@ -205,6 +206,8 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(new HeavenBeds(this), this);
         pm.registerEvents(new RealmStructures(this), this);
         pm.registerEvents(new RoadGuard(this), this);
+        loreFixer = new LoreFixer(this);
+        pm.registerEvents(loreFixer, this);
         GlowPortal glowPortal = new GlowPortal(this);
         pm.registerEvents(glowPortal, this);
         glowPortal.start();
@@ -299,6 +302,7 @@ public final class Soulbound extends JavaPlugin {
     Inhuman inhuman() { return inhuman; }
     InhumanHearts inhumanHearts() { return inhumanHearts; }
     InhumanHunger inhumanHunger() { return inhumanHunger; }
+    LoreFixer lore() { return loreFixer; }
     Grace grace() { return grace; }
     EdenMask eden() { return eden; }
     Zephyrs zephyrs() { return zephyrs; }

@@ -203,6 +203,7 @@ final class Peacekeeper implements Listener {
         // last of all, the Angel Engine
         list.add(deal(plugin.grace().heart(), new ItemStack(Material.DRAGON_EGG, Math.max(1, c.getInt("peacekeeper.price.heart-of-light-eggs", 1)))));
         Merchant m = Bukkit.createMerchant();
+        if (plugin.lore() != null) list.replaceAll(plugin.lore()::fixed);
         m.setRecipes(list);
         open.add(m);
         p.openInventory(MenuType.MERCHANT.builder().merchant(m).title(Component.text("Peacekeeper", NamedTextColor.WHITE)).build(p));

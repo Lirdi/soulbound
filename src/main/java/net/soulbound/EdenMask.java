@@ -19,11 +19,12 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.List;
 
 /**
- * The Breath of Eden: a clear glass mask fed by a gold tube from a tiny caged Earth, on small gold wings. Worn on the
+ * The Heavenly Respirator (once called the Breath of Eden): a clear glass mask fed by a gold tube from a tiny caged Earth, on small gold wings. Worn on the
  * head, it lets you breathe Heaven's air: no Mining Fatigue out on the Seven Heavens (and no Slow Falling, unless
  * heaven-air.mask-keeps-slow-falling is on). It guards your head like a netherite helmet.
  */
 final class EdenMask {
+    static final String NAME = "Heavenly Respirator";
     private final Soulbound plugin;
     private final NamespacedKey key;
 
@@ -32,7 +33,7 @@ final class EdenMask {
     ItemStack create() {
         ItemStack it = new ItemStack(Material.ECHO_SHARD);
         ItemMeta m = it.getItemMeta();
-        m.displayName(Component.text("Breath of Eden", NamedTextColor.AQUA, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.displayName(Component.text(NAME, NamedTextColor.AQUA, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         m.lore(List.of(
                 Component.text("The first air there ever was, kept in glass.", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, true),
                 Component.text("Worn on the head", NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),

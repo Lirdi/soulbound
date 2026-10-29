@@ -63,6 +63,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         m.put("heart_of_darkness", new Item("Blood Priest", () -> one(p.inhuman().heart())));
         m.put("angel_engine", new Item("Grace", () -> one(p.grace().heart())));
         m.put("heart_of_light", new Item("Grace", () -> one(p.grace().heart())));
+        m.put("heavenly_respirator", new Item("Heaven", () -> one(p.eden().create())));
         m.put("breath_of_eden", new Item("Heaven", () -> one(p.eden().create())));
         // Moloch
         for (MolochGear.Piece pc : MolochGear.Piece.values())
