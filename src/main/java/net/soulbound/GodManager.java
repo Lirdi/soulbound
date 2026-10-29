@@ -221,7 +221,8 @@ final class GodManager implements Listener {
     private void scan() {
         for (World w : Bukkit.getWorlds()) {
             if (w.getEnvironment() != World.Environment.THE_END) continue;
-            for (EnderDragon d : w.getEntitiesByClass(EnderDragon.class)) {
+            // only bother while someone's up there to see Him; with nobody in the End its land unloads and He'd just vanish again
+            if (!w.getPlayers().isEmpty()) for (EnderDragon d : w.getEntitiesByClass(EnderDragon.class)) {
                 UUID gid = godOf.get(d.getUniqueId());
                 Entity g = gid == null ? null : Bukkit.getEntity(gid);
                 if (g == null || !g.isValid()) spawnGod(d);
@@ -236,6 +237,7 @@ final class GodManager implements Listener {
 
     private void spawnGod(EnderDragon d) {
         Location l = d.getLocation();
+        if (!l.getWorld().isChunkLoaded(l.getBlockX() >> 4, l.getBlockZ() >> 4)) return;
         Entity g = summon(l.clone().subtract(0, height() * 0.5, 0), TAG);
         if (g == null) {
             plugin.getLogger().warning("Couldn't create God for the dragon at " + l.getBlockX() + " " + l.getBlockY() + " " + l.getBlockZ()
@@ -249,6 +251,17 @@ final class GodManager implements Listener {
 
     /** Summon a God figure at a spot, with the given tag. Null if the summon didn't work. */
     Entity summon(Location at, String tag) {
+        // made straight from the entity data, so no command runs (and nothing is echoed to ops' chat)
+        String data = String.format(Locale.ROOT,
+                "{id:\"minecraft:mannequin\",Tags:[\"%s\"],profile:{texture:\"soulbound:entity/god\",model:\"wide\"},"
+                        + "immovable:1b,hide_description:1b,NoGravity:1b,Silent:1b,attributes:[{id:\"minecraft:scale\",base:%.2f},{id:\"minecraft:max_health\",base:1000}],Health:1000.0f}",
+                tag, scale);
+        try {
+            Entity e = Bukkit.getEntityFactory().createEntitySnapshot(data).createEntity(at);
+            if (e != null) return e;
+        } catch (Throwable t) {
+            if (!snapshotWarned) { snapshotWarned = true; plugin.getLogger().warning("God: couldn't build Him from entity data (" + t.getMessage() + "); using the summon command instead."); }
+        }
         String cmd = String.format(Locale.ROOT,
                 "execute in %s run summon minecraft:mannequin %.2f %.2f %.2f {Tags:[\"%s\",\"%s_new\"],profile:{texture:\"soulbound:entity/god\",model:\"wide\"},"
                         + "immovable:1b,hide_description:1b,NoGravity:1b,Silent:1b,attributes:[{id:\"minecraft:scale\",base:%.2f},{id:\"minecraft:max_health\",base:1000}],Health:1000.0f}",
@@ -261,6 +274,8 @@ final class GodManager implements Listener {
         }
         return null;
     }
+
+    private boolean snapshotWarned;
 
     /** Admin test: a standing God right here, no dragon, to check the skin and size. */
     String test(Player p) {
