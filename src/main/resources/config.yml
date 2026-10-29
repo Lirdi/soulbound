@@ -97,6 +97,8 @@ sacrifice:
   # How long the ritual in the fire pit takes. Hitting the captor hard enough in that time breaks it.
   ritual-seconds: 10
   # The same player can't be sacrificed again for this long.
+  # The same two players (either one as captor) can only sacrifice each other once in this many days. 0 = no limit.
+  pair-cooldown-days: 7
   victim-cooldown-hours: 48
   # Each player can sacrifice this many people a day.
   per-captor-per-day: 1
@@ -115,7 +117,9 @@ sacrifice:
     - "xp add %player% 15 levels"
 
 curse:
-  # Moloch's Curse on the sacrificed: Weakness and Mining Fatigue for this many minutes of play.
+  # Moloch's Curse on the sacrificed: Weakness, Mining Fatigue and Hunger for this many minutes of play.
+  # Hunger's level (1 = Hunger I); 0 leaves it out.
+  hunger-level: 1
   minutes: 45
   # Slowness too, for the first part of it.
   slowness-minutes: 10

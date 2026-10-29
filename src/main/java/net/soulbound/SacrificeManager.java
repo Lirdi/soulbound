@@ -223,6 +223,9 @@ final class SacrificeManager implements Listener {
         if (captor.getStatistic(Statistic.PLAY_ONE_MINUTE) < newPlayerHours * 72000L) return "you're too new to offer anyone.";
         long last = store.data.getLong("sacrifice.victims." + victim.getUniqueId(), 0);
         if (now - last < victimCooldownHours * 3600_000L) return victim.getName() + " was offered too recently.";
+        long pair = store.data.getLong("sacrifice.pairs." + pairKey(captor, victim), 0);   // the same two, either way round
+        int pairDays = plugin.getConfig().getInt("sacrifice.pair-cooldown-days", 7);
+        if (pairDays > 0 && now - pair < pairDays * 86_400_000L) return "you two have fed him together too recently. Bring him a stranger.";
         if (count("sacrifice.captors." + captor.getUniqueId()) >= captorPerDay) return "you've offered enough today.";
         if (count("sacrifice.server") >= serverPerDay) return "the fire has eaten enough today.";
         return null;
@@ -235,6 +238,7 @@ final class SacrificeManager implements Listener {
     void resetLimits(UUID id) {
         if (id != null) { forgetVictim(id); store.set("sacrifice.captors." + id, null); return; }
         store.set("sacrifice.victims", null);
+        store.set("sacrifice.pairs", null);
         store.set("sacrifice.captors", null);
         store.set("sacrifice.server", null);
     }
@@ -246,8 +250,15 @@ final class SacrificeManager implements Listener {
         try { return Integer.parseInt(v.substring(today.length() + 1)); } catch (NumberFormatException ex) { return 0; }
     }
 
+    /** The same key whichever of the two is the captor. */
+    private static String pairKey(Player a, Player b) {
+        String x = a.getUniqueId().toString(), y = b.getUniqueId().toString();
+        return x.compareTo(y) < 0 ? x + "_" + y : y + "_" + x;
+    }
+
     private void record(Player captor, Player victim) {
         String today = LocalDate.now().toString();
+        store.set("sacrifice.pairs." + pairKey(captor, victim), System.currentTimeMillis());
         store.set("sacrifice.victims." + victim.getUniqueId(), System.currentTimeMillis());
         store.set("sacrifice.last-offered-by." + captor.getUniqueId(), System.currentTimeMillis());   // God remembers
         store.set("sacrifice.captors." + captor.getUniqueId(), today + ":" + (count("sacrifice.captors." + captor.getUniqueId()) + 1));

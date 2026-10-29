@@ -83,6 +83,7 @@ final class CurseManager implements Listener {
         p.removePotionEffect(PotionEffectType.WEAKNESS);
         p.removePotionEffect(PotionEffectType.MINING_FATIGUE);
         p.removePotionEffect(PotionEffectType.SLOWNESS);
+        p.removePotionEffect(PotionEffectType.HUNGER);
         persist();
     }
 
@@ -115,6 +116,8 @@ final class CurseManager implements Listener {
     private void apply(Player p) {
         p.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 0, true, false, true));
         p.addPotionEffect(new PotionEffect(PotionEffectType.MINING_FATIGUE, 60, 0, true, false, true));
+        int hungerLevel = plugin.getConfig().getInt("curse.hunger-level", 1);   // he's hungry, so you are too
+        if (hungerLevel > 0) p.addPotionEffect(new PotionEffect(PotionEffectType.HUNGER, 60, hungerLevel - 1, true, false, true));
         if (served.getOrDefault(p.getUniqueId(), 0) < slowSeconds)
             p.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 60, 0, true, false, true));
     }
