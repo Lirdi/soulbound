@@ -55,6 +55,9 @@ final class Cute implements Listener {
         BAROQUE("Baroque", "baroque", null, "A bauta and a tricorn, for the masquerade."),
         CROC("Crocodile Mask", "croc_mask", null, "It hasn't decided whether to swallow you."),
         PROPELLER("Propeller Cap", "propeller_cap_f0", null, "Sprint and the propeller spins."),
+        BP_HAT("Blood Priest's Hat", "blood_priest_hat", null, "Blood Priest outfit (1 of 3)."),
+        BP_CASSOCK("Blood Priest's Cassock", "blood_priest_robe", null, "Blood Priest outfit (2 of 3).", EquipmentSlot.CHEST, 3),
+        BP_ROBE("Blood Priest's Robe", "blood_priest_robe", null, "Blood Priest outfit (3 of 3).", EquipmentSlot.LEGS, 2),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -66,6 +69,7 @@ final class Cute implements Listener {
             this.title = title; this.model = model; this.alt = alt; this.perk = perk; this.slot = slot; this.armor = armor;
         }
         boolean lab() { return this == LAB_COAT || this == LAB_PANTS || this == LAB_SHOES; }
+        boolean priest() { return this == BP_CASSOCK || this == BP_ROBE; }
     }
     private static final TextColor PINK = TextColor.color(0xF48FB1);
 
@@ -82,7 +86,8 @@ final class Cute implements Listener {
     ItemStack create(Kind k) {
         ItemStack it = new ItemStack(Material.ECHO_SHARD);
         ItemMeta m = it.getItemMeta();
-        m.displayName(Component.text(k.title, k == Kind.BAROQUE ? TextColor.color(0xD6AC48) : k == Kind.CROC ? TextColor.color(0x7FA84A) : PINK, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.displayName(Component.text(k.title, k == Kind.BAROQUE ? TextColor.color(0xD6AC48) : k == Kind.CROC ? TextColor.color(0x7FA84A)
+                : (k == Kind.BP_HAT || k.priest()) ? TextColor.color(0xB3122E) : PINK, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         String where = switch (k.slot) { case CHEST -> "Worn on the chest"; case LEGS -> "Worn on the legs"; case FEET -> "Worn on the feet"; default -> "Worn on the head"; };
         m.lore(List.of(Component.text(where, NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
                 Component.text(k.perk, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
@@ -90,8 +95,8 @@ final class Cute implements Listener {
         m.setMaxStackSize(1);
         EquippableComponent eq = m.getEquippable();
         eq.setSlot(k.slot);
-        if (k.lab()) {
-            eq.setModel(new NamespacedKey("soulbound", "labcoat"));
+        if (k.lab() || k.priest()) {
+            eq.setModel(new NamespacedKey("soulbound", k.priest() ? "blood_priest" : "labcoat"));
             org.bukkit.inventory.EquipmentSlotGroup g = switch (k.slot) { case CHEST -> org.bukkit.inventory.EquipmentSlotGroup.CHEST;
                 case LEGS -> org.bukkit.inventory.EquipmentSlotGroup.LEGS; default -> org.bukkit.inventory.EquipmentSlotGroup.FEET; };
             m.addAttributeModifier(org.bukkit.attribute.Attribute.ARMOR, new org.bukkit.attribute.AttributeModifier(
@@ -157,6 +162,9 @@ final class Cute implements Listener {
             case "baroque", "bauta", "tricorn", "masquerade" -> Kind.BAROQUE;
             case "crocodilemask", "crocodile", "croc", "crocmask" -> Kind.CROC;
             case "propellercap", "propeller", "beanie", "propellerhat" -> Kind.PROPELLER;
+            case "priesthat", "bloodpriesthat" -> Kind.BP_HAT;
+            case "cassock", "bloodpriestcassock" -> Kind.BP_CASSOCK;
+            case "priestrobe", "bloodpriestrobe" -> Kind.BP_ROBE;
             case "labcoat", "coat" -> Kind.LAB_COAT;
             case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
             case "labshoes", "shoes" -> Kind.LAB_SHOES;

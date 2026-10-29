@@ -237,11 +237,12 @@ final class BloodPriest implements Listener {
             Vector dir = best.getEyeLocation().toVector().subtract(m.getEyeLocation().toVector());
             float yaw = (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
             float pitch = (float) Math.toDegrees(-Math.atan2(dir.getY(), Math.hypot(dir.getX(), dir.getZ())));
+            // He stands square where he was put and only lowers or lifts his gaze to you: if he turned, every player's
+            // game would swing his body round its own way and his robe (a separate model) would no longer line up.
             float cy = here.getYaw(), cp = here.getPitch();
-            float ny = cy + wrap(yaw - cy) * 0.35f, np = cp + (pitch - cp) * 0.35f;   // turn smoothly, not snap
-            m.setRotation(ny, np);
-            float body = m.getBodyYaw(), diff = wrap(ny - body);
-            if (Math.abs(diff) > 35) m.setBodyYaw(body + diff - Math.copySign(35f, diff));   // the body follows the head
+            float np = cp + (pitch - cp) * 0.35f;
+            m.setRotation(cy, np);
+            m.setBodyYaw(cy);
         }
     }
 
