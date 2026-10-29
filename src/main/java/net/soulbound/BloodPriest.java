@@ -262,7 +262,7 @@ final class BloodPriest implements Listener {
         if (k == AbductionItems.Kind.HOOD) { pool = hoodLines; what = "hood"; }
         else if (k == AbductionItems.Kind.CUDGEL) { pool = cudgelLines; what = "cudgel"; }
         else if (leash.isSpecial(out)) { pool = shacklesLines; what = "shackles"; }
-        else if (plugin.tartare() != null && out.isSimilar(plugin.tartare().create(1))) { pool = tartareLines; what = "tartare"; }
+        else if (plugin.tartare() != null && plugin.tartare().is(out)) { pool = tartareLines; what = "tartare"; }
         else if (plugin.festering() != null && plugin.festering().is(out)) { pool = festeringLines; what = "festering"; }
         else if (plugin.inhuman() != null && plugin.inhuman().isHeart(out)) { pool = heartLines; what = "heart"; lastSaid.remove(e.getPlayer().getUniqueId()); }
         else return;

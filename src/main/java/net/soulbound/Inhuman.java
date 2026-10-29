@@ -159,7 +159,7 @@ final class Inhuman implements Listener {
         if (isHeart(food)) { Bukkit.getScheduler().runTask(plugin, () -> transform(p)); return; }
         if (plugin.grace() != null && plugin.grace().isHeart(food)) return;
         if (!is(p) || !food.getType().isEdible()) return;
-        boolean tartare = plugin.tartare() != null && food.isSimilar(plugin.tartare().create(1));
+        boolean tartare = plugin.tartare() != null && plugin.tartare().is(food);
         Material t = food.getType();
         boolean raw = tartare || switch (t) {
             case BEEF, PORKCHOP, MUTTON, CHICKEN, RABBIT, COD, SALMON, TROPICAL_FISH -> true;

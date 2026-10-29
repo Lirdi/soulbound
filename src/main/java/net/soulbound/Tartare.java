@@ -42,6 +42,13 @@ final class Tartare implements Listener {
         return it;
     }
 
+    /** Recognised by its look (item model), so wrapped or renamed copies still count. */
+    boolean is(ItemStack it) {
+        if (it == null || it.getType() != Material.COOKED_BEEF || !it.hasItemMeta()) return false;
+        NamespacedKey model = it.getItemMeta().getItemModel();
+        return model != null && model.equals(new NamespacedKey("soulbound", "beef_tartare"));
+    }
+
     void registerRecipe() {
         Bukkit.removeRecipe(recipeKey);
         ShapelessRecipe r = new ShapelessRecipe(recipeKey, create(1));
