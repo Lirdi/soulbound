@@ -554,6 +554,30 @@ final class CaptureManager implements Listener {
         if (src instanceof Player p && carrying(p)) { e.setCancelled(true); p.sendActionBar(Component.text("Your hands are full.", NamedTextColor.GRAY)); }
     }
 
+    /**
+     * Sneak + left-click a hooded captive (or the body slung over someone's shoulder) to pull the sack off their head.
+     * The hit does no damage, and whoever pulled it off keeps the hood.
+     */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onPullHood(EntityDamageByEntityEvent e) {
+        if (!(e.getDamager() instanceof Player p) || !p.isSneaking() || byCaptive.containsKey(p.getUniqueId())) return;
+        Capture cap = null;
+        if (e.getEntity() instanceof Player v) cap = byCaptive.get(v.getUniqueId());
+        else for (Capture c : byCaptive.values()) if (c.body != null && c.body.equals(e.getEntity())) { cap = c; break; }
+        if (cap == null || !cap.hooded) return;
+        Player victim = Bukkit.getPlayer(cap.captive);
+        if (victim == null) return;
+        e.setCancelled(true);
+        unhood(cap, victim);
+        if (cap.carried && cap.body != null && cap.body.isValid()) cap.body.getEquipment().setHelmet(victim.getInventory().getHelmet());
+        if (p.getGameMode() != GameMode.CREATIVE)
+            for (org.bukkit.inventory.ItemStack left : p.getInventory().addItem(items.create(AbductionItems.Kind.HOOD, 1)).values())
+                p.getWorld().dropItem(p.getLocation(), left);
+        sound(victim.getLocation(), "minecraft:item.armor.equip_leather", 1f, 1.1f);
+        p.sendActionBar(Component.text("You pull the hood off " + victim.getName() + ".", NamedTextColor.GRAY));
+        victim.sendActionBar(Component.text("The hood comes off. You can see again.", NamedTextColor.GRAY));
+    }
+
     /** When someone just pulled a hood over a captive's head (the same click also tries to put one on their own). */
     private final Map<UUID, Long> hoodedAt = new HashMap<>();
 
