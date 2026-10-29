@@ -9,7 +9,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -68,18 +67,8 @@ final class LeashItem {
         return item;
     }
 
-    /** Eight iron chains around a lead. */
-    void registerRecipe() {
-        Bukkit.removeRecipe(recipeKey);
-        Material chain = Material.matchMaterial("minecraft:iron_chain");
-        if (chain == null) chain = Material.matchMaterial("minecraft:chain");
-        if (chain == null) { plugin.getLogger().warning("No iron chain item found; the leash recipe is off."); return; }
-        ShapedRecipe r = new ShapedRecipe(recipeKey, create(1));
-        r.shape("CCC", "CLC", "CCC");
-        r.setIngredient('C', chain);
-        r.setIngredient('L', Material.LEAD);
-        Bukkit.addRecipe(r);
-    }
+    /** The Shackles can't be crafted: they're only sold by the Blood Priest. An old recipe is taken out. */
+    void registerRecipe() { Bukkit.removeRecipe(recipeKey); }
 
-    void unlockFor(Player p) { p.discoverRecipe(recipeKey); }
+    void unlockFor(Player p) { p.undiscoverRecipe(recipeKey); }
 }

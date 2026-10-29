@@ -219,7 +219,7 @@ final class CaptureManager implements Listener {
         }
         if (hand.getType() != Material.LEAD) return;
         if (!leash.captures(captor.getInventory().getItemInMainHand())) {
-            if (e.getRightClicked() instanceof Player) captor.sendActionBar(Component.text("A plain lead won't hold a person. Craft a " + leashName() + ".", NamedTextColor.RED));
+            if (e.getRightClicked() instanceof Player) captor.sendActionBar(Component.text("A plain lead won't hold a person. Buy " + leashName() + " from the Blood Priest.", NamedTextColor.RED));
             return;
         }
         e.setCancelled(true);

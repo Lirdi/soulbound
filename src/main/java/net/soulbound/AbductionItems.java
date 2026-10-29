@@ -8,7 +8,6 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.ShapelessRecipe;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
@@ -117,22 +116,15 @@ final class AbductionItems {
     boolean isHood(ItemStack it) { return kindOf(it) == Kind.HOOD; }
     boolean isCudgel(ItemStack it) { return kindOf(it) == Kind.CUDGEL; }
 
+    /** The Hood and the Cudgel can't be crafted: they're only sold by the Blood Priest. Old recipes are taken out. */
     void registerRecipes() {
-        add("hood", create(Kind.HOOD, 1), Material.WHEAT, Material.WHEAT, Material.WHEAT, Material.STRING, Material.RED_DYE);
-        add("cudgel", create(Kind.CUDGEL, 1), Material.STICK, Material.COBBLESTONE, Material.COBBLESTONE, Material.GOLD_NUGGET);
-    }
-
-    private void add(String id, ItemStack result, Material... in) {
-        NamespacedKey rk = new NamespacedKey(plugin, id);
-        Bukkit.removeRecipe(rk);
-        ShapelessRecipe r = new ShapelessRecipe(rk, result);
-        for (Material mat : in) r.addIngredient(mat);
-        Bukkit.addRecipe(r);
+        Bukkit.removeRecipe(new NamespacedKey(plugin, "hood"));
+        Bukkit.removeRecipe(new NamespacedKey(plugin, "cudgel"));
     }
 
     void unlockFor(Player p) {
-        p.discoverRecipe(new NamespacedKey(plugin, "hood"));
-        p.discoverRecipe(new NamespacedKey(plugin, "cudgel"));
+        p.undiscoverRecipe(new NamespacedKey(plugin, "hood"));
+        p.undiscoverRecipe(new NamespacedKey(plugin, "cudgel"));
     }
 
     String adminGive(Player t, String what) {
