@@ -25,8 +25,8 @@ import java.util.UUID;
 
 /**
  * Festering Flesh: dried, crawling meat with flies round it, sold by the Blood Priest for 13 rotten flesh and 3
- * fermented spider eyes. Disgusting to look at, but it fills you right up, and (unlike rotten flesh) it doesn't make
- * you sick.
+ * fermented spider eyes. It fills anyone right up, but only the inhuman keep it down: everyone else is poisoned and
+ * left starving (Poison and Hunger).
  */
 final class FesteringFlesh implements Listener {
     private final Soulbound plugin;
@@ -58,7 +58,20 @@ final class FesteringFlesh implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEat(PlayerItemConsumeEvent e) {
-        if (is(e.getItem())) justAte.put(e.getPlayer().getUniqueId(), System.currentTimeMillis());
+        if (!is(e.getItem())) return;
+        Player p = e.getPlayer();
+        justAte.put(p.getUniqueId(), System.currentTimeMillis());
+        // it fills anyone up, but only the inhuman can keep it down: everyone else is poisoned and left starving
+        if (plugin.inhuman() != null && plugin.inhuman().is(p)) return;
+        var c = plugin.getConfig();
+        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!p.isOnline()) return;
+            p.addPotionEffect(new org.bukkit.potion.PotionEffect(PotionEffectType.POISON,
+                    20 * Math.max(1, c.getInt("festering-flesh.human-poison-seconds", 6)), Math.max(0, c.getInt("festering-flesh.human-poison-level", 1) - 1)));
+            p.addPotionEffect(new org.bukkit.potion.PotionEffect(PotionEffectType.HUNGER,
+                    20 * Math.max(1, c.getInt("festering-flesh.human-hunger-seconds", 30)), Math.max(0, c.getInt("festering-flesh.human-hunger-level", 2) - 1)));
+            p.sendActionBar(Component.text("Your stomach turns.", NamedTextColor.DARK_GREEN));
+        });
     }
 
     /** Rotten flesh's chance of Hunger doesn't come with this. */
