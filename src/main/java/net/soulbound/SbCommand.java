@@ -39,7 +39,10 @@ import java.util.function.Supplier;
  *   /sb release (any player: let your captive go)
  */
 final class SbCommand implements CommandExecutor, TabCompleter, Listener {
-    record Item(String category, Supplier<List<ItemStack>> make) {}
+    /** inMenu = false for old names kept only so /sb give still understands them (they'd show twice in /sb items). */
+    record Item(String category, Supplier<List<ItemStack>> make, boolean inMenu) {
+        Item(String category, Supplier<List<ItemStack>> make) { this(category, make, true); }
+    }
 
     private final Soulbound plugin;
     private Map<String, Item> items;
@@ -64,9 +67,9 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         m.put("festering_flesh", new Item("Blood Priest", () -> one(p.festering().create(1))));
         m.put("heart_of_darkness", new Item("Blood Priest", () -> one(p.inhuman().heart())));
         m.put("angel_engine", new Item("Grace", () -> one(p.grace().heart())));
-        m.put("heart_of_light", new Item("Grace", () -> one(p.grace().heart())));
+        m.put("heart_of_light", new Item("Grace", () -> one(p.grace().heart()), false));
         m.put("heavenly_respirator", new Item("Heaven", () -> one(p.eden().create())));
-        m.put("breath_of_eden", new Item("Heaven", () -> one(p.eden().create())));
+        m.put("breath_of_eden", new Item("Heaven", () -> one(p.eden().create()), false));
         // Moloch
         for (MolochGear.Piece pc : MolochGear.Piece.values())
             m.put("moloch_" + pc.name().toLowerCase(Locale.ROOT), new Item("Moloch", () -> one(p.gear().piece(pc))));
@@ -132,10 +135,16 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         String cat = null;
         for (Map.Entry<String, Item> e : items().entrySet()) {
             if (menu.ids.size() >= 54) break;
+            if (!e.getValue().inMenu()) continue;
             List<ItemStack> made = e.getValue().make().get();
             if (made.isEmpty()) continue;
             ItemStack icon = made.get(0).clone();
             ItemMeta im = icon.getItemMeta();
+            if (made.size() > 1) {   // a whole set: say so, so it isn't mistaken for its first piece
+                String nice = java.util.Arrays.stream(e.getKey().split("_")).map(w -> Character.toUpperCase(w.charAt(0)) + w.substring(1)).collect(java.util.stream.Collectors.joining(" "));
+                im.displayName(Component.text(nice + " (all " + made.size() + ")", NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
+                im.setEnchantmentGlintOverride(true);
+            }
             List<Component> lore = im.hasLore() && im.lore() != null ? new ArrayList<>(im.lore()) : new ArrayList<>();
             lore.add(Component.empty());
             lore.add(Component.text(e.getValue().category() + " · " + e.getKey() + (made.size() > 1 ? " (" + made.size() + " pieces)" : ""), NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
