@@ -54,6 +54,7 @@ final class Cute implements Listener {
         TOMATO("Tomato Helmet", "tomato_helmet", null, "Get hit and you go splat."),
         BAROQUE("Baroque", "baroque", null, "A bauta and a tricorn, for the masquerade."),
         CROC("Crocodile Mask", "croc_mask", null, "It hasn't decided whether to swallow you."),
+        PROPELLER("Propeller Cap", "propeller_cap_f0", null, "Sprint and the propeller spins."),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -71,6 +72,8 @@ final class Cute implements Listener {
     private final Soulbound plugin;
     private final NamespacedKey key;
     private final Map<UUID, Integer> altUntil = new HashMap<>();
+    /** Which of the eight propeller positions each wearer's cap is showing. */
+    private final Map<UUID, Integer> propFrame = new HashMap<>();
     private BukkitTask task;
     private int tick;
 
@@ -153,6 +156,7 @@ final class Cute implements Listener {
             case "tomatohelmet", "tomato" -> Kind.TOMATO;
             case "baroque", "bauta", "tricorn", "masquerade" -> Kind.BAROQUE;
             case "crocodilemask", "crocodile", "croc", "crocmask" -> Kind.CROC;
+            case "propellercap", "propeller", "beanie", "propellerhat" -> Kind.PROPELLER;
             case "labcoat", "coat" -> Kind.LAB_COAT;
             case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
             case "labshoes", "shoes" -> Kind.LAB_SHOES;
@@ -192,7 +196,9 @@ final class Cute implements Listener {
                 }
                 case CROWN -> { if (r.nextInt(25) == 0) p.getWorld().spawnParticle(Particle.CHERRY_LEAVES, p.getEyeLocation().add(0, 0.45, 0), 1, 0.25, 0.05, 0.25, 0); }
             }
+            if (k == Kind.PROPELLER && (p.isSprinting() || p.isGliding())) propFrame.merge(id, 3, (a, b) -> (a + b) % 8);   // whirr
             String want = k == Kind.BRAIN ? "big_brain_f" + ((tick / 4) % 4)      // it throbs
+                    : k == Kind.PROPELLER ? "propeller_cap_f" + propFrame.getOrDefault(id, 0)
                     : alt && k.alt != null ? k.alt : k.model;
             ItemMeta m = h.getItemMeta();
             NamespacedKey wk = new NamespacedKey("soulbound", want);
