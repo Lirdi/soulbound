@@ -31,7 +31,9 @@ import org.bukkit.profile.PlayerTextures;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -99,6 +101,8 @@ final class BloodPriest implements Listener {
     }
 
     void start() {
+        for (World w : Bukkit.getWorlds())   // robes left over from before a reload
+            for (org.bukkit.entity.ItemDisplay d : w.getEntitiesByClass(org.bukkit.entity.ItemDisplay.class)) if (d.getScoreboardTags().contains("blood_priest_robe")) d.remove();
         for (World w : Bukkit.getWorlds())
             for (Mannequin m : w.getEntitiesByClass(Mannequin.class)) if (isPriest(m)) priests.add(m.getUniqueId());
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 2L);
@@ -116,6 +120,39 @@ final class BloodPriest implements Listener {
         hat.setItemMeta(meta);
         eq.setHelmet(hat);
         eq.setHelmetDropChance(0f);
+    }
+
+    /**
+     * His cassock: a long robe with wide sleeves, a flared hem, a stole and sash, a 3D model too big for a skin. It's an
+     * item display standing where he stands, turned with him; it isn't saved, so it's simply made again when he loads.
+     */
+    private final Map<UUID, UUID> robes = new HashMap<>();
+
+    private void wearRobe(Mannequin m) {
+        UUID rid = robes.get(m.getUniqueId());
+        Entity r = rid == null ? null : Bukkit.getEntity(rid);
+        Location at = m.getLocation();
+        at.setPitch(0f);
+        if (r instanceof org.bukkit.entity.ItemDisplay d && d.isValid()) {
+            Location cur = d.getLocation();
+            if (cur.distanceSquared(at) > 0.0001 || Math.abs(wrap(cur.getYaw() - at.getYaw())) > 0.5f) d.teleport(at);
+            return;
+        }
+        org.bukkit.entity.ItemDisplay d = m.getWorld().spawn(at, org.bukkit.entity.ItemDisplay.class, disp -> {
+            org.bukkit.inventory.ItemStack it = new org.bukkit.inventory.ItemStack(org.bukkit.Material.PAPER);
+            var meta = it.getItemMeta();
+            meta.setItemModel(new NamespacedKey("soulbound", "blood_priest_robe"));
+            it.setItemMeta(meta);
+            disp.setItemStack(it);
+            disp.setItemDisplayTransform(org.bukkit.entity.ItemDisplay.ItemDisplayTransform.NONE);
+            float sc = 0.9375f;   // player pixels are 15/16 of a block's sixteenth
+            disp.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(0f, 0.5f * sc, 0f), new org.joml.Quaternionf(),
+                    new org.joml.Vector3f(sc, sc, sc), new org.joml.Quaternionf()));
+            disp.setPersistent(false);
+            disp.setTeleportDuration(2);
+            disp.addScoreboardTag("blood_priest_robe");
+        });
+        robes.put(m.getUniqueId(), d.getUniqueId());
     }
 
     boolean isPriest(Entity e) {
@@ -173,9 +210,16 @@ final class BloodPriest implements Listener {
     private void tick() {
         Iterator<UUID> it = priests.iterator();
         while (it.hasNext()) {
-            Entity e = Bukkit.getEntity(it.next());
-            if (!(e instanceof Mannequin m) || !m.isValid()) { it.remove(); continue; }
+            UUID pid = it.next();
+            Entity e = Bukkit.getEntity(pid);
+            if (!(e instanceof Mannequin m) || !m.isValid()) {
+                UUID gone = pid;
+                it.remove();
+                if (gone != null) { UUID rid = robes.remove(gone); Entity r = rid == null ? null : Bukkit.getEntity(rid); if (r != null) r.remove(); }
+                continue;
+            }
             wearHat(m);
+            wearRobe(m);
             Location here = m.getLocation();
             Player best = null;
             double bd = lookRange * lookRange;
