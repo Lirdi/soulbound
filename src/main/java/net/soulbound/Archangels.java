@@ -157,6 +157,15 @@ public final class Archangels implements Listener {
         return best;
     }
 
+    /** Every horse in Heaven is white: wild ones, foals, and any hatched from an egg. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onHorse(org.bukkit.event.entity.CreatureSpawnEvent e) {
+        if (!(e.getEntity() instanceof org.bukkit.entity.Horse h) || h.getWorld().getEnvironment() != World.Environment.THE_END) return;
+        if (!plugin.getConfig().getBoolean("heaven.white-horses", true)) return;
+        h.setColor(org.bukkit.entity.Horse.Color.WHITE);
+        h.setStyle(org.bukkit.entity.Horse.Style.NONE);
+    }
+
     /** Ghasts killed in the End (the Archangels above all) sometimes leave a Dried Angel: a dried ghast, renamed by the pack. */
     @EventHandler(priority = EventPriority.HIGH)
     public void onGhastDeath(org.bukkit.event.entity.EntityDeathEvent e) {
