@@ -60,6 +60,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         m.put("shackles", new Item("Abduction", () -> one(p.leash().create(1))));
         // Blood Priest
         m.put("beef_tartare", new Item("Blood Priest", () -> one(p.tartare().create(1))));
+        m.put("festering_flesh", new Item("Blood Priest", () -> one(p.festering().create(1))));
         m.put("heart_of_darkness", new Item("Blood Priest", () -> one(p.inhuman().heart())));
         m.put("angel_engine", new Item("Grace", () -> one(p.grace().heart())));
         m.put("heart_of_light", new Item("Grace", () -> one(p.grace().heart())));

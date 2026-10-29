@@ -31,6 +31,7 @@ public final class Soulbound extends JavaPlugin {
     private Parasite parasite;
     private BloodMoonBeasts beasts;
     private Tartare tartare;
+    private FesteringFlesh festering;
     private KrakenBeard kraken;
     private Cute cute;
     private GodGear godGear;
@@ -190,6 +191,8 @@ public final class Soulbound extends JavaPlugin {
         tartare = new Tartare(this);
         pm.registerEvents(tartare, this);
         tartare.registerRecipe();
+        festering = new FesteringFlesh(this);
+        pm.registerEvents(festering, this);
         kraken = new KrakenBeard(this);
         pm.registerEvents(kraken, this);
         kraken.start();
@@ -296,6 +299,7 @@ public final class Soulbound extends JavaPlugin {
     MolochGear gear() { return gear; }
     BloodPriest priest() { return priest; }
     Tartare tartare() { return tartare; }
+    FesteringFlesh festering() { return festering; }
     Store store() { return store; }
     GodManager god() { return god; }
     Archangels archangels() { return archangels; }

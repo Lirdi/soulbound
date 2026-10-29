@@ -49,7 +49,7 @@ final class BloodPriest implements Listener {
     private final NamespacedKey key;
     private final Set<UUID> priests = new HashSet<>();
     private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice;
-    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines;
+    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines, festeringLines;
     private final NamespacedKey boughtKey;
     private final java.util.Map<UUID, Long> lastSaid = new java.util.HashMap<>();
     private double lookRange;
@@ -75,6 +75,10 @@ final class BloodPriest implements Listener {
         cudgelLines = lines(c, "cudgel", "From behind. Always from behind. Let them wonder who it was.");
         shacklesLines = lines(c, "shackles", "When they're dazed, close the iron. Wrists first. Then they're yours.");
         tartareLines = lines(c, "tartare", "Beef. Yes. Let's call it beef.", "If it twitches, just keep chewing.");
+        festeringLines = lines(c, "festering",
+                "Found it in a ditch. It had been there a while. That's how you know it's good.",
+                "It's been festering since before you were born. I've been saving it for someone special.",
+                "Don't pick out the moving bits. That's the best part.");
         heartLines = lines(c, "heart", "He won't let you back into His house after this. Good. It's cold up there.",
                 "His gates won't open for you now. Don't knock. He never answers anyway.",
                 "No more Heaven for you. Don't worry. The view from down here is warmer.");
@@ -226,6 +230,12 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
         if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
+        if (plugin.festering() != null) {   // Festering Flesh, for 13 rotten flesh and 3 fermented spider eyes
+            MerchantRecipe f = new MerchantRecipe(plugin.festering().create(1), 0, Integer.MAX_VALUE, false);
+            f.addIngredient(new ItemStack(Material.ROTTEN_FLESH, Math.max(1, Math.min(64, plugin.getConfig().getInt("priest.price.festering-rotten-flesh", 13)))));
+            f.addIngredient(new ItemStack(Material.FERMENTED_SPIDER_EYE, Math.max(1, Math.min(64, plugin.getConfig().getInt("priest.price.festering-spider-eyes", 3)))));
+            list.add(f);
+        }
         // the last thing he sells, only to someone who's bought everything else: the Heart of Darkness, for the World Egg
         if (boughtAll(p) && plugin.inhuman() != null && !plugin.inhuman().is(p)) {
             MerchantRecipe h = new MerchantRecipe(plugin.inhuman().heart(), 0, Integer.MAX_VALUE, false);
@@ -252,6 +262,7 @@ final class BloodPriest implements Listener {
         else if (k == AbductionItems.Kind.CUDGEL) { pool = cudgelLines; what = "cudgel"; }
         else if (leash.isSpecial(out)) { pool = shacklesLines; what = "shackles"; }
         else if (plugin.tartare() != null && out.isSimilar(plugin.tartare().create(1))) { pool = tartareLines; what = "tartare"; }
+        else if (plugin.festering() != null && plugin.festering().is(out)) { pool = festeringLines; what = "festering"; }
         else if (plugin.inhuman() != null && plugin.inhuman().isHeart(out)) { pool = heartLines; what = "heart"; lastSaid.remove(e.getPlayer().getUniqueId()); }
         else return;
         Player p = e.getPlayer();
