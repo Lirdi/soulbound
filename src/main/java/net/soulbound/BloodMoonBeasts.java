@@ -98,6 +98,42 @@ final class BloodMoonBeasts implements Listener {
             }
         }
         if (tick % 200 == 0) lastBite.keySet().removeIf(id -> Bukkit.getEntity(id) == null);
+        if (tick % 80 == 0) riders();
+    }
+
+    /**
+     * Witches ride phantoms across a blood-moon sky: now and then one swoops in over a player out in the open
+     * (the Overworld only; Moloch's realm has its own sky). A few at most around anyone.
+     */
+    private void riders() {
+        double chance = plugin.getConfig().getDouble("boss.blood-moon-witch-riders.chance", 0.25);
+        int max = plugin.getConfig().getInt("boss.blood-moon-witch-riders.max-per-player", 2);
+        if (chance <= 0 || max <= 0) return;
+        java.util.concurrent.ThreadLocalRandom r = java.util.concurrent.ThreadLocalRandom.current();
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            World w = p.getWorld();
+            if (w.getEnvironment() != World.Environment.NORMAL || !plugin.boss().bloodMoonWorld(w)) continue;
+            if (p.isDead() || (p.getGameMode() != GameMode.SURVIVAL && p.getGameMode() != GameMode.ADVENTURE)) continue;
+            if (w.getHighestBlockYAt(p.getLocation()) > p.getLocation().getBlockY() + 1) continue;   // under a roof: they can't see you
+            int near = 0;
+            for (Entity e : p.getNearbyEntities(64, 64, 64)) if (e.getScoreboardTags().contains("blood_moon_rider")) near++;
+            if (near >= max || r.nextDouble() >= chance) continue;
+            double a = r.nextDouble() * Math.PI * 2, d = 14 + r.nextDouble() * 10;
+            org.bukkit.Location at = p.getLocation().add(Math.cos(a) * d, 18 + r.nextDouble() * 8, Math.sin(a) * d);
+            if (at.getY() > w.getMaxHeight() - 4 || !at.getBlock().isPassable() || !at.clone().add(0, 1, 0).getBlock().isPassable()) continue;
+            org.bukkit.entity.Phantom ph = w.spawn(at, org.bukkit.entity.Phantom.class, x -> {
+                x.setSize(3);
+                x.addScoreboardTag("blood_moon_rider");
+                x.setPersistent(false);
+                x.setShouldBurnInDay(false);
+            });
+            org.bukkit.entity.Witch witch = w.spawn(at, org.bukkit.entity.Witch.class, x -> { x.addScoreboardTag("blood_moon_rider"); x.setPersistent(false); });
+            ph.addPassenger(witch);
+            ph.setTarget(p);
+            witch.setTarget(p);
+            w.playSound(at, "minecraft:entity.witch.celebrate", 2f, 0.6f);
+            w.playSound(at, "minecraft:entity.phantom.swoop", 2f, 0.8f);
+        }
     }
 
     /** Keep every blood-moon world (but his realm, which has its own sky) at midnight. */

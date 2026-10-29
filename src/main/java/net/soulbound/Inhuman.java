@@ -71,7 +71,7 @@ import java.util.UUID;
 /**
  * The Heart of Darkness and what eating it makes you: no longer human.
  *
- * Monsters leave you be (unless you strike them), you carry two more hearts, and in Moloch's realm you have Fire
+ * Monsters leave you be (unless you strike them), you carry three more hearts, and in Moloch's realm you have Fire
  * Resistance and Speed. Raw meat feeds and fills you; rotten flesh, spider eyes and poisonous potatoes no longer sicken you; every other food leaves you
  * hungrier. But the living hate you: livestock, wolves and cats attack, iron golems hunt you, villagers flee unless
  * you hide your face under a Hood (and then they charge more), and only zombie villagers trade with you freely.
@@ -140,7 +140,7 @@ final class Inhuman implements Listener {
         AttributeInstance hp = p.getAttribute(Attribute.MAX_HEALTH);
         if (hp == null) return;
         hp.removeModifier(hpKey);
-        if (is(p)) hp.addModifier(new AttributeModifier(hpKey, plugin.getConfig().getDouble("inhuman.extra-health", 4), AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ANY));
+        if (is(p)) hp.addModifier(new AttributeModifier(hpKey, plugin.getConfig().getDouble("inhuman.extra-health", 6), AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.ANY));
         else if (p.getHealth() > hp.getValue()) p.setHealth(hp.getValue());
     }
 

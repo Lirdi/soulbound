@@ -1753,7 +1753,7 @@ final class MolochBoss implements Listener {
             plugin.curses().curse(p, mins);
             p.sendMessage(Component.text("You failed him. Moloch's Curse is on you for " + mins + " minutes.", NamedTextColor.DARK_RED, TextDecoration.ITALIC));
         }
-        Bukkit.broadcast(Component.text("A blood moon rises over the world and his realm for " + bloodMoonHours + (bloodMoonHours == 1 ? " hour." : " hours.") + " Monsters come stronger, dressed in gold.", NamedTextColor.RED));
+        Bukkit.broadcast(Component.text("A blood moon rises over the world and his realm for " + bloodMoonHours + (bloodMoonHours == 1 ? " hour." : " hours.") + " Monsters come stronger, armed and armoured.", NamedTextColor.RED));
         if (c != null) playNear(c, "moloch:awaken", 1f, 0.8f);
     }
 
@@ -1792,7 +1792,7 @@ final class MolochBoss implements Listener {
         bloodMoonUntil = hours <= 0 ? 0 : System.currentTimeMillis() + (long) (hours * 3600_000L);
         store.set("blood-moon-until", bloodMoonUntil);
         store.save();
-        if (hours > 0) Bukkit.broadcast(Component.text("A blood moon rises. Monsters come stronger, dressed in gold.", NamedTextColor.RED));
+        if (hours > 0) Bukkit.broadcast(Component.text("A blood moon rises. Monsters come stronger, armed and armoured.", NamedTextColor.RED));
         else Bukkit.broadcast(Component.text("The blood moon sets.", NamedTextColor.GRAY));
     }
 
@@ -1804,19 +1804,45 @@ final class MolochBoss implements Listener {
         return bloodMoonWorlds.contains(w.getName());
     }
 
-    /** Under the blood moon every monster comes dressed in gold, trimmed in red. None of it drops. */
+    /**
+     * Under the blood moon monsters come armed and armoured from whatever they could scavenge: each piece of armour is
+     * leather, chainmail, copper, gold or iron (some go without), all trimmed in red, and the brawlers carry spears more
+     * often than not. None of it drops.
+     */
+    private static final String[] ARMOUR = {"leather", "chainmail", "copper", "golden", "iron"};
+    private static final String[] SPEARS = {"wooden_spear", "stone_spear", "copper_spear", "iron_spear", "golden_spear"};
+    private static final String[] BLADES = {"stone_sword", "iron_sword", "golden_sword", "stone_axe", "iron_axe", "golden_axe"};
+
+    private static Material mat(String id, Material fallback) {
+        Material m = Material.matchMaterial(id);
+        return m != null ? m : fallback;
+    }
+
     private static void gild(Monster m) {
         EntityEquipment eq = m.getEquipment();
         if (eq == null) return;
+        java.util.concurrent.ThreadLocalRandom r = java.util.concurrent.ThreadLocalRandom.current();
         org.bukkit.inventory.meta.trim.ArmorTrim trim = new org.bukkit.inventory.meta.trim.ArmorTrim(
                 org.bukkit.inventory.meta.trim.TrimMaterial.REDSTONE, org.bukkit.inventory.meta.trim.TrimPattern.RIB);
-        ItemStack[] set = {new ItemStack(Material.GOLDEN_HELMET), new ItemStack(Material.GOLDEN_CHESTPLATE),
-                new ItemStack(Material.GOLDEN_LEGGINGS), new ItemStack(Material.GOLDEN_BOOTS)};
-        for (ItemStack it : set) {
+        String[] slot = {"helmet", "chestplate", "leggings", "boots"};
+        Material[] fb = {Material.GOLDEN_HELMET, Material.GOLDEN_CHESTPLATE, Material.GOLDEN_LEGGINGS, Material.GOLDEN_BOOTS};
+        ItemStack[] set = new ItemStack[4];
+        for (int i = 0; i < 4; i++) {
+            if (r.nextDouble() < 0.2) continue;   // scavenged: not every piece
+            ItemStack it = new ItemStack(mat(ARMOUR[r.nextInt(ARMOUR.length)] + "_" + slot[i], fb[i]));
             if (it.getItemMeta() instanceof org.bukkit.inventory.meta.ArmorMeta am) { am.setTrim(trim); it.setItemMeta(am); }
+            set[i] = it;
         }
         eq.setHelmet(set[0]); eq.setChestplate(set[1]); eq.setLeggings(set[2]); eq.setBoots(set[3]);
         eq.setHelmetDropChance(0f); eq.setChestplateDropChance(0f); eq.setLeggingsDropChance(0f); eq.setBootsDropChance(0f);
+        // the brawlers (zombies and their kin, wither skeletons, piglins, vindicators) take up arms; archers keep their bows
+        boolean brawler = m instanceof org.bukkit.entity.Zombie || m instanceof org.bukkit.entity.WitherSkeleton
+                || m instanceof org.bukkit.entity.PiglinAbstract || m instanceof org.bukkit.entity.Vindicator;
+        if (brawler) {
+            String w = r.nextDouble() < 0.65 ? SPEARS[r.nextInt(SPEARS.length)] : BLADES[r.nextInt(BLADES.length)];
+            eq.setItemInMainHand(new ItemStack(mat(w, Material.GOLDEN_AXE)));
+            eq.setItemInMainHandDropChance(0f);
+        }
     }
 
     private void tickBloodMoon() {

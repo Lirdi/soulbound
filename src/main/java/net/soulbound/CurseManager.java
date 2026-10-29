@@ -133,6 +133,23 @@ final class CurseManager implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) { showBar(e.getPlayer()); }
 
+    /**
+     * While Moloch's Curse is on you, keepInventory doesn't save you: die and your things drop like anyone's would.
+     * (Runs before the sacrifice's own handler, so the sacrificed themselves still keep theirs.)
+     */
+    @EventHandler(priority = org.bukkit.event.EventPriority.NORMAL)
+    public void onDeath(org.bukkit.event.entity.PlayerDeathEvent e) {
+        Player p = e.getEntity();
+        if (!plugin.getConfig().getBoolean("curse.drops-items", true) || left.getOrDefault(p.getUniqueId(), 0) <= 0 || !e.getKeepInventory()) return;
+        e.setKeepInventory(false);
+        e.getDrops().clear();
+        for (org.bukkit.inventory.ItemStack it : p.getInventory().getContents()) {
+            if (it == null || it.getType().isAir() || it.containsEnchantment(org.bukkit.enchantments.Enchantment.VANISHING_CURSE)) continue;
+            e.getDrops().add(it.clone());
+        }
+        p.getInventory().clear();
+    }
+
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
         BossBar b = bars.remove(e.getPlayer().getUniqueId());

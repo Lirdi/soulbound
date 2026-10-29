@@ -120,6 +120,8 @@ curse:
   # Moloch's Curse on the sacrificed: Weakness, Mining Fatigue and Hunger for this many minutes of play.
   # Hunger's level (1 = Hunger I); 0 leaves it out.
   hunger-level: 1
+  # While cursed, keepInventory doesn't apply to you: die and you drop everything.
+  drops-items: true
   minutes: 45
   # Slowness too, for the first part of it.
   slowness-minutes: 10
@@ -288,7 +290,13 @@ boss:
   # Hold the main world at midnight for the whole blood moon (and nobody can sleep it away).
   blood-moon-always-night: true
   blood-moon-overworld: true
+  # Monsters under the blood moon wear scavenged armour (leather, chainmail, copper, gold, iron, red-trimmed) and the
+  # brawlers carry spears (or swords and axes).
   blood-moon-gold-armour: true
+  # Witches riding phantoms swoop over players out in the open (the Overworld). Chance every 20 seconds, per player.
+  blood-moon-witch-riders:
+    chance: 0.25
+    max-per-player: 2
   # Other worlds (by folder name) the blood moon covers too, e.g. [world_nether]
   blood-moon-worlds: []
   # Under the blood moon cows, pigs, sheep, chickens, goats, rabbits and horses hunt nearby players.
@@ -541,7 +549,7 @@ priest:
 # zombie villagers trade with you freely), you can't sleep, and you can never enter the End.
 # /moloch inhuman <player> [off] to set or clear it by hand.
 inhuman:
-  extra-health: 4
+  extra-health: 6
   animal-range: 10
   animal-damage: 2
   hooded-price-multiplier: 1.5
