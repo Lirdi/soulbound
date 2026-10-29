@@ -108,6 +108,7 @@ final class HungerMeter implements Listener {
         double before = value;
         value = Math.max(0, Math.min(100, v));
         if (value > before) popup(value - before);
+        if (value < 100 && awakenAt > 0 && !plugin.boss().active()) awakenAt = 0;   // setting it back down calls off his rising
         persist();
         if (value >= 100 && awakenAt == 0) book();
     }
