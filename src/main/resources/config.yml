@@ -408,6 +408,8 @@ god:
   music: true
   music-volume: 1.0
   music-radius: 220
+  # The main island: only players this close to the centre of the End hear God speak and see His titles.
+  main-island-radius: 200
   enabled: true
   # swim: he swims through the sky face-first, like an elytra glider (Minecraft can hide him for a moment at some angles,
   # because his body reaches far outside his hitbox). upright: he floats upright like an old man drifting along.
@@ -608,3 +610,9 @@ peacekeeper:
     heart-of-light-eggs: 1
     levitation-diamonds: 10
     gate-frames-tears: 1
+
+heaven:
+  # Outside the main island the sky is always clear midday, so God's night (and the dawn of each Day) is only seen there.
+  outer-islands-always-day: true
+  # The time they see (6000 = noon).
+  outer-islands-time: 6000

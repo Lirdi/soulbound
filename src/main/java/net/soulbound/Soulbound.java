@@ -218,6 +218,9 @@ public final class Soulbound extends JavaPlugin {
         }
         loreFixer = new LoreFixer(this);
         pm.registerEvents(loreFixer, this);
+        OuterDaylight outerDay = new OuterDaylight(this);
+        pm.registerEvents(outerDay, this);
+        outerDay.start();
         GlowPortal glowPortal = new GlowPortal(this);
         pm.registerEvents(glowPortal, this);
         glowPortal.start();

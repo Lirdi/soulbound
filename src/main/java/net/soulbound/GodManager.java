@@ -196,7 +196,7 @@ final class GodManager implements Listener {
             if (!(d instanceof EnderDragon dragon) || !present(dragon)) {   // the dragon is gone: God fades into light
                 if (g != null) {
                     Location at = g.getLocation().add(0, height() * 0.5, 0);
-                    for (Player p : g.getWorld().getPlayers()) {
+                    for (Player p : audience(g.getWorld())) {
                         p.playSound(p.getLocation(), "minecraft:entity.generic.explode", 1f, 0.5f);
                         p.playSound(p.getLocation(), "minecraft:entity.lightning_bolt.thunder", 1f, 0.6f);
                         p.playSound(p.getLocation(), "minecraft:ui.toast.challenge_complete", 1f, 1f);
@@ -520,7 +520,7 @@ final class GodManager implements Listener {
                 deathSaid = true;
                 Title fall = Title.title(Component.text("IT IS FINISHED", NamedTextColor.GOLD, TextDecoration.BOLD),
                         Component.text("God has been defeated", NamedTextColor.WHITE), Title.Times.times(Duration.ofMillis(300), Duration.ofMillis(3500), Duration.ofMillis(1200)));
-                for (Player p : w.getPlayers()) {
+                for (Player p : audience(w)) {
                     p.showTitle(fall);
                     p.playSound(p.getLocation(), "minecraft:entity.lightning_bolt.thunder", 1f, 0.5f);
                     p.playSound(p.getLocation(), "soulbound:god.voice", 1f, 0.9f);
@@ -711,7 +711,7 @@ final class GodManager implements Listener {
             long t = (18000 + k * 200L) % 24000;
             Bukkit.getScheduler().runTaskLater(plugin, () -> setEndTime(w, t), k);
         }
-        for (Player p : w.getPlayers()) p.playSound(p.getLocation(), "minecraft:block.beacon.activate", 1f, 0.5f);
+        for (Player p : audience(w)) p.playSound(p.getLocation(), "minecraft:block.beacon.activate", 1f, 0.5f);
     }
 
     private void startFight(Player starter, boolean rude) {
@@ -748,7 +748,7 @@ final class GodManager implements Listener {
         day = n;
         Title t = Title.title(Component.text(DAY_TITLES[n], NamedTextColor.GOLD, TextDecoration.BOLD),
                 Component.text(DAY_LINES[n], NamedTextColor.WHITE), Title.Times.times(Duration.ofMillis(400), Duration.ofMillis(2600), Duration.ofMillis(800)));
-        if (d != null) for (Player p : d.getWorld().getPlayers()) {
+        if (d != null) for (Player p : audience(d.getWorld())) {
             p.showTitle(t);
             p.playSound(p.getLocation(), "minecraft:block.bell.resonate", 1f, 0.6f + 0.05f * n);
         }
@@ -1236,8 +1236,15 @@ final class GodManager implements Listener {
         Component c = voice(line);
         for (World w : Bukkit.getWorlds()) {
             if (w.getEnvironment() != World.Environment.THE_END) continue;
-            for (Player p : w.getPlayers()) { p.sendMessage(c); p.playSound(p.getLocation(), "soulbound:god.speak", 0.6f, 1f); }
+            for (Player p : audience(w)) { p.sendMessage(c); p.playSound(p.getLocation(), "soulbound:god.speak", 0.6f, 1f); }
         }
+    }
+
+    /** Only those on (or over) the main island hear Him and see His titles; the rest of the Heavens stay quiet. */
+    private List<Player> audience(World w) {
+        List<Player> out = new ArrayList<>();
+        for (Player p : w.getPlayers()) if (OuterDaylight.onMainIsland(plugin, p)) out.add(p);
+        return out;
     }
 
     private void tell(Player p, String line) {
