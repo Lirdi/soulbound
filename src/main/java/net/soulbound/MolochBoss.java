@@ -1966,6 +1966,8 @@ final class MolochBoss implements Listener {
         }
         // nothing spawns on its own in or on the pyramid (its plaza and moat too): only Moloch, his summons, and what players spawn
         if (templeNoSpawns && NATURAL_REASONS.contains(e.getSpawnReason().name()) && zones.inTemple(e.getLocation())) { e.setCancelled(true); return; }
+        // in the realm, light keeps everything away: nothing spawns on its own where the light from blocks is 8 or more, or on a spawn-proof block
+        if (e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.NATURAL && zones.inRealm(e.getLocation()) && litOrProof(e.getLocation())) { e.setCancelled(true); return; }
         if (active && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SLIME_SPLIT && zones.inArena(e.getLocation())) tagMinion(e.getEntity());
         if (bloodMoon() && e.getEntity() instanceof Monster m && bloodMoonWorld(m.getWorld())) {
             m.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, PotionEffect.INFINITE_DURATION, 0, true, false));
@@ -1975,6 +1977,21 @@ final class MolochBoss implements Listener {
     }
 
     // ---------------------------------------------------------------- helpers
+
+    private org.bukkit.Tag<Material> spawnProof;
+    private boolean proofLooked;
+
+    /** Bright enough (block light 8+, by default) or standing on one of the realm's spawn-proof blocks. */
+    private boolean litOrProof(Location l) {
+        int limit = plugin.getConfig().getInt("moloch.realm-spawn-light", 8);
+        if (limit > 0 && l.getBlock().getLightFromBlocks() >= limit) return true;
+        if (!proofLooked) {
+            proofLooked = true;
+            try { spawnProof = Bukkit.getTag(org.bukkit.Tag.REGISTRY_BLOCKS, new NamespacedKey("sacrifice", "spawn_proof"), Material.class); }
+            catch (Exception ignored) { spawnProof = null; }
+        }
+        return spawnProof != null && spawnProof.isTagged(l.getBlock().getRelative(org.bukkit.block.BlockFace.DOWN).getType());
+    }
 
     private boolean isBoss(Entity e) { return e != null && e.getScoreboardTags().contains(TAG); }
 

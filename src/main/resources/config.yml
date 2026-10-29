@@ -80,6 +80,8 @@ moloch:
   summit-drums: true
   summit-radius: 10
   # No mobs spawn by themselves in or on the pyramid, its plaza or its moat (within temple-radius). Moloch's own summons still come.
+  # In the realm nothing spawns on its own where block light is this or brighter (torches, lanterns...). 0 = off.
+  realm-spawn-light: 8
   temple-no-natural-spawns: true
   # The battle arena under the pyramid: where Moloch rises (the top of the dais).
   arena:
