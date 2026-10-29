@@ -103,7 +103,11 @@ final class InhumanHearts implements Listener {
             Object conn = call(event, "getConnection");
             Object profile = call(conn, "getProfile");
             Object id = call(profile, "getId");
-            if (!(id instanceof UUID uuid) || !marked.contains(uuid)) return;
+            if (!(id instanceof UUID uuid)) return;
+            if (!marked.contains(uuid)) {
+                if (!savedInhuman(uuid)) return;
+                marked.add(uuid);   // inhuman before this list existed: picked up from their saved data
+            }
             Object channel = find(conn, "io.netty.channel.Channel");
             if (channel == null) { warn("no channel found on the connection"); return; }
             ClassLoader netty = channel.getClass().getClassLoader();
@@ -176,6 +180,22 @@ final class InhumanHearts implements Listener {
         Constructor<?> k = c.getDeclaredConstructor(types);
         k.setAccessible(true);
         return k.newInstance(vals);
+    }
+
+    /** Read the inhuman mark from a player's saved data, before they've fully joined. */
+    private boolean savedInhuman(UUID id) {
+        try {
+            Object pdc = org.bukkit.OfflinePlayer.class.getMethod("getPersistentDataContainer").invoke(Bukkit.getOfflinePlayer(id));
+            if (pdc == null) return false;
+            org.bukkit.NamespacedKey k = new org.bukkit.NamespacedKey(plugin, "inhuman");
+            for (Method m : pdc.getClass().getMethods()) {
+                if (m.getName().equals("has") && m.getParameterCount() == 1 && m.getParameterTypes()[0] == org.bukkit.NamespacedKey.class) {
+                    m.setAccessible(true);
+                    return Boolean.TRUE.equals(m.invoke(pdc, k));
+                }
+            }
+        } catch (Throwable ignored) { }
+        return false;
     }
 
     // ---------------------------------------------------------------- reflection helpers
