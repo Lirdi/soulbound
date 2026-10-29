@@ -68,6 +68,9 @@ logout:
 # ---------------------------------------------------------------- Moloch
 
 moloch:
+  # Lose to him (time runs out, or everyone in the hall falls) and every fighter gets Moloch's Curse for this many
+  # minutes (Weakness and Mining Fatigue, like the sacrificed). 0 = no penalty.
+  lose-curse-minutes: 15
   # Moloch's realm, as the data pack names it.
   world: "sacrifice:sacrifice"
   # How many monsters can be around in his realm at once (vanilla is 70). Lower = fewer mobs. -1 = leave it alone.

@@ -1735,6 +1735,11 @@ final class MolochBoss implements Listener {
 
     private void lose() {
         Location c = zones.arenaCentre();
+        // everyone who fought and failed him carries his curse away with them: whoever is still in the hall, and
+        // whoever struck him and fell
+        java.util.Set<UUID> failed = new java.util.HashSet<>(damage.keySet());
+        for (Player p : fighters()) failed.add(p.getUniqueId());
+        int mins = plugin.getConfig().getInt("moloch.lose-curse-minutes", 15);
         if (boss != null && boss.isValid()) fx(Particle.LAVA, boss.getLocation(), 60, 2, 0, null);
         cleanup();
         plugin.hunger().reset();
@@ -1742,6 +1747,12 @@ final class MolochBoss implements Listener {
         store.set("blood-moon-until", bloodMoonUntil);
         store.save();
         Bukkit.broadcast(Component.text("Moloch has fed, and sinks back into the dark.", NamedTextColor.DARK_RED, TextDecoration.BOLD));
+        if (mins > 0 && plugin.curses() != null) for (UUID id : failed) {
+            Player p = Bukkit.getPlayer(id);
+            if (p == null) continue;
+            plugin.curses().curse(p, mins);
+            p.sendMessage(Component.text("You failed him. Moloch's Curse is on you for " + mins + " minutes.", NamedTextColor.DARK_RED, TextDecoration.ITALIC));
+        }
         Bukkit.broadcast(Component.text("A blood moon rises over the world and his realm for " + bloodMoonHours + (bloodMoonHours == 1 ? " hour." : " hours.") + " Monsters come stronger, dressed in gold.", NamedTextColor.RED));
         if (c != null) playNear(c, "moloch:awaken", 1f, 0.8f);
     }
