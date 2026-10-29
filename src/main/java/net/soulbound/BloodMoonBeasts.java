@@ -115,6 +115,8 @@ final class BloodMoonBeasts implements Listener {
             if (w.getEnvironment() != World.Environment.NORMAL || !plugin.boss().bloodMoonWorld(w)) continue;
             if (p.isDead() || (p.getGameMode() != GameMode.SURVIVAL && p.getGameMode() != GameMode.ADVENTURE)) continue;
             if (w.getHighestBlockYAt(p.getLocation()) > p.getLocation().getBlockY() + 1) continue;   // under a roof: they can't see you
+            // like any monster, they keep away from light: anyone standing in torchlight is left alone
+            if (p.getLocation().getBlock().getLightFromBlocks() > plugin.getConfig().getInt("boss.blood-moon-witch-riders.max-light", 0)) continue;
             int near = 0;
             for (Entity e : p.getNearbyEntities(64, 64, 64)) if (e.getScoreboardTags().contains("blood_moon_rider")) near++;
             if (near >= max || r.nextDouble() >= chance) continue;

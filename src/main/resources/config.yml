@@ -297,6 +297,8 @@ boss:
   blood-moon-witch-riders:
     chance: 0.25
     max-per-player: 2
+    # They only come for players standing in this much block light or less (0 = only in the dark, like monsters).
+    max-light: 0
   # Other worlds (by folder name) the blood moon covers too, e.g. [world_nether]
   blood-moon-worlds: []
   # Under the blood moon cows, pigs, sheep, chickens, goats, rabbits and horses hunt nearby players.
