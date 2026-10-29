@@ -125,7 +125,7 @@ final class ArenaSeal implements Listener {
     private boolean core(Location l) {
         if (l == null || !zones.inRealm(l)) return false;
         double dx = Math.abs(l.getX() - zones.arenaX), dz = Math.abs(l.getZ() - zones.arenaZ);
-        return Math.max(dx, dz) <= zones.arenaRadius + 0.5 && l.getY() >= zones.arenaY - 3 && l.getY() <= 122;
+        return Math.max(dx, dz) <= zones.arenaRadius + 0.5 && l.getY() >= zones.arenaY - 3 && l.getY() <= 122 && zones.underRoof(l);
     }
 
     /** The first stretch of a doorway, just outside the seal. */

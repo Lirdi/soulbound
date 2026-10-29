@@ -55,11 +55,19 @@ final class Zones {
         return inRealm(l) && Math.max(Math.abs(l.getX()), Math.abs(l.getZ())) <= templeRadius;
     }
 
+    /** Under the pyramid rather than out on its slopes: something solid overhead (the middle of the hall always counts,
+     *  in case it's open up to the fire pit above). */
+    boolean underRoof(Location l) {
+        if (l.getWorld() == null) return false;
+        if (Math.max(Math.abs(l.getX() - arenaX), Math.abs(l.getZ() - arenaZ)) < 8) return true;
+        return l.getWorld().getHighestBlockYAt(l.getBlockX(), l.getBlockZ()) > l.getBlockY();
+    }
+
     /** Inside the battle hall under the pyramid. */
     boolean inArena(Location l) {
         if (!inRealm(l)) return false;
         double dx = Math.abs(l.getX() - arenaX), dz = Math.abs(l.getZ() - arenaZ), d = Math.max(dx, dz), g = Math.min(dx, dz);
-        if (d <= arenaRadius && l.getY() >= arenaY - 3 && l.getY() <= 122) return true;
+        if (d <= arenaRadius && l.getY() >= arenaY - 3 && l.getY() <= 122 && underRoof(l)) return true;
         // the first stretch of each doorway counts too, so nobody can hide in a doorway out of his reach
         return g >= 9.5 && g <= 14.5 && d <= arenaRadius + 12 && l.getY() >= arenaY - 3 && l.getY() <= arenaY + 6;
     }
