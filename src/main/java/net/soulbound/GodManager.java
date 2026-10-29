@@ -478,26 +478,25 @@ final class GodManager implements Listener {
     }
 
     /**
-     * Leave him alone for a while and he gets his breath back: after this long without being struck, he heals steadily
-     * back to full, and the Days roll back with his health (so a group can't chip him down over many tries).
+     * Leave him alone for a while and he gets his breath back: after this long without being struck, he heals steadily.
+     * Mid-fight he only heals back to the start of the Day he's on (the Days never go backwards, so no Day is announced
+     * twice); once everyone has gone and he's back on his throne, he heals all the way.
      */
     private void tickRecovery(EnderDragon d, Entity g) {
         if (d == null || !d.isValid() || dying(d)) return;
         double quiet = plugin.getConfig().getDouble("god.heal-after-seconds", 40);
         if (quiet <= 0 || System.currentTimeMillis() - lastHurtAt < quiet * 1000) return;
         var a = d.getAttribute(Attribute.MAX_HEALTH);
-        double max = a != null ? a.getValue() : 200;
+        double full = a != null ? a.getValue() : 200;
+        double max = peaceful || day <= 1 ? full : full * (1 - (day - 1) / 7.0) - 0.01;
         if (d.getHealth() >= max) return;
         double perSecond = plugin.getConfig().getDouble("god.heal-per-second", 0.05);   // share of his health
-        d.setHealth(Math.min(max, d.getHealth() + max * perSecond / 20.0));
+        d.setHealth(Math.min(max, d.getHealth() + full * perSecond / 20.0));
         if (!healingSaid) {
             healingSaid = true;
             say(pick("Ah. A little sit-down. Lovely.", "While you're dawdling, I'll just... mend.", "Thank you for the breather."));
         }
         if (g != null && tick % 10 == 0) fx(Particle.HEART, g.getLocation().add(0, height() * 0.7, 0), 3, scale * 0.4, 0.02);
-        // the Days roll back with his health, quietly
-        int now = Math.max(1, Math.min(7, 1 + (int) Math.floor((1 - healthShare(d)) * 7)));
-        if (!peaceful && day > now) day = now;
         if (healthShare(d) > 0.1) lowSaid = false;
     }
 

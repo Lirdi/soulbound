@@ -35,6 +35,8 @@ import java.util.UUID;
 public final class Archangels implements Listener {
     private final Soulbound plugin;
     private final Set<UUID> judged = new HashSet<>();
+    /** Where each Archangel ghast was sent, so it can be kept from drifting off across the sky. */
+    private final java.util.Map<UUID, Location> home = new java.util.HashMap<>();
 
     private final NamespacedKey ghastKey;
 
@@ -46,6 +48,33 @@ public final class Archangels implements Listener {
     void start() {
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::tickGhasts, 200L, 100L);
         plugin.getServer().getScheduler().runTaskTimer(plugin, this::lockOn, 40L, 20L);
+        plugin.getServer().getScheduler().runTaskTimer(plugin, this::tether, 45L, 10L);
+    }
+
+    /**
+     * Vanilla ghasts float off in random directions and never come back. Archangels are kept on a leash: one hunting a
+     * player is drawn back once it strays too far from them, and one with nobody to hunt drifts back to where it came in.
+     */
+    private void tether() {
+        double homeLeash = plugin.getConfig().getDouble("archangels.ghasts.leash", 16);
+        double huntLeash = plugin.getConfig().getDouble("archangels.ghasts.leash-hunting", 22);
+        home.keySet().removeIf(id -> { Entity e = plugin.getServer().getEntity(id); return e == null || !e.isValid(); });
+        for (World w : plugin.getServer().getWorlds()) {
+            if (w.getEnvironment() != World.Environment.THE_END) continue;
+            for (Ghast g : w.getEntitiesByClass(Ghast.class)) {
+                if (!isArchangel(g)) continue;
+                Location h = home.computeIfAbsent(g.getUniqueId(), k -> g.getLocation().clone());
+                org.bukkit.entity.LivingEntity t = g.getTarget();
+                Location goal; double leash;
+                if (t != null && t.isValid() && t.getWorld().equals(w)) { goal = t.getLocation().add(0, 10, 0); leash = huntLeash; }
+                else { goal = h; leash = homeLeash; }
+                org.bukkit.util.Vector to = goal.toVector().subtract(g.getLocation().toVector());
+                double dist = to.length();
+                if (dist <= leash || dist < 0.01) continue;
+                double speed = Math.min(0.6, 0.18 + (dist - leash) * 0.02);
+                g.setVelocity(to.multiply(speed / dist));
+            }
+        }
     }
 
     /**
@@ -117,6 +146,7 @@ public final class Archangels implements Listener {
             var mh = g.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
             if (mh != null) { mh.setBaseValue(hp); g.setHealth(hp); }
             g.getPersistentDataContainer().set(ghastKey, PersistentDataType.BYTE, (byte) 1);
+            home.put(g.getUniqueId(), at.clone());
         });
     }
 
