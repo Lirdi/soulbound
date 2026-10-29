@@ -32,7 +32,8 @@ final class InhumanHunger implements Listener {
 
     InhumanHunger(Soulbound plugin) { this.plugin = plugin; }
 
-    private boolean on() { return plugin.getConfig().getBoolean("inhuman.green-hunger", true); }
+    /** Switched off for now: anyone still carrying the hidden Hunger has it taken off (see start()). */
+    private boolean on() { return false; }
 
     private boolean inhuman(Player p) { return plugin.inhuman() != null && plugin.inhuman().is(p); }
 

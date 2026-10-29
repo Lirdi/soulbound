@@ -55,7 +55,8 @@ final class InhumanHearts implements Listener {
         }
     }
 
-    private boolean on() { return plugin.getConfig().getBoolean("inhuman.hearts.enabled", true); }
+    /** Switched off for now. */
+    private boolean on() { return false; }
 
     void start() {
         try {
