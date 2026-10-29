@@ -62,8 +62,18 @@ final class FesteringFlesh implements Listener {
         Player p = e.getPlayer();
         justAte.put(p.getUniqueId(), System.currentTimeMillis());
         // it fills anyone up, but only the inhuman can keep it down: everyone else is poisoned and left starving
-        if (plugin.inhuman() != null && plugin.inhuman().is(p)) return;
         var c = plugin.getConfig();
+        if (plugin.inhuman() != null && plugin.inhuman().is(p)) {   // to the inhuman it's a feast, as good as a golden apple
+            org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!p.isOnline()) return;
+                p.addPotionEffect(new org.bukkit.potion.PotionEffect(PotionEffectType.REGENERATION,
+                        20 * Math.max(1, c.getInt("festering-flesh.inhuman-regeneration-seconds", 5)), Math.max(0, c.getInt("festering-flesh.inhuman-regeneration-level", 2) - 1)));
+                p.addPotionEffect(new org.bukkit.potion.PotionEffect(PotionEffectType.RESISTANCE,
+                        20 * Math.max(1, c.getInt("festering-flesh.inhuman-resistance-seconds", 120)), Math.max(0, c.getInt("festering-flesh.inhuman-resistance-level", 1) - 1)));
+                p.sendActionBar(Component.text("Your body knits itself together.", NamedTextColor.DARK_RED));
+            });
+            return;
+        }
         org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
             if (!p.isOnline()) return;
             p.addPotionEffect(new org.bukkit.potion.PotionEffect(PotionEffectType.POISON,
