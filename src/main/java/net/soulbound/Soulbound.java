@@ -212,6 +212,10 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(new HeavenBeds(this), this);
         pm.registerEvents(new RealmStructures(this), this);
         pm.registerEvents(new RoadGuard(this), this);
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            try { new SoulboundPlaceholders(this).register(); getLogger().info("PlaceholderAPI found: %soulbound_...% placeholders registered."); }
+            catch (Throwable t) { getLogger().warning("Couldn't register placeholders: " + t); }
+        }
         loreFixer = new LoreFixer(this);
         pm.registerEvents(loreFixer, this);
         GlowPortal glowPortal = new GlowPortal(this);

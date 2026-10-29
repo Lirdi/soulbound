@@ -4,6 +4,7 @@ main: net.soulbound.Soulbound
 api-version: '26.3'
 description: Capture, sacrifice and Moloch himself.
 authors: [Lirdi]
+softdepend: [PlaceholderAPI]
 commands:
   soulbound:
     description: Soulbound admin controls (/sb help), and /sb release to let your captive go.
