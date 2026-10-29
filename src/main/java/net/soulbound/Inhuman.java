@@ -132,6 +132,7 @@ final class Inhuman implements Listener {
         if (inhuman) p.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
         else p.getPersistentDataContainer().remove(key);
         applyHearts(p);
+        if (plugin.inhumanHearts() != null) plugin.inhumanHearts().changed(p, inhuman);
     }
 
     private void applyHearts(Player p) {
@@ -143,7 +144,10 @@ final class Inhuman implements Listener {
     }
 
     @EventHandler
-    public void onJoin(PlayerJoinEvent e) { applyHearts(e.getPlayer()); }
+    public void onJoin(PlayerJoinEvent e) {
+        applyHearts(e.getPlayer());
+        if (plugin.inhumanHearts() != null) plugin.inhumanHearts().update(e.getPlayer(), is(e.getPlayer()));
+    }
 
     // ---------------------------------------------------------------- eating
 

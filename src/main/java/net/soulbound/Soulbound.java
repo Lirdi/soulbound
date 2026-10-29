@@ -43,6 +43,7 @@ public final class Soulbound extends JavaPlugin {
     private BloodPriest priest;
     private Archangels archangels;
     private Inhuman inhuman;
+    private InhumanHearts inhumanHearts;
     private Grace grace;
     private EdenMask eden;
     private Zephyrs zephyrs;
@@ -204,6 +205,8 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(new RealmStructures(this), this);
         pm.registerEvents(new RoadGuard(this), this);
         pm.registerEvents(new WorldEgg(this), this);
+        inhumanHearts = new InhumanHearts(this);
+        inhumanHearts.start();
         inhuman = new Inhuman(this, captures);
         pm.registerEvents(inhuman, this);
         inhuman.start();
@@ -288,6 +291,7 @@ public final class Soulbound extends JavaPlugin {
     GodManager god() { return god; }
     Archangels archangels() { return archangels; }
     Inhuman inhuman() { return inhuman; }
+    InhumanHearts inhumanHearts() { return inhumanHearts; }
     Grace grace() { return grace; }
     EdenMask eden() { return eden; }
     Zephyrs zephyrs() { return zephyrs; }

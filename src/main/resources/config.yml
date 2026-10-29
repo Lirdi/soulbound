@@ -535,6 +535,12 @@ inhuman:
   # Raw meat (and Beef Tartare) feeds the inhuman this much on top of its normal value.
   raw-meat-bonus-food: 3
   raw-meat-bonus-saturation: 4.0
+  # The inhuman see their own hearts bruised purple (the pack's hardcore hearts, sent only to them).
+  hearts:
+    enabled: true
+    # Reconnect a player straight away when they turn inhuman or are cured, so the hearts change at once.
+    # Needs accepts-transfers=true in server.properties. Off: the hearts change the next time they join.
+    reconnect: false
 
 # The Angel Engine (the Heart of Darkness, mended in gold). Eaten by the inhuman, it makes them human again; eaten by
 # anyone else it Graces them for good: undead take more damage from them, Heaven's Archangel ghasts leave them be (not
