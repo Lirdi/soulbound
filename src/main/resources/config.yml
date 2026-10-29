@@ -324,6 +324,9 @@ boss:
 # Once Moloch is summoned his hall is sealed: anyone can walk in, nobody walks (or pearls) out until the fight ends.
 # The first stretch of each doorway pulls players into the hall, and attacks from outside the seal do nothing.
 seal:
+  # Once Moloch rises, only those already in his hall may be in it (no walking in, /tpa, pearls or /home). Give
+  # latecomers this many seconds to get in first. Flying and elytra never work in the hall while he's awake.
+  join-grace-seconds: 0
   enabled: true
   # Players who die in the hall rise as ghosts (spectators held in the hall). They come back to life where they
   # float when the fight ends, or can give up with /moloch leave (a clickable button) and go back to their spawn.

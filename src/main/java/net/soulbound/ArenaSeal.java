@@ -71,6 +71,13 @@ final class ArenaSeal implements Listener {
     private final Map<UUID, Location> lastIn = new HashMap<>();
     private final Map<UUID, Long> nagged = new HashMap<>();
     private final Set<UUID> bypass = new HashSet<>();
+    /** Who was in the hall when it sealed (or got in during the short grace): only they may be in it. */
+    private final Set<UUID> members = new HashSet<>();
+    /** Players whose flight we took away in the hall, to give back when they leave it or the fight ends. */
+    private final Set<UUID> flightTaken = new HashSet<>();
+    /** Where outsiders last stood outside the hall, to put them back if they get in anyway. */
+    private final Map<UUID, Location> lastOut = new HashMap<>();
+    private int sealedTicks, graceSeconds;
     private boolean wasSealed;
     private int tick, fallenTicks;
 
@@ -98,6 +105,7 @@ final class ArenaSeal implements Listener {
         keepDrops = c.getBoolean("seal.keep-drops", true);
         fallenSeconds = Math.max(0, c.getInt("seal.all-fallen-seconds", 60));
         blockCommands = c.getBoolean("seal.block-commands", true);
+        graceSeconds = Math.max(0, c.getInt("seal.join-grace-seconds", 0));
         allowedCommands = c.getStringList("seal.allowed-commands").stream().map(x -> x.toLowerCase(Locale.ROOT).replaceFirst("^/", "").trim()).toList();
         if (!c.isList("seal.allowed-commands")) allowedCommands = List.of("moloch");
     }
@@ -112,6 +120,11 @@ final class ArenaSeal implements Listener {
     }
 
     private boolean sealed() { return enabled && plugin.boss().active(); }
+
+    /** Past the grace, the hall is closed to anyone who wasn't in it. */
+    private boolean closed() { return sealed() && sealedTicks >= graceSeconds * 20; }
+
+    private boolean member(Player p) { return members.contains(p.getUniqueId()) || isGhost(p); }
 
     boolean isGhost(Player p) { return ghosts.containsKey(p.getUniqueId()); }
 
@@ -177,6 +190,12 @@ final class ArenaSeal implements Listener {
         World w = zones.world();
         if (w == null) return;
         long fight = plugin.boss().fightId();
+        sealedTicks++;
+        for (UUID id : new HashSet<>(flightTaken)) {   // flight back for anyone who has left the hall
+            Player p = Bukkit.getPlayer(id);
+            if (p == null) { flightTaken.remove(id); continue; }
+            if (!zones.inArena(p.getLocation())) giveFlightBack(p);
+        }
 
         int livingInHall = 0, ghostsHere = 0;
         for (Player p : w.getPlayers()) {
@@ -186,8 +205,14 @@ final class ArenaSeal implements Listener {
             if (ghost && ghosts.get(id) != fight) { release(p, true); continue; }
             if (!ghost && !living(p)) { lastIn.remove(id); continue; }
             if (ghost) ghostsHere++;
-            else if (zones.inArena(l)) livingInHall++;
+            else if (zones.inArena(l) && member(p)) livingInHall++;
 
+            if (!ghost && zones.inArena(l)) grounded(p);
+            if (!ghost && !member(p)) {
+                if (core(l) && !closed()) members.add(id);   // still in the grace: they're in
+                else if (core(l)) { shutOut(p); continue; }
+                else { if (!zones.inArena(l)) lastOut.put(id, l.clone()); if (threshold(l)) { pushOut(p, l); continue; } }
+            }
             if (core(l)) { lastIn.put(id, l.clone()); }
             else {
                 Location prev = lastIn.get(id);
@@ -237,6 +262,46 @@ final class ArenaSeal implements Listener {
         }
     }
 
+    /** No flying and no gliding in his hall: elytra fold, and /fly is taken away until you leave it or he falls. */
+    private void grounded(Player p) {
+        if (p.getGameMode() != GameMode.SURVIVAL && p.getGameMode() != GameMode.ADVENTURE) return;
+        if (p.isGliding()) { p.setGliding(false); nag(p, "The seal drags you out of the air.", NamedTextColor.GOLD); }
+        if (p.getAllowFlight()) {
+            p.setFlying(false);
+            p.setAllowFlight(false);
+            flightTaken.add(p.getUniqueId());
+            nag(p, "The seal drags you out of the air. No flying in Moloch's hall.", NamedTextColor.GOLD);
+        }
+    }
+
+    private void giveFlightBack(Player p) {
+        if (flightTaken.remove(p.getUniqueId()) && p.isOnline()) p.setAllowFlight(true);
+    }
+
+    /** Someone who wasn't there when it sealed: back out they go. */
+    private void shutOut(Player p) {
+        Location out = lastOut.get(p.getUniqueId());
+        if (out == null || zones.inArena(out)) out = outside();
+        if (out != null) tp(p, out);
+        nag(p, "The hall is sealed. The fight began without you.", NamedTextColor.RED);
+    }
+
+    private void pushOut(Player p, Location l) {
+        Vector v = inward(l).multiply(-0.34);
+        Vector cur = p.getVelocity();
+        p.setVelocity(new Vector(v.getX() != 0 ? v.getX() : cur.getX() * 0.5, Math.min(cur.getY(), 0.1), v.getZ() != 0 ? v.getZ() : cur.getZ() * 0.5));
+        if (tick % 4 == 0) l.getWorld().spawnParticle(Particle.DUST, l.clone().add(0, 1, 0), 4, 0.4, 0.6, 0.4, 0, EMBER);
+        nag(p, "The hall is sealed. The fight began without you.", NamedTextColor.RED);
+    }
+
+    /** Somewhere safe outside the hall: just beyond the south doorway. */
+    private Location outside() {
+        Location c = zones.arenaCentre();
+        if (c == null) return null;
+        Location l = floorAt(c.clone().add(12, 4, zones.arenaRadius + 16));   // down the passage of a south doorway
+        return l != null ? l : c.clone().add(12, 1, zones.arenaRadius + 16);
+    }
+
     /** In a doorway, close enough to see the seal, but not yet at it. */
     private boolean approaching(Location l) {
         if (!zones.inRealm(l)) return false;
@@ -248,19 +313,28 @@ final class ArenaSeal implements Listener {
         World w = zones.world();
         if (w == null) return;
         Location c = zones.arenaCentre();
+        sealedTicks = 0;
+        members.clear();
         for (Player p : w.getPlayers()) {
             if (core(p.getLocation())) {
+                members.add(p.getUniqueId());
                 lastIn.put(p.getUniqueId(), p.getLocation().clone());
                 p.showTitle(Title.title(Component.text("THE HALL IS SEALED", NamedTextColor.GOLD, TextDecoration.BOLD),
                         Component.text("None leave until Moloch falls", NamedTextColor.RED),
                         Title.Times.times(Duration.ofMillis(300), Duration.ofSeconds(3), Duration.ofMillis(800))));
-            } else p.sendMessage(Component.text("Fire fills the doorways of Moloch's hall. Whoever enters now stays until he falls.", NamedTextColor.GOLD));
+            } else p.sendMessage(Component.text(graceSeconds > 0
+                    ? "Fire fills the doorways of Moloch's hall. " + graceSeconds + " seconds to get in; after that it's closed until he falls."
+                    : "Fire fills the doorways of Moloch's hall. It's closed until he falls.", NamedTextColor.GOLD));
             if (c != null && p.getLocation().distanceSquared(c) < 120 * 120) p.playSound(p.getLocation(), "minecraft:block.respawn_anchor.charge", 1f, 0.5f);
         }
     }
 
     private void onUnseal() {
         lastIn.clear();
+        members.clear();
+        lastOut.clear();
+        for (UUID id : new HashSet<>(flightTaken)) { Player p = Bukkit.getPlayer(id); if (p != null) giveFlightBack(p); }
+        flightTaken.clear();
         fallenTicks = 0;
         for (UUID id : new HashSet<>(ghosts.keySet())) { Player p = Bukkit.getPlayer(id); if (p != null) release(p, true); }
         unkeepDrops();
@@ -322,6 +396,12 @@ final class ArenaSeal implements Listener {
         Player p = e.getPlayer();
         if (!living(p) && !isGhost(p)) return;
         Location from = e.getFrom(), to = e.getTo();
+        if (!isGhost(p) && !member(p) && closed() && !core(from) && core(to)) {   // outsiders can't step in
+            Location stay = from.clone(); stay.setYaw(to.getYaw()); stay.setPitch(to.getPitch());
+            e.setTo(stay);
+            nag(p, "The hall is sealed. The fight began without you.", NamedTextColor.RED);
+            return;
+        }
         if (!core(from) || core(to)) return;
         Location back = from.clone();
         back.setYaw(to.getYaw());
@@ -338,6 +418,12 @@ final class ArenaSeal implements Listener {
         if (bypass.contains(p.getUniqueId())) return;
         boolean ghost = isGhost(p);
         if (!ghost && !living(p)) return;
+        if (!ghost && !member(p) && closed() && zones.inArena(e.getTo()) && !zones.inArena(e.getFrom())) {
+            if (e.getCause().name().equals("COMMAND") && p.hasPermission("soulbound.admin")) return;
+            e.setCancelled(true);
+            p.sendMessage(Component.text("Moloch's hall is sealed. Nobody gets in until he falls.", NamedTextColor.RED));
+            return;
+        }
         if (!core(e.getFrom()) || core(e.getTo())) return;
         String cause = e.getCause().name();
         if (!ghost) {
@@ -363,6 +449,14 @@ final class ArenaSeal implements Listener {
         e.setCancelled(true);
         p.sendMessage(Component.text("Moloch's seal smothers your words. No commands in the hall until the fight is over.", NamedTextColor.RED));
         if (ghost) tellLeave(p);
+    }
+
+    /** No elytra in the hall while he's awake. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onGlide(org.bukkit.event.entity.EntityToggleGlideEvent e) {
+        if (!e.isGliding() || !sealed() || !(e.getEntity() instanceof Player p) || !zones.inArena(p.getLocation())) return;
+        e.setCancelled(true);
+        nag(p, "The seal drags you out of the air.", NamedTextColor.GOLD);
     }
 
     /** Fighting from outside the seal doesn't work: step in or stay out. */
