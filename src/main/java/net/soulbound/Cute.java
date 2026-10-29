@@ -55,9 +55,7 @@ final class Cute implements Listener {
         BAROQUE("Baroque", "baroque", null, "A bauta and a tricorn, for the masquerade."),
         CROC("Crocodile Mask", "croc_mask", null, "It hasn't decided whether to swallow you."),
         PROPELLER("Propeller Cap", "propeller_cap_f0", null, "Sprint and the propeller spins."),
-        BP_HAT("Blood Priest's Hat", "blood_priest_hat", null, "Blood Priest outfit (1 of 3)."),
-        BP_CASSOCK("Blood Priest's Cassock", "blood_priest_robe", null, "Blood Priest outfit (2 of 3).", EquipmentSlot.CHEST, 3),
-        BP_ROBE("Blood Priest's Robe", "blood_priest_robe", null, "Blood Priest outfit (3 of 3).", EquipmentSlot.LEGS, 2),
+        BP_HAT("Blood Priest's Hat", "blood_priest_hat", null, "Wide-brimmed, with a band the colour of old blood."),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -69,7 +67,7 @@ final class Cute implements Listener {
             this.title = title; this.model = model; this.alt = alt; this.perk = perk; this.slot = slot; this.armor = armor;
         }
         boolean lab() { return this == LAB_COAT || this == LAB_PANTS || this == LAB_SHOES; }
-        boolean priest() { return this == BP_CASSOCK || this == BP_ROBE; }
+        boolean priest() { return false; }
     }
     private static final TextColor PINK = TextColor.color(0xF48FB1);
 
@@ -163,8 +161,6 @@ final class Cute implements Listener {
             case "crocodilemask", "crocodile", "croc", "crocmask" -> Kind.CROC;
             case "propellercap", "propeller", "beanie", "propellerhat" -> Kind.PROPELLER;
             case "priesthat", "bloodpriesthat" -> Kind.BP_HAT;
-            case "cassock", "bloodpriestcassock" -> Kind.BP_CASSOCK;
-            case "priestrobe", "bloodpriestrobe" -> Kind.BP_ROBE;
             case "labcoat", "coat" -> Kind.LAB_COAT;
             case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
             case "labshoes", "shoes" -> Kind.LAB_SHOES;

@@ -122,44 +122,6 @@ final class BloodPriest implements Listener {
         eq.setHelmetDropChance(0f);
     }
 
-    /**
-     * His cassock: a long robe with wide sleeves, a flared hem, a stole and sash, a 3D model too big for a skin. It's an
-     * item display standing where he stands, turned with him; it isn't saved, so it's simply made again when he loads.
-     */
-    private final Map<UUID, UUID> robes = new HashMap<>();
-
-    private void wearRobe(Mannequin m) {
-        UUID rid = robes.get(m.getUniqueId());
-        Entity r = rid == null ? null : Bukkit.getEntity(rid);
-        if (armoured(m)) {
-            if (r != null) r.remove();
-            robes.remove(m.getUniqueId());
-            return;
-        }
-        Location at = m.getLocation();
-        at.setPitch(0f);
-        if (r instanceof org.bukkit.entity.ItemDisplay d && d.isValid()) {
-            Location cur = d.getLocation();
-            if (cur.distanceSquared(at) > 0.0001 || Math.abs(wrap(cur.getYaw() - at.getYaw())) > 0.5f) d.teleport(at);
-            return;
-        }
-        org.bukkit.entity.ItemDisplay d = m.getWorld().spawn(at, org.bukkit.entity.ItemDisplay.class, disp -> {
-            org.bukkit.inventory.ItemStack it = new org.bukkit.inventory.ItemStack(org.bukkit.Material.PAPER);
-            var meta = it.getItemMeta();
-            meta.setItemModel(new NamespacedKey("soulbound", "blood_priest_robe"));
-            it.setItemMeta(meta);
-            disp.setItemStack(it);
-            disp.setItemDisplayTransform(org.bukkit.entity.ItemDisplay.ItemDisplayTransform.NONE);
-            float sc = 0.9375f;   // player pixels are 15/16 of a block's sixteenth
-            disp.setTransformation(new org.bukkit.util.Transformation(new org.joml.Vector3f(0f, 0.5f * sc, 0f), new org.joml.Quaternionf(),
-                    new org.joml.Vector3f(sc, sc, sc), new org.joml.Quaternionf()));
-            disp.setPersistent(false);
-            disp.setTeleportDuration(2);
-            disp.addScoreboardTag("blood_priest_robe");
-        });
-        robes.put(m.getUniqueId(), d.getUniqueId());
-    }
-
     boolean isPriest(Entity e) {
         return e instanceof Mannequin && e.getPersistentDataContainer().has(key, PersistentDataType.BYTE);
     }
@@ -220,11 +182,9 @@ final class BloodPriest implements Listener {
             if (!(e instanceof Mannequin m) || !m.isValid()) {
                 UUID gone = pid;
                 it.remove();
-                if (gone != null) { UUID rid = robes.remove(gone); Entity r = rid == null ? null : Bukkit.getEntity(rid); if (r != null) r.remove(); }
                 continue;
             }
             wearHat(m);
-            wearRobe(m);
             Location here = m.getLocation();
             Player best = null;
             double bd = lookRange * lookRange;
@@ -237,12 +197,11 @@ final class BloodPriest implements Listener {
             Vector dir = best.getEyeLocation().toVector().subtract(m.getEyeLocation().toVector());
             float yaw = (float) Math.toDegrees(Math.atan2(-dir.getX(), dir.getZ()));
             float pitch = (float) Math.toDegrees(-Math.atan2(dir.getY(), Math.hypot(dir.getX(), dir.getZ())));
-            // He stands square where he was put and only lowers or lifts his gaze to you: if he turned, every player's
-            // game would swing his body round its own way and his robe (a separate model) would no longer line up.
             float cy = here.getYaw(), cp = here.getPitch();
-            float np = cp + (pitch - cp) * 0.35f;
-            m.setRotation(cy, np);
-            m.setBodyYaw(cy);
+            float ny = cy + wrap(yaw - cy) * 0.35f, np = cp + (pitch - cp) * 0.35f;   // turn smoothly, not snap
+            m.setRotation(ny, np);
+            float body = m.getBodyYaw(), diff = wrap(ny - body);
+            if (Math.abs(diff) > 35) m.setBodyYaw(body + diff - Math.copySign(35f, diff));   // the body follows the head
         }
     }
 
@@ -287,8 +246,7 @@ final class BloodPriest implements Listener {
 
     /**
      * Dressing him (staff only): sneak + right-click with armour (or anything wearable) puts it on him, handing back what
-     * he wore there; sneak + right-click empty-handed takes everything off again. Armour on his body or legs hides his
-     * robe so it doesn't poke through; take it off and the robe comes back. Any helmet replaces his priest's hat.
+     * he wore there; sneak + right-click empty-handed takes everything off again. Any helmet replaces his priest's hat.
      */
     private void dress(Player p, Mannequin m) {
         var eq = m.getEquipment();
@@ -322,12 +280,6 @@ final class BloodPriest implements Listener {
     private static final NamespacedKey HAT = new NamespacedKey("soulbound", "blood_priest_hat");
     private static boolean isHat(org.bukkit.inventory.ItemStack it) { return it != null && it.hasItemMeta() && HAT.equals(it.getItemMeta().getItemModel()); }
 
-    /** Armour on his chest or legs: the robe would only get in the way. */
-    private static boolean armoured(Mannequin m) {
-        var eq = m.getEquipment();
-        org.bukkit.inventory.ItemStack c = eq.getChestplate(), l = eq.getLeggings();
-        return (c != null && !c.getType().isAir()) || (l != null && !l.getType().isAir());
-    }
 
     @EventHandler(ignoreCancelled = true)
     public void onHurt(EntityDamageEvent e) {
