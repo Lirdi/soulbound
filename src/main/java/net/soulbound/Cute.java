@@ -51,6 +51,7 @@ final class Cute implements Listener {
         WIZARD("Wizard's Hat", "wizard_hat", null, "Enchanting costs one level less."),
         TOPHAT("Top Hat", "top_hat", null, "Villagers give a gentleman their best prices."),
         PROSPECTOR("Prospector's Hat", "prospector_hat", null, "Ores sometimes give a little extra."),
+        TOMATO("Tomato Helmet", "tomato_helmet", null, "Get hit and you go splat."),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -121,6 +122,7 @@ final class Cute implements Listener {
         add(Kind.CHEF, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.BOWL);
         add(Kind.WIZARD, Material.BLUE_WOOL, Material.BLUE_WOOL, Material.BLUE_WOOL, Material.GLOWSTONE_DUST);
         add(Kind.TOPHAT, Material.BLACK_WOOL, Material.BLACK_WOOL, Material.BLACK_WOOL, Material.RED_DYE, Material.EMERALD);
+        add(Kind.TOMATO, Material.RED_WOOL, Material.RED_WOOL, Material.RED_WOOL, Material.BEETROOT, Material.GREEN_DYE);
         add(Kind.PROSPECTOR, Material.YELLOW_WOOL, Material.YELLOW_WOOL, Material.YELLOW_WOOL, Material.BLACK_DYE, Material.DIAMOND);
         add(Kind.LAB_COAT, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.WHITE_WOOL, Material.PAPER);
         add(Kind.LAB_PANTS, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.GRAY_WOOL, Material.LEATHER);
@@ -147,6 +149,7 @@ final class Cute implements Listener {
             case "wizardhat", "wizard" -> Kind.WIZARD;
             case "tophat", "top" -> Kind.TOPHAT;
             case "prospectorhat", "prospector", "minerhat", "miner" -> Kind.PROSPECTOR;
+            case "tomatohelmet", "tomato" -> Kind.TOMATO;
             case "labcoat", "coat" -> Kind.LAB_COAT;
             case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
             case "labshoes", "shoes" -> Kind.LAB_SHOES;
@@ -192,6 +195,17 @@ final class Cute implements Listener {
             NamespacedKey wk = new NamespacedKey("soulbound", want);
             if (!wk.equals(m.getItemModel())) { m.setItemModel(wk); h.setItemMeta(m); p.getInventory().setHelmet(h); }
         }
+    }
+
+    /** The Tomato Helmet: take a hit and tomato goes everywhere. */
+    @EventHandler(priority = org.bukkit.event.EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSplat(org.bukkit.event.entity.EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player p) || kindOf(p.getInventory().getHelmet()) != Kind.TOMATO) return;
+        org.bukkit.Location at = p.getEyeLocation().add(0, 0.3, 0);
+        p.getWorld().spawnParticle(Particle.ITEM, at, 18, 0.35, 0.3, 0.35, 0.12, new ItemStack(Material.BEETROOT));
+        p.getWorld().spawnParticle(Particle.DUST, at, 14, 0.4, 0.3, 0.4, 0, new Particle.DustOptions(org.bukkit.Color.fromRGB(0xD62E1E), 1.4f));
+        p.getWorld().playSound(at, Sound.BLOCK_SLIME_BLOCK_BREAK, 0.8f, 1.3f);
+        p.getWorld().playSound(at, Sound.ENTITY_SLIME_SQUISH, 0.6f, 1.5f);
     }
 
     @EventHandler
