@@ -411,6 +411,8 @@ god:
   # Build the Pearly Gates by the End's arrival platform and God's Throne around the exit portal (once per End world).
   # /moloch heaven rebuilds them.
   build-heaven: true
+  # The Battle Ring (a level marble arena out to the candles), the throne's plinth and the Peacekeeper's pavilion.
+  battle-ring: true
   # The Vestments of the Ancient: God's armour. The top fighter always gets a piece, everyone else who fought has this chance.
   vestments-drop-chance: 0.15
   # Wear all four: you shrink to this size (and get Haste I).

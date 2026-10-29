@@ -57,6 +57,8 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             store.set("heaven.throne", uid); store.save();
         }
         if (!uid.equals(store.data.getString("heaven.pillars"))) { pillars(w); store.set("heaven.pillars", uid); store.save(); }
+        // one-off: the Battle Ring, the throne's plinth and the Peacekeeper's pavilion
+        if (arenaOn() && !uid.equals(store.data.getString("heaven.arena")) && podium(w) != null) { throne(w); pillars(w); store.set("heaven.arena", uid); store.save(); }
         // one-off: the gold on Heaven's buildings becomes polished sulfur
         if (!uid.equals(store.data.getString("heaven.sulfur")) && portalY(w) >= 0) { rebuild(); store.set("heaven.sulfur", uid); store.save(); }
         // whenever the game puts obsidian back on a tower (a respawn, a reset), turn it to wax again
@@ -348,8 +350,16 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
                 set(w, x, y, z, Material.AIR.createBlockData());
         }
         rotunda(w);
-        // the throne, north of the portal, facing it
-        int g = ground(w, 0, -17);
+        // the throne, north of the portal, facing it (level with the Battle Ring when there is one)
+        int[] pod0 = podium(w);
+        int g = arenaOn() && pod0 != null ? pod0[1] - 1 : ground(w, 0, -17);
+        if (arenaOn()) for (int x = -9; x <= 9; x++) for (int z = -25; z <= -10; z++) {
+            if (Math.hypot(x, z) <= 18.5 && !throneZone(x, z)) continue;   // the rotunda floor is already there
+            for (int y = g + 1; y <= g + 16; y++) set(w, x, y, z, Material.AIR.createBlockData());
+            for (int y = g - 1; y >= g - 20 && !w.getBlockAt(x, y, z).getType().isSolid(); y--) set(w, x, y, z, Material.SMOOTH_QUARTZ.createBlockData());
+            boolean border = Math.abs(x) == 9 || z == -25;
+            set(w, x, g, z, (border ? GILT : Math.abs(x) == 8 || z == -24 ? Material.CHISELED_QUARTZ_BLOCK : Material.QUARTZ_BRICKS).createBlockData());
+        }
         store.set("heaven.seat", "0.5," + (g + 3.5) + ",-16.5");   // where God sits
         for (int x = -5; x <= 5; x++) for (int z = -21; z <= -14; z++) {
             for (int y = g + 1; y <= g + 16; y++) set(w, x, y, z, Material.AIR.createBlockData());
@@ -405,6 +415,7 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             Material m = (d > 7.5 && d <= 8.5) || d > 16.5 ? Material.CHISELED_QUARTZ_BLOCK : ray && d <= 16.5 ? GILT : Material.SMOOTH_QUARTZ;
             set(w, x, Y, z, m.createBlockData());
         }
+        if (arenaOn()) ring(w, Y);
         // the columns
         java.util.Set<Long> cols = new java.util.HashSet<>();
         for (int k = 0; k < 16; k++) {
@@ -438,7 +449,8 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
         // one of the Ten Candles stands right on the road (the first pillar, due east): the road rings round it
         int ccx = (int) Math.floor(42.0 * Math.cos(-2 * Math.PI)), ccz = (int) Math.floor(42.0 * Math.sin(-2 * Math.PI));
         int[] ys = new int[x1 - x0 + 2];
-        for (int x = x0; x <= x1 + 1; x++) ys[x - x0] = (int) Math.round(Y + (yEnd - Y) * (double) (x - x0) / (x1 + 1 - x0));
+        int flat = arenaOn() ? 37 : x0;   // across the Battle Ring the Way is level; it only starts to fall at the ring's edge
+        for (int x = x0; x <= x1 + 1; x++) ys[x - x0] = x <= flat ? Y : (int) Math.round(Y + (yEnd - Y) * (double) (x - flat) / (x1 + 1 - flat));
         for (int x = x0; x <= x1; x++) {
             int y = ys[x - x0], yn = ys[x - x0 + 1];
             for (int z = -2; z <= 2; z++) {
@@ -457,6 +469,93 @@ final class HeavenBuilder implements org.bukkit.event.Listener {
             }
         }
         ringRoad(w, ccx, ccz, ys, x0);
+        if (arenaOn()) pavilion(w, ys[85 - x0]);
+    }
+
+    // ---------------------------------------------------------------- the Battle Ring and the Peacekeeper's pavilion
+
+    private boolean arenaOn() { return plugin.getConfig().getBoolean("god.battle-ring", true); }
+
+    /** The ten candles' centres (the crystal pillars). */
+    private static int[][] candles() {
+        int[][] c = new int[10][];
+        for (int i = 0; i < 10; i++) {
+            double a = 2.0 * (-Math.PI + (Math.PI / 10.0) * i);
+            c[i] = new int[]{(int) Math.floor(42.0 * Math.cos(a)), (int) Math.floor(42.0 * Math.sin(a))};
+        }
+        return c;
+    }
+
+    /**
+     * The Battle Ring: a level marble floor from the rotunda out to 36 blocks, edged with a band of polished sulfur and
+     * crossed by eight sulfur rays, with low lamp posts round the rim between the candles. Where you fight God.
+     */
+    private void ring(World w, int Y) {
+        int[][] cs = candles();
+        for (int x = -37; x <= 37; x++) for (int z = -37; z <= 37; z++) {
+            double d = Math.hypot(x, z);
+            if (d <= 18.5 || d > 36.5 || throneZone(x, z) || plinthZone(x, z)) continue;
+            boolean nearCandle = false;
+            for (int[] c : cs) if (Math.hypot(x - c[0], z - c[1]) <= (c[0] > 30 && Math.abs(c[1]) < 3 ? 11.5 : 9.0)) { nearCandle = true; break; }
+            if (nearCandle) continue;
+            for (int y = Y + 1; y <= Y + 16; y++) set(w, x, y, z, Material.AIR.createBlockData());
+            for (int y = Y - 1; y >= Y - 20 && !w.getBlockAt(x, y, z).getType().isSolid(); y--) set(w, x, y, z, Material.SMOOTH_QUARTZ.createBlockData());
+            double ang = Math.atan2(z, x);
+            boolean ray = false;
+            for (int k = 0; k < 8 && !ray; k++) { double th = k * Math.PI / 4; ray = d * Math.abs(Math.sin(ang - th)) < 0.5 && Math.cos(ang - th) > 0; }
+            Material m = d > 34.5 ? GILT : d > 33.5 ? Material.CHISELED_QUARTZ_BLOCK : ray ? GILT : Material.SMOOTH_QUARTZ;
+            set(w, x, Y, z, m.createBlockData());
+        }
+        // lamp posts round the rim, halfway between the candles
+        for (int k = 0; k < 10; k++) {
+            double a = 2.0 * (-Math.PI + (Math.PI / 10.0) * k) + Math.PI / 10;
+            int x = (int) Math.round(38 * Math.cos(a)), z = (int) Math.round(38 * Math.sin(a));
+            if (throneZone(x, z) || plinthZone(x, z) || (x > 0 && Math.abs(z) <= 4)) continue;
+            boolean near = false;
+            for (int[] c : cs) if (Math.hypot(x - c[0], z - c[1]) <= 9.5) near = true;
+            if (near) continue;
+            for (int y = Y; y >= Y - 20 && !w.getBlockAt(x, y, z).getType().isSolid(); y--) set(w, x, y, z, Material.SMOOTH_QUARTZ.createBlockData());
+            set(w, x, Y + 1, z, Material.CHISELED_QUARTZ_BLOCK.createBlockData());
+            set(w, x, Y + 2, z, pillarY()); set(w, x, Y + 3, z, pillarY());
+            set(w, x, Y + 4, z, GILT.createBlockData());
+            set(w, x, Y + 5, z, Material.LANTERN.createBlockData());
+        }
+    }
+
+    /** The broad plinth God's throne stands on. */
+    private static boolean plinthZone(int x, int z) { return Math.abs(x) <= 9 && z >= -25 && z <= -10; }
+
+    /**
+     * The Peacekeeper's pavilion: a marble platform just inside the Pearly Gates, north of the Way, with four columns, a
+     * slab roof crowned in sulfur, and steps down to the road. The Peacekeeper keeps watch under its roof.
+     */
+    private void pavilion(World w, int ry) {
+        int cx = 85, cz = 9;
+        for (int x = cx - 3; x <= cx + 3; x++) for (int z = cz - 3; z <= cz + 3; z++) {
+            for (int y = ry + 1; y <= ry + 9; y++) set(w, x, y, z, Material.AIR.createBlockData());
+            for (int y = ry - 1; y >= ry - 20 && !w.getBlockAt(x, y, z).getType().isSolid(); y--) set(w, x, y, z, Material.SMOOTH_QUARTZ.createBlockData());
+            boolean edge = Math.abs(x - cx) == 3 || Math.abs(z - cz) == 3;
+            set(w, x, ry, z, (edge ? Material.QUARTZ_BRICKS : (x == cx || z == cz) ? GILT : Material.SMOOTH_QUARTZ).createBlockData());
+            BlockData roof = Material.SMOOTH_QUARTZ_SLAB.createBlockData();
+            set(w, x, ry + 6, z, roof);
+        }
+        for (int[] c : new int[][]{{-3, -3}, {3, -3}, {-3, 3}, {3, 3}}) {
+            set(w, cx + c[0], ry + 1, cz + c[1], Material.CHISELED_QUARTZ_BLOCK.createBlockData());
+            for (int y = ry + 2; y <= ry + 5; y++) set(w, cx + c[0], y, cz + c[1], pillarY());
+            set(w, cx + c[0], ry + 6, cz + c[1], GILT.createBlockData());
+        }
+        set(w, cx, ry + 7, cz, GILT.createBlockData());
+        set(w, cx, ry + 8, cz, Material.END_ROD.createBlockData());
+        BlockData hang = Material.LANTERN.createBlockData();
+        if (hang instanceof Lantern l) l.setHanging(true);
+        set(w, cx, ry + 5, cz, hang);
+        // steps down to the Way
+        for (int x = cx - 1; x <= cx + 1; x++) for (int z = 3; z <= cz - 4; z++) {
+            for (int y = ry + 1; y <= ry + 4; y++) set(w, x, y, z, Material.AIR.createBlockData());
+            for (int y = ry - 1; y >= ry - 20 && !w.getBlockAt(x, y, z).getType().isSolid(); y--) set(w, x, y, z, Material.SMOOTH_QUARTZ.createBlockData());
+            set(w, x, ry, z, Material.SMOOTH_QUARTZ.createBlockData());
+        }
+        if (plugin.peacekeeper() != null) plugin.peacekeeper().placeAt(new org.bukkit.Location(w, cx + 0.5, ry + 1.6, cz + 0.5, 180f, 0f));
     }
 
     /** The rest of rotunda(): the ring of road round the candle that stands on the Way. */

@@ -76,8 +76,17 @@ final class Peacekeeper implements Listener {
 
     // ---------------------------------------------------------------- placing
 
-    String spawn(Player at) {
-        Location l = at.getLocation().add(0, 0.6, 0);
+    String spawn(Player at) { spawnAt(at.getLocation().add(0, 0.6, 0)); return "The Peacekeeper keeps watch where you stood."; }
+
+    /** Put the Peacekeeper here: one already standing nearby (by the gates) moves in, otherwise a new one is placed. */
+    void placeAt(Location l) {
+        Vex near = null;
+        for (Vex v : l.getWorld().getEntitiesByClass(Vex.class)) if (is(v) && v.getLocation().distanceSquared(l) < 40 * 40) { near = v; break; }
+        if (near != null) { near.teleport(l); homes.put(near.getUniqueId(), l.clone()); keepers.add(near.getUniqueId()); return; }
+        spawnAt(l);
+    }
+
+    private void spawnAt(Location l) {
         double scale = plugin.getConfig().getDouble("peacekeeper.scale", 2.2);
         Vex v = l.getWorld().spawn(l, Vex.class, x -> {
             x.customName(Component.text("Peacekeeper", NamedTextColor.WHITE, TextDecoration.BOLD));
@@ -97,7 +106,6 @@ final class Peacekeeper implements Listener {
         });
         keepers.add(v.getUniqueId());
         homes.put(v.getUniqueId(), l);
-        return "The Peacekeeper keeps watch where you stood.";
     }
 
     String removeNear(Player p) {
