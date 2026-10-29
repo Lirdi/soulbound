@@ -104,6 +104,20 @@ final class BloodPriest implements Listener {
         Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L, 2L);
     }
 
+    /** His wide-brimmed priest's hat (a 3D model the pack draws), put on any priest not already wearing it. */
+    private void wearHat(Mannequin m) {
+        var eq = m.getEquipment();
+        org.bukkit.inventory.ItemStack h = eq.getHelmet();
+        NamespacedKey model = new NamespacedKey("soulbound", "blood_priest_hat");
+        if (h != null && h.hasItemMeta() && model.equals(h.getItemMeta().getItemModel())) return;
+        org.bukkit.inventory.ItemStack hat = new org.bukkit.inventory.ItemStack(org.bukkit.Material.PAPER);
+        var meta = hat.getItemMeta();
+        meta.setItemModel(model);
+        hat.setItemMeta(meta);
+        eq.setHelmet(hat);
+        eq.setHelmetDropChance(0f);
+    }
+
     boolean isPriest(Entity e) {
         return e instanceof Mannequin && e.getPersistentDataContainer().has(key, PersistentDataType.BYTE);
     }
@@ -161,6 +175,7 @@ final class BloodPriest implements Listener {
         while (it.hasNext()) {
             Entity e = Bukkit.getEntity(it.next());
             if (!(e instanceof Mannequin m) || !m.isValid()) { it.remove(); continue; }
+            wearHat(m);
             Location here = m.getLocation();
             Player best = null;
             double bd = lookRange * lookRange;
