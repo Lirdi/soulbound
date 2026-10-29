@@ -6,6 +6,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -95,7 +96,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         m.put("tear_of_god", new Item("Quantum", () -> one(p.quantum().material(QuantumGear.Mat.TEAR))));
         // cute things
         String[][] cute = {{"cat_ears", "CAT"}, {"bunny_ears", "BUNNY"}, {"flower_crown", "CROWN"}, {"bubble_gut", "GUT"}, {"big_brain", "BRAIN"},
-                {"chef_hat", "CHEF"}, {"wizard_hat", "WIZARD"}, {"top_hat", "TOPHAT"}, {"prospector_hat", "PROSPECTOR"}, {"tomato_helmet", "TOMATO"}, {"baroque", "BAROQUE"},
+                {"chef_hat", "CHEF"}, {"wizard_hat", "WIZARD"}, {"top_hat", "TOPHAT"}, {"prospector_hat", "PROSPECTOR"}, {"tomato_helmet", "TOMATO"}, {"baroque", "BAROQUE"}, {"crocodile_mask", "CROC"},
                 {"lab_coat", "LAB_COAT"}, {"lab_pants", "LAB_PANTS"}, {"lab_shoes", "LAB_SHOES"}};
         for (String[] c : cute) { Cute.Kind k = Cute.Kind.valueOf(c[1]); m.put(c[0], new Item("Wearables", () -> one(p.cute().create(k)))); }
         m.put("lab_outfit", new Item("Wearables", () -> List.of(p.cute().create(Cute.Kind.LAB_COAT), p.cute().create(Cute.Kind.LAB_PANTS), p.cute().create(Cute.Kind.LAB_SHOES))));
@@ -123,18 +124,29 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
 
     private static final class Menu implements InventoryHolder {
         Inventory inv;
+        int page;
+        boolean more;
         final List<String> ids = new ArrayList<>();
         @Override public Inventory getInventory() { return inv; }
     }
 
-    private void openMenu(Player p) {
+    private static final int PER_PAGE = 45;   // five rows of items; the bottom row turns the pages
+
+    private void openMenu(Player p) { openMenu(p, 0); }
+
+    private void openMenu(Player p, int page) {
+        List<Map.Entry<String, Item>> shown = new ArrayList<>();
+        for (Map.Entry<String, Item> e : items().entrySet()) if (e.getValue().inMenu()) shown.add(e);
+        int pages = Math.max(1, (shown.size() + PER_PAGE - 1) / PER_PAGE);
+        page = Math.max(0, Math.min(page, pages - 1));
         Menu menu = new Menu();
-        Inventory inv = Bukkit.createInventory(menu, 54, Component.text("Soulbound items", NamedTextColor.DARK_RED));
+        menu.page = page;
+        menu.more = page < pages - 1;
+        Inventory inv = Bukkit.createInventory(menu, 54, Component.text("Soulbound items" + (pages > 1 ? " (" + (page + 1) + "/" + pages + ")" : ""), NamedTextColor.DARK_RED));
         menu.inv = inv;
-        String cat = null;
-        for (Map.Entry<String, Item> e : items().entrySet()) {
-            if (menu.ids.size() >= 54) break;
-            if (!e.getValue().inMenu()) continue;
+        if (page > 0) inv.setItem(45, button(Material.ARROW, "Previous page"));
+        if (menu.more) inv.setItem(53, button(Material.ARROW, "Next page"));
+        for (Map.Entry<String, Item> e : shown.subList(page * PER_PAGE, Math.min(shown.size(), (page + 1) * PER_PAGE))) {
             List<ItemStack> made = e.getValue().make().get();
             if (made.isEmpty()) continue;
             ItemStack icon = made.get(0).clone();
@@ -162,9 +174,19 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         e.setCancelled(true);
         if (!(e.getWhoClicked() instanceof Player p) || e.getClickedInventory() != e.getInventory()) return;
         int slot = e.getSlot();
+        if (slot == 45 && menu.page > 0) { openMenu(p, menu.page - 1); return; }
+        if (slot == 53 && menu.more) { openMenu(p, menu.page + 1); return; }
         if (slot < 0 || slot >= menu.ids.size()) return;
         give(p, menu.ids.get(slot), e.isShiftClick() ? 4 : 1);
         p.playSound(p.getLocation(), "minecraft:entity.item.pickup", 0.6f, 1.2f);
+    }
+
+    private static ItemStack button(Material m, String name) {
+        ItemStack it = new ItemStack(m);
+        ItemMeta im = it.getItemMeta();
+        im.displayName(Component.text(name, NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
+        it.setItemMeta(im);
+        return it;
     }
 
     @EventHandler

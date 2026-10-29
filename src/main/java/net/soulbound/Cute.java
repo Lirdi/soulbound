@@ -53,6 +53,7 @@ final class Cute implements Listener {
         PROSPECTOR("Prospector's Hat", "prospector_hat", null, "Ores sometimes give a little extra."),
         TOMATO("Tomato Helmet", "tomato_helmet", null, "Get hit and you go splat."),
         BAROQUE("Baroque", "baroque", null, "A bauta and a tricorn, for the masquerade."),
+        CROC("Crocodile Mask", "croc_mask", null, "It hasn't decided whether to swallow you."),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -78,7 +79,7 @@ final class Cute implements Listener {
     ItemStack create(Kind k) {
         ItemStack it = new ItemStack(Material.ECHO_SHARD);
         ItemMeta m = it.getItemMeta();
-        m.displayName(Component.text(k.title, k == Kind.BAROQUE ? TextColor.color(0xD6AC48) : PINK, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        m.displayName(Component.text(k.title, k == Kind.BAROQUE ? TextColor.color(0xD6AC48) : k == Kind.CROC ? TextColor.color(0x7FA84A) : PINK, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         String where = switch (k.slot) { case CHEST -> "Worn on the chest"; case LEGS -> "Worn on the legs"; case FEET -> "Worn on the feet"; default -> "Worn on the head"; };
         m.lore(List.of(Component.text(where, NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
                 Component.text(k.perk, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
@@ -151,6 +152,7 @@ final class Cute implements Listener {
             case "prospectorhat", "prospector", "minerhat", "miner" -> Kind.PROSPECTOR;
             case "tomatohelmet", "tomato" -> Kind.TOMATO;
             case "baroque", "bauta", "tricorn", "masquerade" -> Kind.BAROQUE;
+            case "crocodilemask", "crocodile", "croc", "crocmask" -> Kind.CROC;
             case "labcoat", "coat" -> Kind.LAB_COAT;
             case "labpants", "trousers", "pants" -> Kind.LAB_PANTS;
             case "labshoes", "shoes" -> Kind.LAB_SHOES;
