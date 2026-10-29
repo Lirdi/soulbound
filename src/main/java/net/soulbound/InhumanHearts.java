@@ -61,6 +61,7 @@ final class InhumanHearts implements Listener {
         try {
             Class<? extends Event> ev = Class.forName("io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent").asSubclass(Event.class);
             Bukkit.getPluginManager().registerEvent(ev, this, EventPriority.MONITOR, (l, e) -> { if (ev.isInstance(e)) configure(e); }, plugin);
+            plugin.getLogger().info("[hearts] ready: " + marked.size() + " inhuman player(s) on the list.");
         } catch (ClassNotFoundException ex) {
             plugin.getLogger().warning("Inhuman hearts are off: this Paper build has no connection-configure event.");
         }
@@ -103,13 +104,13 @@ final class InhumanHearts implements Listener {
             Object conn = call(event, "getConnection");
             Object profile = call(conn, "getProfile");
             Object id = call(profile, "getId");
-            if (!(id instanceof UUID uuid)) return;
-            if (!marked.contains(uuid)) {
-                if (!savedInhuman(uuid)) return;
-                marked.add(uuid);   // inhuman before this list existed: picked up from their saved data
-            }
+            if (!(id instanceof UUID uuid)) { info("join: no player id (" + id + ")"); return; }
+            boolean listed = marked.contains(uuid), saved = listed || savedInhuman(uuid);
+            info("join " + uuid + ": on list " + listed + ", saved as inhuman " + saved);
+            if (!saved) return;
+            marked.add(uuid);   // inhuman before this list existed: picked up from their saved data
             Object channel = find(conn, "io.netty.channel.Channel");
-            if (channel == null) { warn("no channel found on the connection"); return; }
+            if (channel == null) { info("no network channel found on " + conn.getClass().getName()); return; }
             ClassLoader netty = channel.getClass().getClassLoader();
             Class<?> chI = Class.forName("io.netty.channel.Channel", false, netty);
             Class<?> pipeI = Class.forName("io.netty.channel.ChannelPipeline", false, netty);
@@ -117,18 +118,21 @@ final class InhumanHearts implements Listener {
             Class<?> outI = Class.forName("io.netty.channel.ChannelOutboundHandler", false, netty);
             Class<?> ctxI = Class.forName("io.netty.channel.ChannelHandlerContext", false, netty);
             Object pipeline = chI.getMethod("pipeline").invoke(channel);
-            if (pipeI.getMethod("get", String.class).invoke(pipeline, HANDLER) != null) return;
+            if (pipeI.getMethod("get", String.class).invoke(pipeline, HANDLER) != null) { info("already hooked"); return; }
             Object handler = Proxy.newProxyInstance(netty, new Class<?>[]{outI}, handler(uuid, ctxI));
             List<?> names = (List<?>) pipeI.getMethod("names").invoke(pipeline);
             if (names.contains("packet_handler")) pipeI.getMethod("addBefore", String.class, String.class, handlerI).invoke(pipeline, "packet_handler", HANDLER, handler);
             else pipeI.getMethod("addLast", String.class, handlerI).invoke(pipeline, HANDLER, handler);
+            info("hooked " + channel.getClass().getSimpleName() + ", pipeline now " + pipeI.getMethod("names").invoke(pipeline));
         } catch (Throwable t) {
-            warn(t.getClass().getSimpleName() + ": " + t.getMessage());
+            Throwable c = t instanceof java.lang.reflect.InvocationTargetException ite && ite.getCause() != null ? ite.getCause() : t;
+            info("failed: " + c);
         }
     }
 
     /** A netty outbound handler that passes everything through, flipping the hardcore flag on the join packet. */
     private InvocationHandler handler(UUID uuid, Class<?> ctxI) {
+        java.util.concurrent.atomic.AtomicInteger seen = new java.util.concurrent.atomic.AtomicInteger();
         return (proxy, m, args) -> {
             String n = m.getName();
             switch (n) {
@@ -141,8 +145,10 @@ final class InhumanHearts implements Listener {
             Object ctx = args[0];
             if (n.equals("write")) {
                 Object msg = args[1];
+                if (seen.getAndIncrement() < 6) info("passing " + (msg == null ? "null" : msg.getClass().getSimpleName()));
                 if (msg != null && msg.getClass().getSimpleName().equals("ClientboundLoginPacket") && marked.contains(uuid)) {
-                    try { msg = hardcore(msg); } catch (Throwable t) { warn("couldn't change the join packet: " + t.getMessage()); }
+                    try { msg = hardcore(msg); info("join packet for " + uuid + " sent as hardcore"); }
+                    catch (Throwable t) { info("couldn't change the join packet: " + t); }
                     args = args.clone();
                     args[1] = msg;
                 }
@@ -246,6 +252,8 @@ final class InhumanHearts implements Listener {
         }
         return null;
     }
+
+    private void info(String s) { plugin.getLogger().info("[hearts] " + s); }
 
     private void warn(String why) {
         if (warned) return;
