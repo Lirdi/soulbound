@@ -112,8 +112,8 @@ final class BloodPriest implements Listener {
     private void wearHat(Mannequin m) {
         var eq = m.getEquipment();
         org.bukkit.inventory.ItemStack h = eq.getHelmet();
-        NamespacedKey model = new NamespacedKey("soulbound", "blood_priest_hat");
-        if (h != null && h.hasItemMeta() && model.equals(h.getItemMeta().getItemModel())) return;
+        NamespacedKey model = HAT;
+        if (h != null && !h.getType().isAir()) return;   // his hat, or a helmet someone dressed him in
         org.bukkit.inventory.ItemStack hat = new org.bukkit.inventory.ItemStack(org.bukkit.Material.PAPER);
         var meta = hat.getItemMeta();
         meta.setItemModel(model);
@@ -131,6 +131,11 @@ final class BloodPriest implements Listener {
     private void wearRobe(Mannequin m) {
         UUID rid = robes.get(m.getUniqueId());
         Entity r = rid == null ? null : Bukkit.getEntity(rid);
+        if (armoured(m)) {
+            if (r != null) r.remove();
+            robes.remove(m.getUniqueId());
+            return;
+        }
         Location at = m.getLocation();
         at.setPitch(0f);
         if (r instanceof org.bukkit.entity.ItemDisplay d && d.isValid()) {
@@ -274,7 +279,53 @@ final class BloodPriest implements Listener {
         if (!isPriest(e.getRightClicked())) return;
         e.setCancelled(true);
         if (e.getHand() != EquipmentSlot.HAND) return;
-        open(e.getPlayer());
+        Player p = e.getPlayer();
+        if (p.isSneaking() && p.hasPermission("soulbound.admin") && e.getRightClicked() instanceof Mannequin m) { dress(p, m); return; }
+        open(p);
+    }
+
+    /**
+     * Dressing him (staff only): sneak + right-click with armour (or anything wearable) puts it on him, handing back what
+     * he wore there; sneak + right-click empty-handed takes everything off again. Armour on his body or legs hides his
+     * robe so it doesn't poke through; take it off and the robe comes back. Any helmet replaces his priest's hat.
+     */
+    private void dress(Player p, Mannequin m) {
+        var eq = m.getEquipment();
+        org.bukkit.inventory.ItemStack hand = p.getInventory().getItemInMainHand();
+        if (hand.getType().isAir()) {
+            boolean any = false;
+            for (EquipmentSlot s : new EquipmentSlot[]{EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET, EquipmentSlot.HAND, EquipmentSlot.OFF_HAND}) {
+                org.bukkit.inventory.ItemStack worn = eq.getItem(s);
+                if (worn == null || worn.getType().isAir() || isHat(worn)) continue;
+                for (org.bukkit.inventory.ItemStack left : p.getInventory().addItem(worn).values()) p.getWorld().dropItem(p.getLocation(), left);
+                eq.setItem(s, null);
+                any = true;
+            }
+            p.sendActionBar(Component.text(any ? "You undress the Blood Priest." : "He wears nothing of yours.", NamedTextColor.GRAY));
+            return;
+        }
+        EquipmentSlot slot = hand.getType().getEquipmentSlot();
+        if (hand.hasItemMeta() && hand.getItemMeta().hasEquippable()) slot = hand.getItemMeta().getEquippable().getSlot();
+        if (slot == EquipmentSlot.BODY || slot == EquipmentSlot.SADDLE) slot = EquipmentSlot.HAND;
+        org.bukkit.inventory.ItemStack one = hand.clone(); one.setAmount(1);
+        org.bukkit.inventory.ItemStack old = eq.getItem(slot);
+        eq.setItem(slot, one);
+        eq.setDropChance(slot, 0f);
+        hand.setAmount(hand.getAmount() - 1);
+        if (old != null && !old.getType().isAir() && !isHat(old))
+            for (org.bukkit.inventory.ItemStack left : p.getInventory().addItem(old).values()) p.getWorld().dropItem(p.getLocation(), left);
+        m.getWorld().playSound(m.getLocation(), "minecraft:item.armor.equip_generic", 1f, 1f);
+        p.sendActionBar(Component.text("The Blood Priest wears it. Sneak and right-click empty-handed to take it back.", NamedTextColor.GRAY));
+    }
+
+    private static final NamespacedKey HAT = new NamespacedKey("soulbound", "blood_priest_hat");
+    private static boolean isHat(org.bukkit.inventory.ItemStack it) { return it != null && it.hasItemMeta() && HAT.equals(it.getItemMeta().getItemModel()); }
+
+    /** Armour on his chest or legs: the robe would only get in the way. */
+    private static boolean armoured(Mannequin m) {
+        var eq = m.getEquipment();
+        org.bukkit.inventory.ItemStack c = eq.getChestplate(), l = eq.getLeggings();
+        return (c != null && !c.getType().isAir()) || (l != null && !l.getType().isAir());
     }
 
     @EventHandler(ignoreCancelled = true)
