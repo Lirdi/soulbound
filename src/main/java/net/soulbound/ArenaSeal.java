@@ -73,6 +73,8 @@ final class ArenaSeal implements Listener {
     private final Set<UUID> bypass = new HashSet<>();
     /** Who was in the hall when it sealed (or got in during the short grace): only they may be in it. */
     private final Set<UUID> members = new HashSet<>();
+    /** Ghosts who gave up and left: they're out of this fight for good (no /back, /tpa or walking back in). */
+    private final Set<UUID> forfeited = new HashSet<>();
     /** Players whose flight we took away in the hall, to give back when they leave it or the fight ends. */
     private final Set<UUID> flightTaken = new HashSet<>();
     /** Where outsiders last stood outside the hall, to put them back if they get in anyway. */
@@ -124,7 +126,7 @@ final class ArenaSeal implements Listener {
     /** Past the grace, the hall is closed to anyone who wasn't in it. */
     private boolean closed() { return sealed() && sealedTicks >= graceSeconds * 20; }
 
-    private boolean member(Player p) { return members.contains(p.getUniqueId()) || isGhost(p); }
+    private boolean member(Player p) { return isGhost(p) || (members.contains(p.getUniqueId()) && !forfeited.contains(p.getUniqueId())); }
 
     boolean isGhost(Player p) { return ghosts.containsKey(p.getUniqueId()); }
 
@@ -209,7 +211,7 @@ final class ArenaSeal implements Listener {
 
             if (!ghost && zones.inArena(l)) grounded(p);
             if (!ghost && !member(p)) {
-                if (core(l) && !closed()) members.add(id);   // still in the grace: they're in
+                if (core(l) && !closed() && !forfeited.contains(id)) members.add(id);   // still in the grace: they're in
                 else if (core(l)) { shutOut(p); continue; }
                 else { if (!zones.inArena(l)) lastOut.put(id, l.clone()); if (threshold(l)) { pushOut(p, l); continue; } }
             }
@@ -315,6 +317,7 @@ final class ArenaSeal implements Listener {
         Location c = zones.arenaCentre();
         sealedTicks = 0;
         members.clear();
+        forfeited.clear();
         for (Player p : w.getPlayers()) {
             if (core(p.getLocation())) {
                 members.add(p.getUniqueId());
@@ -332,6 +335,7 @@ final class ArenaSeal implements Listener {
     private void onUnseal() {
         lastIn.clear();
         members.clear();
+        forfeited.clear();
         lastOut.clear();
         for (UUID id : new HashSet<>(flightTaken)) { Player p = Bukkit.getPlayer(id); if (p != null) giveFlightBack(p); }
         flightTaken.clear();
@@ -525,6 +529,8 @@ final class ArenaSeal implements Listener {
         GameMode mode = ghostMode.getOrDefault(id, GameMode.SURVIVAL);
         forget(id);
         lastIn.remove(id);
+        members.remove(id);
+        forfeited.add(id);   // gave up: no coming back into this fight
         Location to = p.getRespawnLocation();
         if (to == null || zones.inTemple(to)) to = Bukkit.getWorlds().get(0).getSpawnLocation().add(0.5, 0, 0.5);
         tp(p, to);
