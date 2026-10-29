@@ -378,6 +378,8 @@ archangels:
     health: 40
     # Damage they take from their own fireball knocked back at them (10 = 5 hearts, so four hits). -1 = vanilla instant kill.
     returned-fireball-damage: 10
+    # Chance a ghast killed by a player in the End drops a Dried Angel (a dried ghast; soak it to raise a Happy Angel).
+    dried-angel-chance: 0.15
 # God's main island in the End is preserved: nobody without soulbound.island.build (ops have it) can break or place
 # blocks there, and explosions, endermen, fire, pistons and outside liquids can't change it either.
 island:

@@ -157,6 +157,14 @@ public final class Archangels implements Listener {
         return best;
     }
 
+    /** Ghasts killed in the End (the Archangels above all) sometimes leave a Dried Angel: a dried ghast, renamed by the pack. */
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onGhastDeath(org.bukkit.event.entity.EntityDeathEvent e) {
+        if (!(e.getEntity() instanceof Ghast g) || g.getWorld().getEnvironment() != World.Environment.THE_END || g.getKiller() == null) return;
+        double chance = plugin.getConfig().getDouble("archangels.ghasts.dried-angel-chance", 0.15);
+        if (ThreadLocalRandom.current().nextDouble() < chance) e.getDrops().add(new org.bukkit.inventory.ItemStack(org.bukkit.Material.DRIED_GHAST));
+    }
+
     /** A fireball knocked back into an Archangel doesn't kill it outright (vanilla does 1000 damage); it takes a set amount. */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onReturnedFire(EntityDamageByEntityEvent e) {
