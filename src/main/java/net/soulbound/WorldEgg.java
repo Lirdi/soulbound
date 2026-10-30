@@ -61,7 +61,7 @@ final class WorldEgg implements Listener {
         p.getWorld().playSound(b.getLocation(), "minecraft:ui.toast.challenge_complete", 1f, 1.1f);
         p.getWorld().playSound(b.getLocation(), "minecraft:block.beacon.power_select", 1.5f, 1.4f);
         Bukkit.broadcast(Component.text(p.getName(), NamedTextColor.GOLD).append(Component.text(" claimed the World Egg.", NamedTextColor.YELLOW, TextDecoration.BOLD)));
-        NamespacedKey k = NamespacedKey.minecraft("end/atlas");
+        NamespacedKey k = NamespacedKey.minecraft("end/dragon_egg");   // "Atlas", from the God advancements pack
         org.bukkit.advancement.Advancement a = Bukkit.getAdvancement(k);
         if (a != null) { var pr = p.getAdvancementProgress(a); for (String c : pr.getRemainingCriteria()) pr.awardCriteria(c); }
     }
