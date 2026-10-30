@@ -522,6 +522,9 @@ priest:
     # the Spiked Cultist Axe: gold blocks plus wither skeleton skulls (0 for none)
     axe-gold-blocks: 16
     axe-wither-skulls: 1
+    # Tumour Seeds: this many gold ingots for a handful of seeds
+    tumour-seeds-gold: 3
+    tumour-seeds-count: 4
   # only offer the axe to players whose soul is Inhuman
   axe-inhuman-only: false
   # What he whispers when you buy each thing (one picked at random).

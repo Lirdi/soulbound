@@ -50,9 +50,9 @@ final class BloodPriest implements Listener {
     private final LeashItem leash;
     private final NamespacedKey key;
     private final Set<UUID> priests = new HashSet<>();
-    private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice, hatPrice, axeGoldBlocks, axeSkulls;
+    private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice, hatPrice, axeGoldBlocks, axeSkulls, seedPrice, seedCount;
     private boolean axeInhumanOnly;
-    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines, festeringLines, hatLines, axeLines;
+    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines, festeringLines, hatLines, axeLines, seedLines;
     private final NamespacedKey boughtKey;
     private final java.util.Map<UUID, Long> lastSaid = new java.util.HashMap<>();
     private double lookRange;
@@ -79,6 +79,9 @@ final class BloodPriest implements Listener {
         axeGoldBlocks = Math.max(1, Math.min(64, c.getInt("priest.price.axe-gold-blocks", 16)));
         axeSkulls = Math.max(0, Math.min(64, c.getInt("priest.price.axe-wither-skulls", 1)));
         axeInhumanOnly = c.getBoolean("priest.axe-inhuman-only", false);
+        seedPrice = Math.max(1, Math.min(64, c.getInt("priest.price.tumour-seeds-gold", 3)));
+        seedCount = Math.max(1, Math.min(64, c.getInt("priest.price.tumour-seeds-count", 4)));
+        seedLines = lines(c, "tumour-seeds", "Soul soil. Rotten flesh. Patience.", "Don't eat them raw. Or do.", "They grow faster under a red moon.");
         axeLines = lines(c, "axe",
                 "Villagers first. Take the head, climb to the fire, give him one. Just one. He eats once a day.",
                 "Their heads, into his fire. One each sunrise. He pays in emeralds the colour of what you spilled.",
@@ -304,6 +307,7 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
         if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
+        if (plugin.tumourCrop() != null) list.add(recipe(plugin.tumourCrop().seed(seedCount), seedPrice));
         // the Spiked Cultist Axe: gold and a wither skeleton's skull (bring him a head, get the thing that takes them)
         if (plugin.cultistAxe() != null && (!axeInhumanOnly || (plugin.inhuman() != null && plugin.inhuman().is(p)))) {
             MerchantRecipe axe = new MerchantRecipe(plugin.cultistAxe().item(), 0, Integer.MAX_VALUE, false);
@@ -353,6 +357,7 @@ final class BloodPriest implements Listener {
         else if (plugin.festering() != null && plugin.festering().is(out)) { pool = festeringLines; what = "festering"; }
         else if (plugin.cute() != null && plugin.cute().kindOf(out) == Cute.Kind.BP_HAT) { pool = hatLines; what = "hat"; }
         else if (plugin.cultistAxe() != null && plugin.cultistAxe().is(out)) { pool = axeLines; what = "axe"; }
+        else if (plugin.tumourCrop() != null && plugin.tumourCrop().isSeed(out)) { pool = seedLines; what = "tumour-seeds"; }
         else if (plugin.inhuman() != null && plugin.inhuman().isHeart(out)) { pool = heartLines; what = "heart"; lastSaid.remove(e.getPlayer().getUniqueId()); }
         else return;
         Player p = e.getPlayer();
