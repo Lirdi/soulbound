@@ -94,6 +94,8 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         m.put("quantum_core", new Item("Quantum", () -> one(p.quantum().material(QuantumGear.Mat.CORE))));
         m.put("ember_of_moloch", new Item("Quantum", () -> one(p.quantum().material(QuantumGear.Mat.EMBER))));
         m.put("tear_of_god", new Item("Quantum", () -> one(p.quantum().material(QuantumGear.Mat.TEAR))));
+        // the Egg of Potential's weapons
+        m.put("blade_of_potential", new Item("Potential", () -> one(p.potentialBlade().item())));
         // cute things
         String[][] cute = {{"cat_ears", "CAT"}, {"bunny_ears", "BUNNY"}, {"flower_crown", "CROWN"}, {"bubble_gut", "GUT"}, {"big_brain", "BRAIN"},
                 {"chef_hat", "CHEF"}, {"wizard_hat", "WIZARD"}, {"top_hat", "TOPHAT"}, {"prospector_hat", "PROSPECTOR"}, {"tomato_helmet", "TOMATO"}, {"baroque", "BAROQUE"}, {"crocodile_mask", "CROC"}, {"propeller_cap", "PROPELLER"}, {"blood_priest_hat", "BP_HAT"},
