@@ -231,7 +231,7 @@ final class Cute implements Listener {
     }
 
     /** Tomatoes spread: a player wearing the Tomato Helmet who hits another player turns them into a Tomato too. They get
-     *  their own helmet and the "Tomato Monster" advancement (baffoon:tomato_monster). Once per player, ever, so two
+     *  their own helmet, put straight on their head, and the "Tomato Monster" advancement (baffoon:tomato_monster). Once per player, ever, so two
      *  Tomatoes can't farm helmets off each other. */
     @EventHandler(priority = org.bukkit.event.EventPriority.MONITOR, ignoreCancelled = true)
     public void onTomatoHit(org.bukkit.event.entity.EntityDamageByEntityEvent e) {
@@ -239,7 +239,11 @@ final class Cute implements Listener {
         if (kindOf(a.getInventory().getHelmet()) != Kind.TOMATO) return;
         if (v.getPersistentDataContainer().has(tomatoKey, PersistentDataType.BYTE)) return;
         v.getPersistentDataContainer().set(tomatoKey, PersistentDataType.BYTE, (byte) 1);
-        for (ItemStack left : v.getInventory().addItem(create(Kind.TOMATO)).values()) v.getWorld().dropItemNaturally(v.getLocation(), left);
+        // straight onto their head; whatever they were wearing goes back into their inventory (or at their feet if it's full)
+        ItemStack was = v.getInventory().getHelmet();
+        v.getInventory().setHelmet(create(Kind.TOMATO));
+        if (was != null && !was.getType().isAir())
+            for (ItemStack left : v.getInventory().addItem(was).values()) v.getWorld().dropItemNaturally(v.getLocation(), left);
         org.bukkit.advancement.Advancement adv = Bukkit.getAdvancement(new NamespacedKey("baffoon", "tomato_monster"));
         if (adv != null) { var pr = v.getAdvancementProgress(adv); for (String c : pr.getRemainingCriteria()) pr.awardCriteria(c); }
         v.sendActionBar(Component.text(a.getName() + " got you. You're a Tomato now.", TextColor.color(0xD62E1E)));
