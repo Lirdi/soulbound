@@ -7,6 +7,8 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -14,7 +16,9 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.inventory.PrepareGrindstoneEvent;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.view.AnvilView;
 import org.bukkit.persistence.PersistentDataType;
@@ -23,13 +27,16 @@ import java.util.List;
 
 /**
  * The Blade of Potential ("Twin Worlds"): a greatsword made of two Eggs of Potential fused end to end.
- * Unbreakable, no enchantment shimmer. Starts as a plain netherite sword in strength. Its potential is grown at
+ * Unbreakable, no enchantment shimmer. 9 attack damage (one above netherite), sword speed; takes normal enchantments at
+ * an anvil. Its potential is grown at
  * an anvil: blade + a nether star = +1 Sharpness, up to Sharpness X.
  * Grindstones won't strip it. Admin-given for now (no recipe).
  */
 final class PotentialBlade implements Listener {
     static final int MAX_SHARPNESS = 10;
     static final int STAR_COST = 5;      // levels per nether star
+    static final double DAMAGE = 8;      // +1 base = 9 attack damage, one more than netherite: 14.5 at Sharpness X
+    static final double SPEED = -2.4;    // a sword's swing
 
     private final Soulbound plugin;
     private final NamespacedKey key;
@@ -40,10 +47,13 @@ final class PotentialBlade implements Listener {
     }
 
     ItemStack item() {
-        ItemStack it = new ItemStack(Material.NETHERITE_SWORD);   // netherite sword damage and speed, untouched
+        ItemStack it = new ItemStack(Material.NETHERITE_SWORD);
         ItemMeta m = it.getItemMeta();
         m.displayName(Component.text("Blade of Potential", TextColor.color(0x4FA8E8), TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         m.setItemModel(new NamespacedKey("soulbound", "potential_blade"));
+        // setting any modifier replaces the netherite defaults, so damage and speed are given in full
+        m.addAttributeModifier(Attribute.ATTACK_DAMAGE, new AttributeModifier(new NamespacedKey(plugin, "potential_blade_damage"), DAMAGE, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
+        m.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(new NamespacedKey(plugin, "potential_blade_speed"), SPEED, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
         m.setEnchantmentGlintOverride(false);
         m.setUnbreakable(true);
         m.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
@@ -76,7 +86,13 @@ final class PotentialBlade implements Listener {
         ItemStack blade = e.getInventory().getFirstItem(), star = e.getInventory().getSecondItem();
         if (!is(blade)) return;
         if (star == null || star.getType().isAir()) return;   // renaming alone is fine
-        if (star.getType() != Material.NETHER_STAR) { e.setResult(null); return; }   // only stars feed it
+        if (star.getType() != Material.NETHER_STAR) {
+            // ordinary enchanting works as normal (Looting, Fire Aspect, Sweeping Edge...), but Sharpness only comes from stars
+            boolean sharp = star.getItemMeta() instanceof EnchantmentStorageMeta book ? book.hasStoredEnchant(Enchantment.SHARPNESS)
+                    : star.containsEnchantment(Enchantment.SHARPNESS);
+            if (sharp) e.setResult(null);
+            return;
+        }
         int sharp = blade.getItemMeta().getEnchantLevel(Enchantment.SHARPNESS);
         if (sharp >= MAX_SHARPNESS) { e.setResult(null); return; }
         ItemStack out = blade.clone();
