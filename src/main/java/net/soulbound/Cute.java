@@ -51,7 +51,7 @@ final class Cute implements Listener {
         WIZARD("Wizard's Hat", "wizard_hat", null, "Enchanting costs one level less."),
         TOPHAT("Top Hat", "top_hat", null, "Villagers give a gentleman their best prices."),
         PROSPECTOR("Prospector's Hat", "prospector_hat", null, "Ores sometimes give a little extra."),
-        TOMATO("Tomato Helmet", "tomato_helmet", null, "Get hit and you go splat."),
+        TOMATO("Tomato Helmet", "tomato_helmet", null, "Get hit and you go splat. Hit a player and they become a Tomato too."),
         BAROQUE("Baroque", "baroque", null, "A bauta and a tricorn, for the masquerade."),
         CROC("Crocodile Mask", "croc_mask", null, "It hasn't decided whether to swallow you."),
         PROPELLER("Propeller Cap", "propeller_cap_f0", null, "Sprint and the propeller spins."),
@@ -73,13 +73,14 @@ final class Cute implements Listener {
 
     private final Soulbound plugin;
     private final NamespacedKey key;
+    private NamespacedKey tomatoKey;
     private final Map<UUID, Integer> altUntil = new HashMap<>();
     /** Which of the eight propeller positions each wearer's cap is showing. */
     private final Map<UUID, Integer> propFrame = new HashMap<>();
     private BukkitTask task;
     private int tick;
 
-    Cute(Soulbound plugin) { this.plugin = plugin; this.key = new NamespacedKey(plugin, "cute"); }
+    Cute(Soulbound plugin) { this.plugin = plugin; this.key = new NamespacedKey(plugin, "cute"); this.tomatoKey = new NamespacedKey(plugin, "tomato_infected"); }
 
     ItemStack create(Kind k) {
         // the Blood Priest's Hat is real armour (a Quantum Helm's worth), so it sits on a netherite helmet: enchantable,
@@ -227,6 +228,23 @@ final class Cute implements Listener {
             NamespacedKey wk = new NamespacedKey("soulbound", want);
             if (!wk.equals(m.getItemModel())) { m.setItemModel(wk); h.setItemMeta(m); p.getInventory().setHelmet(h); }
         }
+    }
+
+    /** Tomatoes spread: a player wearing the Tomato Helmet who hits another player turns them into a Tomato too. They get
+     *  their own helmet and the "Tomato Monster" advancement (baffoon:tomato_monster). Once per player, ever, so two
+     *  Tomatoes can't farm helmets off each other. */
+    @EventHandler(priority = org.bukkit.event.EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTomatoHit(org.bukkit.event.entity.EntityDamageByEntityEvent e) {
+        if (!(e.getDamager() instanceof Player a) || !(e.getEntity() instanceof Player v) || a.equals(v)) return;
+        if (kindOf(a.getInventory().getHelmet()) != Kind.TOMATO) return;
+        if (v.getPersistentDataContainer().has(tomatoKey, PersistentDataType.BYTE)) return;
+        v.getPersistentDataContainer().set(tomatoKey, PersistentDataType.BYTE, (byte) 1);
+        for (ItemStack left : v.getInventory().addItem(create(Kind.TOMATO)).values()) v.getWorld().dropItemNaturally(v.getLocation(), left);
+        org.bukkit.advancement.Advancement adv = Bukkit.getAdvancement(new NamespacedKey("baffoon", "tomato_monster"));
+        if (adv != null) { var pr = v.getAdvancementProgress(adv); for (String c : pr.getRemainingCriteria()) pr.awardCriteria(c); }
+        v.sendActionBar(Component.text(a.getName() + " got you. You're a Tomato now.", TextColor.color(0xD62E1E)));
+        a.sendActionBar(Component.text(v.getName() + " is a Tomato now.", TextColor.color(0xD62E1E)));
+        v.getWorld().playSound(v.getLocation(), Sound.ENTITY_SLIME_SQUISH, 1f, 0.8f);
     }
 
     /** The Tomato Helmet: take a hit and tomato goes everywhere. */
