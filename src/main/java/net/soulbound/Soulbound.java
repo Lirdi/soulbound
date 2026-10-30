@@ -37,6 +37,7 @@ public final class Soulbound extends JavaPlugin {
     private Cute cute;
     private GodGear godGear;
     private QuantumGear quantum;
+    private PotentialBlade potentialBlade;
     private GodManager god;
     private HeavenAir heavenAir;
     private HeavenBuilder heaven;
@@ -177,6 +178,7 @@ public final class Soulbound extends JavaPlugin {
         pm.registerEvents(quantum, this);
         quantum.registerRecipes();
         quantum.start();
+        potentialBlade = new PotentialBlade(this);
         gate = new StrongholdGate(this, store);
         pm.registerEvents(gate, this);
         gate.start();
@@ -331,6 +333,7 @@ public final class Soulbound extends JavaPlugin {
     CurseManager curses() { return curses; }
     GodGear godGear() { return godGear; }
     QuantumGear quantum() { return quantum; }
+    PotentialBlade potentialBlade() { return potentialBlade; }
     public ScreenCrack cracks() { return cracks; }
 
     // ---------------------------------------------------------------- commands
@@ -495,7 +498,7 @@ public final class Soulbound extends JavaPlugin {
             case "gear" -> {
                 if (!admin(sender)) return true;
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
-                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|hood|cudgel|chains|cute [catears|bunnyears|flowercrown|bubblegut|brain|chef|wizard|tophat|prospector|lab|labcoat|labpants|labshoes]|parasite|cortex|tartare|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece|tools|sword|pickaxe|axe|shovel|hoe|core|ember|tear]>", NamedTextColor.GRAY)); return true; }
+                if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|hood|cudgel|chains|cute [catears|bunnyears|flowercrown|bubblegut|brain|chef|wizard|tophat|prospector|lab|labcoat|labpants|labshoes]|parasite|cortex|tartare|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece|tools|sword|pickaxe|axe|shovel|hoe|core|ember|tear]|potential>", NamedTextColor.GRAY)); return true; }
                 if (args[2].equalsIgnoreCase("hood") || args[2].equalsIgnoreCase("cudgel")) { sender.sendMessage(Component.text(captures.items.adminGive(t, args[2]), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("chains")) { for (int i = 0; i < 4; i++) t.getInventory().addItem(leash.create(1)); sender.sendMessage(Component.text("Gave " + t.getName() + " 4 " + getConfig().getString("leash.name", "Cultist's Shackles") + ".", NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("cute")) { sender.sendMessage(Component.text(cute.adminGive(t, args.length > 3 ? args[3] : "all"), NamedTextColor.GREEN)); return true; }
@@ -504,6 +507,7 @@ public final class Soulbound extends JavaPlugin {
                 if (args[2].equalsIgnoreCase("cortex")) { sender.sendMessage(Component.text(parasite.adminGiveCrown(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("parasite")) { sender.sendMessage(Component.text(parasite.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("quantum")) { sender.sendMessage(Component.text(quantum.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
+                if (args[2].equalsIgnoreCase("potential")) { sender.sendMessage(Component.text(potentialBlade.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("vestments")) { sender.sendMessage(Component.text(godGear.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
                 sender.sendMessage(Component.text(gear.adminGive(t, args[2]), NamedTextColor.GREEN));
                 return true;
