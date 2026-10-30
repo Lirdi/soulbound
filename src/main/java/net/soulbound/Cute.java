@@ -55,7 +55,7 @@ final class Cute implements Listener {
         BAROQUE("Baroque", "baroque", null, "A bauta and a tricorn, for the masquerade."),
         CROC("Crocodile Mask", "croc_mask", null, "It hasn't decided whether to swallow you."),
         PROPELLER("Propeller Cap", "propeller_cap_f0", null, "Sprint and the propeller spins."),
-        BP_HAT("Blood Priest's Hat", "blood_priest_hat", null, "Wide-brimmed, with a band the colour of old blood."),
+        BP_HAT("Blood Priest's Hat", "blood_priest_hat", null, "Speed II in Moloch's realm, except while he's being fought."),
         LAB_COAT("Lab Coat", "lab_coat", null, "Lab outfit (1 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.CHEST, 3),
         LAB_PANTS("Lab Trousers", "lab_pants", null, "Lab outfit (2 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.LEGS, 2),
         LAB_SHOES("Lab Shoes", "lab_shoes", null, "Lab outfit (3 of 3). Full outfit: potions last 50% longer.", EquipmentSlot.FEET, 1);
@@ -82,7 +82,9 @@ final class Cute implements Listener {
     Cute(Soulbound plugin) { this.plugin = plugin; this.key = new NamespacedKey(plugin, "cute"); }
 
     ItemStack create(Kind k) {
-        ItemStack it = new ItemStack(Material.ECHO_SHARD);
+        // the Blood Priest's Hat is real armour (a Quantum Helm's worth), so it sits on a netherite helmet: enchantable,
+        // repairable, damageable. The equippable has no armour layer, so its own 3D model is what's worn.
+        ItemStack it = new ItemStack(k == Kind.BP_HAT ? Material.NETHERITE_HELMET : Material.ECHO_SHARD);
         ItemMeta m = it.getItemMeta();
         m.displayName(Component.text(k.title, k == Kind.BAROQUE ? TextColor.color(0xD6AC48) : k == Kind.CROC ? TextColor.color(0x7FA84A)
                 : (k == Kind.BP_HAT || k.priest()) ? TextColor.color(0xB3122E) : PINK, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
@@ -90,7 +92,7 @@ final class Cute implements Listener {
         m.lore(List.of(Component.text(where, NamedTextColor.WHITE).decoration(TextDecoration.ITALIC, false),
                 Component.text(k.perk, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)));
         m.setItemModel(new NamespacedKey("soulbound", k.model));
-        m.setMaxStackSize(1);
+        if (k != Kind.BP_HAT) m.setMaxStackSize(1);
         EquippableComponent eq = m.getEquippable();
         eq.setSlot(k.slot);
         if (k.lab() || k.priest()) {
@@ -99,6 +101,15 @@ final class Cute implements Listener {
                 case LEGS -> org.bukkit.inventory.EquipmentSlotGroup.LEGS; default -> org.bukkit.inventory.EquipmentSlotGroup.FEET; };
             m.addAttributeModifier(org.bukkit.attribute.Attribute.ARMOR, new org.bukkit.attribute.AttributeModifier(
                     new NamespacedKey(plugin, k.model + "_armor"), k.armor, org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER, g));
+        }
+        if (k == Kind.BP_HAT) {
+            eq.setModel(null);
+            // the Quantum Helm's numbers: 4 armour, 4 toughness, 15% knockback resistance, 600 durability
+            org.bukkit.inventory.EquipmentSlotGroup g = org.bukkit.inventory.EquipmentSlotGroup.HEAD;
+            m.addAttributeModifier(org.bukkit.attribute.Attribute.ARMOR, new org.bukkit.attribute.AttributeModifier(new NamespacedKey(plugin, "blood_priest_hat_armor"), 4, org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER, g));
+            m.addAttributeModifier(org.bukkit.attribute.Attribute.ARMOR_TOUGHNESS, new org.bukkit.attribute.AttributeModifier(new NamespacedKey(plugin, "blood_priest_hat_toughness"), 4, org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER, g));
+            m.addAttributeModifier(org.bukkit.attribute.Attribute.KNOCKBACK_RESISTANCE, new org.bukkit.attribute.AttributeModifier(new NamespacedKey(plugin, "blood_priest_hat_kb"), 0.15, org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER, g));
+            if (m instanceof org.bukkit.inventory.meta.Damageable d) d.setMaxDamage(600);
         }
         if (k == Kind.GUT) {
             eq.setModel(new NamespacedKey("soulbound", "bubble_gut"));
@@ -191,12 +202,20 @@ final class Cute implements Listener {
             if (k == Kind.GUT) k = null;
             if (k == null) { altUntil.remove(p.getUniqueId()); continue; }
             UUID id = p.getUniqueId();
+            if (k == Kind.BP_HAT && h.getType() == Material.ECHO_SHARD) {   // an old cosmetic hat: swap it for the real one
+                h = create(Kind.BP_HAT); p.getInventory().setHelmet(h);
+            }
             boolean alt = altUntil.getOrDefault(id, 0) > tick;
             switch (k) {
                 case CAT -> { if (!alt && r.nextInt(100) == 0) { altUntil.put(id, tick + 6); alt = true; } }   // a twitch every few seconds
                 case BUNNY -> {
                     if (!p.isOnGround() && p.getVelocity().getY() > 0.25) { altUntil.put(id, tick + 8); alt = true; }   // a hop
                     if (tick % 20 == 0) p.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 60, 0, true, false, true));
+                }
+                case BP_HAT -> {
+                    if (tick % 20 == 0 && plugin.zones() != null && plugin.zones().inRealm(p.getLocation())
+                            && (plugin.boss() == null || !plugin.boss().active()))
+                        p.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 40, 1, true, false, true));
                 }
                 case CROWN -> { if (r.nextInt(25) == 0) p.getWorld().spawnParticle(Particle.CHERRY_LEAVES, p.getEyeLocation().add(0, 0.45, 0), 1, 0.25, 0.05, 0.25, 0); }
             }
