@@ -49,6 +49,7 @@ final class PotentialBlade {
         m.addAttributeModifier(Attribute.ATTACK_DAMAGE, new AttributeModifier(new NamespacedKey(plugin, "potential_blade_damage"), DAMAGE, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
         m.addAttributeModifier(Attribute.ATTACK_SPEED, new AttributeModifier(new NamespacedKey(plugin, "potential_blade_speed"), SPEED, AttributeModifier.Operation.ADD_NUMBER, EquipmentSlotGroup.MAINHAND));
         m.addEnchant(Enchantment.KNOCKBACK, KNOCKBACK, true);   // past the vanilla cap of II
+        m.setEnchantmentGlintOverride(false);                    // no enchantment shimmer over the worlds
         if (m instanceof Damageable d) d.setMaxDamage(DURABILITY);
         m.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
         it.setItemMeta(m);
