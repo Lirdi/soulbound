@@ -54,7 +54,7 @@ import java.util.concurrent.ThreadLocalRandom;
  * The plugin keeps each chunk's crops in the chunk's PDC (packed position + stage), grows a few every 5 seconds
  * (twice as fast in a Blood Moon), stops vanilla reshaping or pressing them, and handles harvest: a ripe mass drops
  * 2-4 Tumours and 1-2 Tumour Seeds, an unripe one its seed. Rotten flesh on a crop pushes it a stage. Left ripe, a
- * mass sometimes spreads to bare soul soil next to it.
+ * mass sometimes spreads to bare soul soil next to it. Growth follows the world's random_tick_speed game rule.
  */
 final class TumourCrop implements Listener {
     static final int RIPE = 3;
@@ -184,7 +184,11 @@ final class TumourCrop implements Listener {
         boolean moon = plugin.boss() != null && plugin.boss().bloodMoon();
         double grow = GROW_CHANCE * (moon ? 2 : 1);
         List<Block> spread = new ArrayList<>();
-        for (World w : Bukkit.getWorlds()) for (Chunk c : w.getLoadedChunks()) {
+        for (World w : Bukkit.getWorlds()) {
+          // like vanilla crops, growth follows the world's random tick speed (3 is normal; 0 stops it)
+          Integer rts = w.getGameRuleValue(org.bukkit.GameRule.RANDOM_TICK_SPEED);
+          double worldGrow = Math.min(1.0, grow * Math.max(0, rts == null ? 3 : rts) / 3.0);
+          for (Chunk c : w.getLoadedChunks()) {
             Map<Integer, Integer> m = crops.get(ck(c));
             if (m == null || m.isEmpty()) continue;
             boolean dirty = false;
@@ -196,10 +200,11 @@ final class TumourCrop implements Listener {
                 if (shown != stage) { b.setBlockData(state(stage), false); }                       // something reshaped it: put it back
                 if (!soil(b.getRelative(BlockFace.DOWN).getType())) continue;                       // no soil, no growth
                 if (stage < RIPE) {
-                    if (r.nextDouble() < grow) { e.setValue(stage + 1); b.setBlockData(state(stage + 1), false); dirty = true; }
-                } else if (r.nextDouble() < SPREAD_CHANCE) spread.add(b);
+                    if (r.nextDouble() < worldGrow) { e.setValue(stage + 1); b.setBlockData(state(stage + 1), false); dirty = true; }
+                } else if (r.nextDouble() < SPREAD_CHANCE * worldGrow / grow) spread.add(b);
             }
             if (dirty) saveChunk(c);
+          }
         }
         for (Block b : spread) {   // a ripe mass reaches into bare soul soil beside it
             BlockFace f = new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST}[r.nextInt(4)];
