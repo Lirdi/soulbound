@@ -50,8 +50,9 @@ final class BloodPriest implements Listener {
     private final LeashItem leash;
     private final NamespacedKey key;
     private final Set<UUID> priests = new HashSet<>();
-    private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice, hatPrice;
-    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines, festeringLines, hatLines;
+    private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice, hatPrice, axeGoldBlocks, axeSkulls;
+    private boolean axeInhumanOnly;
+    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines, festeringLines, hatLines, axeLines;
     private final NamespacedKey boughtKey;
     private final java.util.Map<UUID, Long> lastSaid = new java.util.HashMap<>();
     private double lookRange;
@@ -74,7 +75,15 @@ final class BloodPriest implements Listener {
         shacklesPrice = c.getInt("priest.price.shackles", 16);
         tartarePrice = c.getInt("priest.price.tartare", 2);
         hatPrice = Math.max(1, Math.min(64, c.getInt("priest.price.hat-blood-emeralds", 64)));
-        hatLines = lines(c, "hat", "It suits you. It suited the last one too.", "Wear it to the fire. He likes to see it.");
+        hatLines = lines(c, "hat", "It's yours now. So is the debt.", "It suits you. It suited the last one too.", "Wear it to the fire. He likes to see it.");
+        axeGoldBlocks = Math.max(1, Math.min(64, c.getInt("priest.price.axe-gold-blocks", 16)));
+        axeSkulls = Math.max(0, Math.min(64, c.getInt("priest.price.axe-wither-skulls", 1)));
+        axeInhumanOnly = c.getBoolean("priest.axe-inhuman-only", false);
+        axeLines = lines(c, "axe",
+                "Villagers first. Take the head, climb to the fire, give him one. Just one. He eats once a day.",
+                "Their heads, into his fire. One each sunrise. He pays in emeralds the colour of what you spilled.",
+                "One a day keeps Moloch fed.",
+                "Villagers have such soft necks.");
         hoodLines = lines(c, "hood", "Pull it tight. Their breathing sounds better muffled.");
         cudgelLines = lines(c, "cudgel", "From behind. Always from behind. Let them wonder who it was.");
         shacklesLines = lines(c, "shackles", "When they're dazed, close the iron. Wrists first. Then they're yours.");
@@ -295,6 +304,13 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
         if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
+        // the Spiked Cultist Axe: gold and a wither skeleton's skull (bring him a head, get the thing that takes them)
+        if (plugin.cultistAxe() != null && (!axeInhumanOnly || (plugin.inhuman() != null && plugin.inhuman().is(p)))) {
+            MerchantRecipe axe = new MerchantRecipe(plugin.cultistAxe().item(), 0, Integer.MAX_VALUE, false);
+            axe.addIngredient(new ItemStack(Material.GOLD_BLOCK, axeGoldBlocks));
+            if (axeSkulls > 0) axe.addIngredient(new ItemStack(Material.WITHER_SKELETON_SKULL, axeSkulls));
+            list.add(axe);
+        }
         // his own hat, for Blood Emeralds (a villager head a day, burned in Moloch's fire)
         if (plugin.cute() != null && plugin.bloodEmeralds() != null) {
             MerchantRecipe hat = new MerchantRecipe(plugin.cute().create(Cute.Kind.BP_HAT), 0, Integer.MAX_VALUE, false);
@@ -336,6 +352,7 @@ final class BloodPriest implements Listener {
         else if (plugin.tartare() != null && plugin.tartare().is(out)) { pool = tartareLines; what = "tartare"; }
         else if (plugin.festering() != null && plugin.festering().is(out)) { pool = festeringLines; what = "festering"; }
         else if (plugin.cute() != null && plugin.cute().kindOf(out) == Cute.Kind.BP_HAT) { pool = hatLines; what = "hat"; }
+        else if (plugin.cultistAxe() != null && plugin.cultistAxe().is(out)) { pool = axeLines; what = "axe"; }
         else if (plugin.inhuman() != null && plugin.inhuman().isHeart(out)) { pool = heartLines; what = "heart"; lastSaid.remove(e.getPlayer().getUniqueId()); }
         else return;
         Player p = e.getPlayer();

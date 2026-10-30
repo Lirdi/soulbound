@@ -519,6 +519,11 @@ priest:
     # the Blood Priest's Hat, in Blood Emeralds (up to 64). Blood Emeralds: throw a villager head taken with the
     # Spiked Cultist Axe into the summit fire pit; one a day per player.
     hat-blood-emeralds: 64
+    # the Spiked Cultist Axe: gold blocks plus wither skeleton skulls (0 for none)
+    axe-gold-blocks: 16
+    axe-wither-skulls: 1
+  # only offer the axe to players whose soul is Inhuman
+  axe-inhuman-only: false
   # What he whispers when you buy each thing (one picked at random).
   trade-lines:
     hood:
