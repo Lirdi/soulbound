@@ -14,6 +14,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.inventory.PrepareAnvilEvent;
 import org.bukkit.event.inventory.PrepareGrindstoneEvent;
 import org.bukkit.inventory.EquipmentSlotGroup;
@@ -128,6 +130,23 @@ final class PotentialBlade implements Listener {
     private static String plainName(ItemStack it) {
         Component n = it.getItemMeta().displayName();
         return n == null ? "" : net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(n);
+    }
+
+    /** Taking a blade at Sharpness X out of the anvil earns "Overachiever" (God advancements pack: minecraft:end/overachiever). */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTakeFromAnvil(InventoryClickEvent e) {
+        if (e.getInventory().getType() != InventoryType.ANVIL || e.getRawSlot() != 2 || !(e.getWhoClicked() instanceof Player p)) return;
+        ItemStack out = e.getCurrentItem();
+        if (!is(out) || out.getItemMeta().getEnchantLevel(Enchantment.SHARPNESS) < MAX_SHARPNESS) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            boolean took = false;
+            for (ItemStack it : p.getInventory().getContents()) if (is(it) && it.getItemMeta().getEnchantLevel(Enchantment.SHARPNESS) >= MAX_SHARPNESS) took = true;
+            if (!took && !is(p.getItemOnCursor())) return;   // the anvil refused (not enough levels)
+            org.bukkit.advancement.Advancement a = Bukkit.getAdvancement(NamespacedKey.minecraft("end/overachiever"));
+            if (a == null) return;
+            var pr = p.getAdvancementProgress(a);
+            for (String c : pr.getRemainingCriteria()) pr.awardCriteria(c);
+        });
     }
 
     /** A grindstone would strip the Sharpness the stars paid for. */
