@@ -97,6 +97,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         // the Egg of Potential's weapons
         m.put("blade_of_potential", new Item("Potential", () -> one(p.potentialBlade().item())));
         m.put("spiked_cultist_axe", new Item("Moloch", () -> one(p.cultistAxe().item())));
+        m.put("blood_emerald", new Item("Moloch", () -> one(p.bloodEmeralds().create(1))));
         // cute things
         String[][] cute = {{"cat_ears", "CAT"}, {"bunny_ears", "BUNNY"}, {"flower_crown", "CROWN"}, {"bubble_gut", "GUT"}, {"big_brain", "BRAIN"},
                 {"chef_hat", "CHEF"}, {"wizard_hat", "WIZARD"}, {"top_hat", "TOPHAT"}, {"prospector_hat", "PROSPECTOR"}, {"tomato_helmet", "TOMATO"}, {"baroque", "BAROQUE"}, {"crocodile_mask", "CROC"}, {"propeller_cap", "PROPELLER"}, {"blood_priest_hat", "BP_HAT"},

@@ -50,8 +50,8 @@ final class BloodPriest implements Listener {
     private final LeashItem leash;
     private final NamespacedKey key;
     private final Set<UUID> priests = new HashSet<>();
-    private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice;
-    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines, festeringLines;
+    private int hoodPrice, cudgelPrice, shacklesPrice, tartarePrice, hatPrice;
+    private List<String> hoodLines, cudgelLines, shacklesLines, tartareLines, heartLines, festeringLines, hatLines;
     private final NamespacedKey boughtKey;
     private final java.util.Map<UUID, Long> lastSaid = new java.util.HashMap<>();
     private double lookRange;
@@ -73,6 +73,8 @@ final class BloodPriest implements Listener {
         cudgelPrice = c.getInt("priest.price.cudgel", 10);
         shacklesPrice = c.getInt("priest.price.shackles", 16);
         tartarePrice = c.getInt("priest.price.tartare", 2);
+        hatPrice = Math.max(1, Math.min(64, c.getInt("priest.price.hat-blood-emeralds", 64)));
+        hatLines = lines(c, "hat", "It suits you. It suited the last one too.", "Wear it to the fire. He likes to see it.");
         hoodLines = lines(c, "hood", "Pull it tight. Their breathing sounds better muffled.");
         cudgelLines = lines(c, "cudgel", "From behind. Always from behind. Let them wonder who it was.");
         shacklesLines = lines(c, "shackles", "When they're dazed, close the iron. Wrists first. Then they're yours.");
@@ -293,6 +295,12 @@ final class BloodPriest implements Listener {
         list.add(recipe(captures.items.create(AbductionItems.Kind.CUDGEL, 1), cudgelPrice));
         list.add(recipe(leash.create(1), shacklesPrice));
         if (plugin.tartare() != null) list.add(recipe(plugin.tartare().create(1), tartarePrice));
+        // his own hat, for Blood Emeralds (a villager head a day, burned in Moloch's fire)
+        if (plugin.cute() != null && plugin.bloodEmeralds() != null) {
+            MerchantRecipe hat = new MerchantRecipe(plugin.cute().create(Cute.Kind.BP_HAT), 0, Integer.MAX_VALUE, false);
+            hat.addIngredient(plugin.bloodEmeralds().create(hatPrice));
+            list.add(hat);
+        }
         // a secret, like the Heart: Festering Flesh only shows once you've bought everything else
         if (boughtAll(p) && plugin.festering() != null) {   // 13 rotten flesh and 3 fermented spider eyes
             MerchantRecipe f = new MerchantRecipe(plugin.festering().create(1), 0, Integer.MAX_VALUE, false);
@@ -327,6 +335,7 @@ final class BloodPriest implements Listener {
         else if (leash.isSpecial(out)) { pool = shacklesLines; what = "shackles"; }
         else if (plugin.tartare() != null && plugin.tartare().is(out)) { pool = tartareLines; what = "tartare"; }
         else if (plugin.festering() != null && plugin.festering().is(out)) { pool = festeringLines; what = "festering"; }
+        else if (plugin.cute() != null && plugin.cute().kindOf(out) == Cute.Kind.BP_HAT) { pool = hatLines; what = "hat"; }
         else if (plugin.inhuman() != null && plugin.inhuman().isHeart(out)) { pool = heartLines; what = "heart"; lastSaid.remove(e.getPlayer().getUniqueId()); }
         else return;
         Player p = e.getPlayer();

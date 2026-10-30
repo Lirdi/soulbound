@@ -516,6 +516,9 @@ priest:
     cudgel: 10
     shackles: 16
     tartare: 2
+    # the Blood Priest's Hat, in Blood Emeralds (up to 64). Blood Emeralds: throw a villager head taken with the
+    # Spiked Cultist Axe into the summit fire pit; one a day per player.
+    hat-blood-emeralds: 64
   # What he whispers when you buy each thing (one picked at random).
   trade-lines:
     hood:

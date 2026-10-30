@@ -62,7 +62,7 @@ final class CultistAxe implements Listener {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH);
 
     private final Soulbound plugin;
-    private final NamespacedKey key, headsKey;
+    private final NamespacedKey key, headsKey, villagerHeadKey;
     private final Map<UUID, Long> headhunters = new HashMap<>();
     private volatile PlayerProfile villagerProfile;
 
@@ -70,6 +70,7 @@ final class CultistAxe implements Listener {
         this.plugin = plugin;
         key = new NamespacedKey(plugin, "cultist_axe");
         headsKey = new NamespacedKey(plugin, "cultist_axe_heads");
+        villagerHeadKey = new NamespacedKey(plugin, "beheaded_villager");
         // Mojang's own MHF_Villager head; looked up once, off the main thread. Until it resolves, a name-only profile
         // is used, which the client fills in by itself.
         villagerProfile = Bukkit.createProfile(null, "MHF_Villager");
@@ -120,6 +121,11 @@ final class CultistAxe implements Listener {
 
     boolean is(ItemStack it) {
         return it != null && it.hasItemMeta() && it.getItemMeta().getPersistentDataContainer().has(key, PersistentDataType.BYTE);
+    }
+
+    /** a villager head taken with the axe (what Moloch's fire turns into a Blood Emerald) */
+    boolean isVillagerHead(ItemStack it) {
+        return it != null && it.getType() == Material.PLAYER_HEAD && it.hasItemMeta() && it.getItemMeta().getPersistentDataContainer().has(villagerHeadKey, PersistentDataType.BYTE);
     }
 
     String adminGive(Player to) {
@@ -187,6 +193,7 @@ final class CultistAxe implements Listener {
         SkullMeta sm = (SkullMeta) head.getItemMeta();
         sm.setPlayerProfile(villagerProfile);
         sm.displayName(Component.text("Villager Head", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
+        sm.getPersistentDataContainer().set(villagerHeadKey, PersistentDataType.BYTE, (byte) 1);   // Moloch's fire takes these
         trophy(sm, killer);
         head.setItemMeta(sm);
         give(killer, head);
