@@ -37,6 +37,9 @@ final class SoulboundPlaceholders extends PlaceholderExpansion {
                 if (p == null) return "";
                 World w = p.getWorld();
                 if (plugin.zones() != null && plugin.zones().inRealm(p.getLocation())) return plugin.getConfig().getString("placeholders.realm-sacrifice", "&#C83232Moloch's Realm");
+                // named worlds (the spawn hub, by default): placeholders.realm-worlds.<world name> = label
+                String named = realmName(w);
+                if (named != null) return named;
                 return switch (w.getEnvironment()) {
                     case NORMAL -> plugin.getConfig().getString("placeholders.realm-overworld", "&#4FE04FOverworld");
                     case NETHER -> plugin.getConfig().getString("placeholders.realm-nether", "&#F07A6ANether");
@@ -58,5 +61,17 @@ final class SoulboundPlaceholders extends PlaceholderExpansion {
             }
             default -> { return null; }
         }
+    }
+
+    /** A label for a world listed under placeholders.realm-worlds (matched by its name or key, any case); Spawn by default. */
+    private String realmName(World w) {
+        var sec = plugin.getConfig().getConfigurationSection("placeholders.realm-worlds");
+        String name = w.getName().toLowerCase(java.util.Locale.ROOT), key = w.getKey().getKey().toLowerCase(java.util.Locale.ROOT);
+        if (sec == null) return name.equals("spawn") || key.equals("spawn") ? "&#F5C351Spawn" : null;
+        for (String k : sec.getKeys(false)) {
+            String kk = k.toLowerCase(java.util.Locale.ROOT);
+            if (kk.equals(name) || kk.equals(key) || kk.equals(w.getKey().toString().toLowerCase(java.util.Locale.ROOT))) return sec.getString(k);
+        }
+        return null;
     }
 }
