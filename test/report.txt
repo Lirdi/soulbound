@@ -1,0 +1,17 @@
+server up: True
+
+===== REPORT =====
+titan_tree: at 4144,-4368  minecraft:crimson_stem blocks found: 554  []
+blood_tree: at 4416,4096  minecraft:crimson_stem blocks found: 102  []
+bone_tree: LOCATE -> [14:24:53] [Server thread/INFO]: System chat: Could not find a structure of type "sacrifice:bone_tree" nearby
+willow: at 4288,-4272  minecraft:mangrove_log blocks found: 50  []
+huge_fungus: at 4368,4192  minecraft:shroomlight blocks found: 100  []
+giant_mushroom: at 4336,4224  minecraft:mushroom_stem blocks found: 182  []
+giant_sword: at -4944,-5184  minecraft:iron_block blocks found: 130  []
+bone_remains: at 3504,-3552  minecraft:bone_block blocks found: 544  []
+giant_campfire: at -5104,-5296  minecraft:dark_oak_log blocks found: 60  []
+calf: at 0,-176  minecraft:polished_blackstone_bricks blocks found: 837  []
+bloodaltar: at 144,-288  minecraft:red_nether_bricks blocks found: 49  []
+place template titan_tree_1: timeout
+place structure titan_tree: [14:30:51] [Server thread/INFO]: System chat: Generated structure "sacrifice:titan_tree" at 6020, 150, 20
+===== WARN/ERROR lines =====
