@@ -30,7 +30,7 @@ import java.util.List;
  * Unbreakable, no enchantment shimmer. 9 attack damage (one above netherite), sword speed; takes normal enchantments at
  * an anvil. Its potential is grown at
  * an anvil: blade + a nether star = +1 Sharpness, up to Sharpness X.
- * Grindstones won't strip it. Admin-given for now (no recipe).
+ * Grindstones won't strip it. Crafted from two dragon eggs (the World Egg), two gold ingots and a stick.
  */
 final class PotentialBlade implements Listener {
     static final int MAX_SHARPNESS = 10;
@@ -68,6 +68,21 @@ final class PotentialBlade implements Listener {
                 Component.text("Two worlds, one edge.", NamedTextColor.AQUA).decoration(TextDecoration.ITALIC, true),
                 Component.text("Potential: " + sharp + " / " + MAX_SHARPNESS, sharp >= MAX_SHARPNESS ? NamedTextColor.GOLD : NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
                 Component.text(sharp >= MAX_SHARPNESS ? "Fulfilled." : "Anvil + a nether star: +1 Sharpness.", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false)));
+    }
+
+    /** Two Eggs of Potential up the blade, gold for the guard, a stick for the grip (mirrored works too):
+     *  . . E
+     *  G E .
+     *  S G .   */
+    void registerRecipe() {
+        NamespacedKey rk = new NamespacedKey(plugin, "blade_of_potential");
+        Bukkit.removeRecipe(rk);
+        org.bukkit.inventory.ShapedRecipe r = new org.bukkit.inventory.ShapedRecipe(rk, item());
+        r.shape("  E", "GE ", "SG ");
+        r.setIngredient('E', Material.DRAGON_EGG);
+        r.setIngredient('G', Material.GOLD_INGOT);
+        r.setIngredient('S', Material.STICK);
+        Bukkit.addRecipe(r);
     }
 
     boolean is(ItemStack it) {

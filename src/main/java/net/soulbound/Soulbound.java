@@ -180,6 +180,7 @@ public final class Soulbound extends JavaPlugin {
         quantum.start();
         potentialBlade = new PotentialBlade(this);
         pm.registerEvents(potentialBlade, this);
+        potentialBlade.registerRecipe();
         gate = new StrongholdGate(this, store);
         pm.registerEvents(gate, this);
         gate.start();
