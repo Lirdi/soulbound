@@ -38,6 +38,7 @@ public final class Soulbound extends JavaPlugin {
     private GodGear godGear;
     private QuantumGear quantum;
     private PotentialBlade potentialBlade;
+    private CultistAxe cultistAxe;
     private GodManager god;
     private HeavenAir heavenAir;
     private HeavenBuilder heaven;
@@ -181,6 +182,8 @@ public final class Soulbound extends JavaPlugin {
         potentialBlade = new PotentialBlade(this);
         pm.registerEvents(potentialBlade, this);
         potentialBlade.registerRecipe();
+        cultistAxe = new CultistAxe(this);
+        pm.registerEvents(cultistAxe, this);
         gate = new StrongholdGate(this, store);
         pm.registerEvents(gate, this);
         gate.start();
@@ -336,6 +339,7 @@ public final class Soulbound extends JavaPlugin {
     GodGear godGear() { return godGear; }
     QuantumGear quantum() { return quantum; }
     PotentialBlade potentialBlade() { return potentialBlade; }
+    CultistAxe cultistAxe() { return cultistAxe; }
     public ScreenCrack cracks() { return cracks; }
 
     // ---------------------------------------------------------------- commands
@@ -510,6 +514,7 @@ public final class Soulbound extends JavaPlugin {
                 if (args[2].equalsIgnoreCase("parasite")) { sender.sendMessage(Component.text(parasite.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("quantum")) { sender.sendMessage(Component.text(quantum.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("potential")) { sender.sendMessage(Component.text(potentialBlade.adminGive(t), NamedTextColor.GREEN)); return true; }
+                if (args[2].equalsIgnoreCase("axe") || args[2].equalsIgnoreCase("cultist_axe")) { sender.sendMessage(Component.text(cultistAxe.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("vestments")) { sender.sendMessage(Component.text(godGear.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
                 sender.sendMessage(Component.text(gear.adminGive(t, args[2]), NamedTextColor.GREEN));
                 return true;
