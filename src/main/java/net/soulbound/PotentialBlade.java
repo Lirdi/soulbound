@@ -23,12 +23,12 @@ import java.util.List;
 
 /**
  * The Blade of Potential ("Twin Worlds"): a greatsword made of two Eggs of Potential fused end to end.
- * Unbreakable, no enchantment shimmer. Starts as strong as a netherite sword, with Smite III. Its potential is grown at
- * an anvil: blade + a nether star = +1 Sharpness (Sharpness and Smite sit together on it), up to Sharpness VIII.
+ * Unbreakable, no enchantment shimmer. Starts as a plain netherite sword in strength. Its potential is grown at
+ * an anvil: blade + a nether star = +1 Sharpness, up to Sharpness X.
  * Grindstones won't strip it. Admin-given for now (no recipe).
  */
 final class PotentialBlade implements Listener {
-    static final int MAX_SHARPNESS = 8;
+    static final int MAX_SHARPNESS = 10;
     static final int STAR_COST = 5;      // levels per nether star
 
     private final Soulbound plugin;
@@ -44,7 +44,6 @@ final class PotentialBlade implements Listener {
         ItemMeta m = it.getItemMeta();
         m.displayName(Component.text("Blade of Potential", TextColor.color(0x4FA8E8), TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         m.setItemModel(new NamespacedKey("soulbound", "potential_blade"));
-        m.addEnchant(Enchantment.SMITE, 3, true);
         m.setEnchantmentGlintOverride(false);
         m.setUnbreakable(true);
         m.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
@@ -82,7 +81,7 @@ final class PotentialBlade implements Listener {
         if (sharp >= MAX_SHARPNESS) { e.setResult(null); return; }
         ItemStack out = blade.clone();
         ItemMeta m = out.getItemMeta();
-        m.addEnchant(Enchantment.SHARPNESS, sharp + 1, true);   // sits beside Smite, past the vanilla cap
+        m.addEnchant(Enchantment.SHARPNESS, sharp + 1, true);   // past the vanilla cap of V
         m.setEnchantmentGlintOverride(false);
         String rename = e.getView().getRenameText();
         if (rename != null && !rename.isBlank() && !rename.equals(plainName(blade))) m.displayName(Component.text(rename));
