@@ -2,6 +2,8 @@ name: Worldgen probe
 on:
   push:
     branches: [worldgen-test]
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -23,7 +25,15 @@ jobs:
           mkdir -p world/datapacks && cp ../test/sacrifice.zip world/datapacks/
       - name: Probe
         working-directory: run
-        run: python3 ../test/probe.py
+        run: python3 ../test/probe.py | tee report.txt
+      - name: Commit the report back
+        if: always()
+        run: |
+          cp run/report.txt test/report.txt || true
+          grep -i -E 'error|warn|exception|failed|sacrifice' run/server.log | head -400 > test/server-excerpt.txt || true
+          gzip -c run/server.log > test/server.log.gz || true
+          git config user.name probe && git config user.email probe@users.noreply.github.com
+          git add test/report.txt test/server-excerpt.txt test/server.log.gz && git commit -m 'probe report [skip ci]' && git push || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:

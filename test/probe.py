@@ -36,7 +36,7 @@ for sid, block in STRUCTS:
     cmd(f"execute in {D} run forceload add {x - 48} {z - 48} {x + 48} {z + 48}", r"(Marked|forceload|chunk)", 60)
     time.sleep(25)
     total = 0
-    for y in range(-60, 320, 18):
+    for y in []:
         mm, l2 = cmd(f"execute in {D} run fill {x - 40} {y} {z - 40} {x + 40} {min(y + 17, 319)} {z - 36} minecraft:bedrock replace {block}", r"(Successfully filled (\d+)|No blocks were filled|too many|not loaded|annot)", 60)
     # count over the whole area in slabs small enough for /fill
     total = 0; errs = set()
