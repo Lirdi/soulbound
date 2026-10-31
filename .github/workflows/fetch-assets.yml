@@ -1,0 +1,25 @@
+name: Fetch vanilla assets
+on:
+  push:
+    branches: [worldgen-test]
+    paths: ['test/fetch-assets.txt']
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Client jar for 26.3
+        run: |
+          url=$(curl -s https://piston-meta.mojang.com/mc/game/version_manifest_v2.json | python3 -c "import json,sys;d=json.load(sys.stdin);print([v['url'] for v in d['versions'] if v['id']=='26.3'][0])")
+          jar=$(curl -s "$url" | python3 -c "import json,sys;print(json.load(sys.stdin)['downloads']['client']['url'])")
+          curl -s -o client.jar "$jar"
+          mkdir -p test/vanilla
+          unzip -o -j client.jar 'assets/minecraft/blockstates/tripwire.json' -d test/vanilla/
+          unzip -l client.jar | grep -E 'assets/minecraft/models/block/(tripwire|crop)' | awk '{print $4}' > test/vanilla/models-list.txt
+          unzip -o -j client.jar 'assets/minecraft/models/block/crop.json' -d test/vanilla/ || true
+      - name: Commit
+        run: |
+          git config user.name probe && git config user.email probe@users.noreply.github.com
+          git add test/vanilla && git commit -m 'vanilla tripwire blockstate [skip ci]' && git push || true
