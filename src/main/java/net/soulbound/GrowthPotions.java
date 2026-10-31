@@ -131,13 +131,13 @@ final class GrowthPotions implements Listener {
         String prefix = form == Material.SPLASH_POTION ? "Splash " : form == Material.LINGERING_POTION ? "Lingering " : "";
         List<Component> lore = new ArrayList<>();
         if (k == Kind.FLESHY) {
-            m.itemName(Component.text(prefix + "Fleshy Potion"));
+            m.displayName(line(prefix + "Fleshy Potion", NamedTextColor.WHITE));   // potions take their name from their contents, so item_name is ignored
             m.setColor(FLESHY);
             lore.add(Component.text("It's thick. It moves.", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, true));
         } else {
             boolean g = k == Kind.GROWTH;
             int t = baseTicks(level, lng), shown = form == Material.LINGERING_POTION ? t / 4 : t;
-            m.itemName(Component.text(prefix + "Potion of " + (g ? "Growth" : "Shrinking")));
+            m.displayName(line(prefix + "Potion of " + (g ? "Growth" : "Shrinking"), NamedTextColor.WHITE));
             m.setColor(g ? GROWTH : SHRINK);
             m.addCustomEffect(new PotionEffect(g ? PotionEffectType.SLOWNESS : PotionEffectType.WEAKNESS, t, 0, false, true, true), true);
             lore.add(line((g ? "Growth" : "Shrinking") + (level >= 2 ? " II" : "") + " (" + time(shown) + ")", NamedTextColor.BLUE));
