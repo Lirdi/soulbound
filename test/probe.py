@@ -1,12 +1,8 @@
-"""Starts a vanilla server with the Sacrifice pack, locates each structure in the Sacrifice dimension,
-loads the chunks there and counts the structure's blocks that were really placed."""
-import subprocess, re, time, sys, threading, queue
+"""Sacrifice 2.5 probe: start a vanilla 26.3 server with the pack, locate each ring, generate a radial strip of terrain
+from the Lake of Fire out to the Wall plus a patch of Titan Wood and Giants' Reach, then save the region files to
+test/out so the terrain can be rendered offline. Also locates every structure."""
+import subprocess, re, time, threading, queue, math, os, shutil, json
 
-STRUCTS = [  # structure, block that only it places, block to swap it for while counting
-    ("titan_tree", "minecraft:crimson_stem"), ("blood_tree", "minecraft:crimson_stem"), ("bone_tree", "minecraft:end_rod"),
-    ("willow", "minecraft:mangrove_log"), ("huge_fungus", "minecraft:shroomlight"), ("giant_mushroom", "minecraft:mushroom_stem"),
-    ("giant_sword", "minecraft:iron_block"), ("bone_remains", "minecraft:bone_block"), ("giant_campfire", "minecraft:dark_oak_log"),
-    ("calf", "minecraft:polished_blackstone_bricks"), ("bloodaltar", "minecraft:red_nether_bricks")]
 D = "sacrifice:sacrifice"
 p = subprocess.Popen(["java", "-Xmx6G", "-jar", "server.jar", "nogui"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
 q = queue.Queue(); log = open("server.log", "w")
@@ -26,35 +22,71 @@ def cmd(c, pat=None, timeout=120):
     while not q.empty(): q.get_nowait()
     p.stdin.write(c + "\n"); p.stdin.flush()
     if pat: return wait_for(pat, timeout)
+
 m, _ = wait_for(r"Done \(", 900)
-print("server up:", bool(m), flush=True)
-report = []
-for sid, block in STRUCTS:
-    m, line = cmd(f"execute in {D} run locate structure sacrifice:{sid}", r"(nearest .* is at \[(-?\d+), [~\d-]+, (-?\d+)\]|Could not find|nknown|Incorrect)", 300)
-    if not m or not m.group(2): report.append(f"{sid}: LOCATE -> {line.strip() if line else 'timeout'}"); continue
-    x, z = int(m.group(2)), int(m.group(3))
-    cmd(f"execute in {D} run forceload add {x - 48} {z - 48} {x + 48} {z + 48}", r"(Marked|forceload|chunk)", 60)
-    time.sleep(25)
-    total = 0
-    for y in []:
-        mm, l2 = cmd(f"execute in {D} run fill {x - 40} {y} {z - 40} {x + 40} {min(y + 17, 319)} {z - 36} minecraft:bedrock replace {block}", r"(Successfully filled (\d+)|No blocks were filled|too many|not loaded|annot)", 60)
-    # count over the whole area in slabs small enough for /fill
-    total = 0; errs = set()
-    for zz in range(z - 40, z + 41, 8):
-        for y in range(-60, 320, 48):
-            mm, l2 = cmd(f"execute in {D} run fill {x - 40} {y} {zz} {x + 40} {min(y + 47, 319)} {min(zz + 7, z + 40)} minecraft:bedrock replace {block}", r"(Successfully filled (\d+)|No blocks were filled|too many|not loaded|annot|rror)", 60)
+report = [f"server up: {bool(m)}"]
+loc = {}
+for b in ["crater_fields", "lake_of_fire", "titan_wood", "giants_reach", "the_wall"]:
+    m, line = cmd(f"execute in {D} positioned 0 80 0 run locate biome sacrifice:{b}", r"(is at \[(-?\d+), [~\d-]+, (-?\d+)\]|Could not|rror|nknown)", 300)
+    if m and m.group(2):
+        loc[b] = (int(m.group(2)), int(m.group(3))); report.append(f"biome {b}: {loc[b]}  dist {int(math.hypot(*loc[b]))}")
+    else: report.append(f"biome {b}: {line.strip() if line else 'timeout'}")
+for s in ["titan_tree", "blood_tree", "undergrowth", "giant_sword", "giant_footprint", "giant_campfire", "giant_mushroom", "bone_remains", "calf"]:
+    m, line = cmd(f"execute in {D} positioned 0 80 0 run locate structure sacrifice:{s}", r"(is at \[(-?\d+), [~\d-]+, (-?\d+)\]|Could not|rror|nknown)", 300)
+    report.append(f"structure {s}: " + (f"{m.group(2)},{m.group(3)}" if m and m.group(2) else (line.strip()[-90:] if line else "timeout")))
+
+# a radial strip, 3 chunks wide, through the Titan Wood point, from just inside the lake to past the wall
+chunks = set()
+if "titan_wood" in loc:
+    tx, tz = loc["titan_wood"]; r = math.hypot(tx, tz); ux, uz = tx / r, tz / r
+    r0 = (math.hypot(*loc["lake_of_fire"]) if "lake_of_fire" in loc else r * 0.8) * 0.97
+    r1 = (math.hypot(*loc["the_wall"]) + 160) if "the_wall" in loc else r * 1.4
+    d = r0
+    while d <= r1:
+        cx, cz = math.floor(ux * d / 16), math.floor(uz * d / 16)
+        for ox in (-1, 0, 1):
+            for oz in (-1, 0, 1): chunks.add((cx + ox, cz + oz))
+        d += 8
+    for name in ("titan_wood", "giants_reach"):   # and an 8x8-chunk patch of each
+        if name in loc:
+            bx, bz = loc[name][0] // 16, loc[name][1] // 16
+            for ox in range(-4, 4):
+                for oz in range(-4, 4): chunks.add((bx + ox, bz + oz))
+report.append(f"generating {len(chunks)} chunks")
+batch = sorted(chunks)
+for i in range(0, len(batch), 48):
+    for cx, cz in batch[i:i + 48]: cmd(f"execute in {D} run forceload add {cx * 16} {cz * 16}")
+    time.sleep(12)
+time.sleep(30)
+# count what grew in the wood and the reach patches
+def count(name, block):
+    if name not in loc: return "-"
+    x, z = loc[name]; total = 0
+    for zz in range(z - 32, z + 32, 8):
+        for y in (40, 88, 136, 184):
+            mm, l2 = cmd(f"execute in {D} run fill {x - 32} {y} {zz} {x + 31} {y + 47} {zz + 7} {block} replace {block}", r"(Successfully filled (\d+)|No blocks were filled|annot|rror|too many)", 60)
             if mm and mm.group(2): total += int(mm.group(2))
-            elif mm and "No blocks" not in mm.group(1): errs.add(l2.strip()[-80:])
-    hm, hl = cmd(f"execute in {D} positioned {x} 0 {z} run locate biome sacrifice:titan_wood", r"(nearest|Could not)", 120)
-    report.append(f"{sid}: at {x},{z}  {block} blocks found: {total}  {sorted(errs)[:2]}")
-    cmd(f"execute in {D} run forceload remove all", None); time.sleep(2)
-# direct placement checks
-cmd(f"execute in {D} run forceload add 6000 0 6040 40", None); time.sleep(20)
-m, l = cmd(f"execute in {D} run place template sacrifice:titan_tree_1 6000 150 0", r"(laced|ailed|nvalid|rror)", 60); report.append(f"place template titan_tree_1: {l.strip() if l else 'timeout'}")
-m, l = cmd(f"execute in {D} run place structure sacrifice:titan_tree 6020 150 20", r"(enerated|ailed|nvalid|rror)", 60); report.append(f"place structure titan_tree: {l.strip() if l else 'timeout'}")
-cmd("stop"); p.wait(timeout=300)
+    return total
+for name, blocks in (("titan_wood", ["minecraft:water", "minecraft:dead_bush", "minecraft:crimson_roots", "minecraft:bone_block", "minecraft:gravel", "minecraft:crimson_stem"]),
+                     ("giants_reach", ["minecraft:water", "minecraft:short_dry_grass", "minecraft:tall_dry_grass", "minecraft:dead_bush", "minecraft:blackstone", "minecraft:red_sand"])):
+    report.append(f"{name} 64x64 counts: " + ", ".join(f"{b.split(':')[1]}={count(name, b)}" for b in blocks))
+cmd("save-all flush", r"(Saved the game|aved)", 300); time.sleep(5)
+cmd("stop"); p.wait(timeout=600)
+
+# keep the region files that hold the strip and patches
+src = "world/dimensions/sacrifice/sacrifice/region"
+if not os.path.isdir(src):
+    for root, dirs, files in os.walk("world"):
+        if root.endswith("region") and "sacrifice" in root: src = root; break
+os.makedirs("../test/out", exist_ok=True)
+need = {(cx >> 5, cz >> 5) for cx, cz in chunks}
+for rx, rz in need:
+    f = f"{src}/r.{rx}.{rz}.mca"
+    if os.path.exists(f): shutil.copy(f, f"../test/out/r.{rx}.{rz}.mca")
+json.dump({"loc": loc, "chunks": sorted(chunks)}, open("../test/out/meta.json", "w"))
+report.append(f"region dir {src}; saved {len(os.listdir('../test/out')) - 1} region files")
 print("\n===== REPORT =====", flush=True)
 for r in report: print(r, flush=True)
 print("===== WARN/ERROR lines =====", flush=True)
 for line in open("server.log"):
-    if ("WARN" in line or "ERROR" in line) and "sacrifice" in line.lower() or "Exception" in line or "Failed to" in line: print(line.rstrip()[:400])
+    if (("WARN" in line or "ERROR" in line) and "sacrifice" in line.lower()) or "Exception" in line or "Failed to" in line or "Couldn't" in line: print(line.rstrip()[:500])
