@@ -1,0 +1,15 @@
+assets/minecraft/models/block/crop.json
+assets/minecraft/models/block/tripwire_attached_n.json
+assets/minecraft/models/block/tripwire_attached_ne.json
+assets/minecraft/models/block/tripwire_attached_ns.json
+assets/minecraft/models/block/tripwire_attached_nse.json
+assets/minecraft/models/block/tripwire_attached_nsew.json
+assets/minecraft/models/block/tripwire_hook.json
+assets/minecraft/models/block/tripwire_hook_attached.json
+assets/minecraft/models/block/tripwire_hook_attached_on.json
+assets/minecraft/models/block/tripwire_hook_on.json
+assets/minecraft/models/block/tripwire_n.json
+assets/minecraft/models/block/tripwire_ne.json
+assets/minecraft/models/block/tripwire_ns.json
+assets/minecraft/models/block/tripwire_nse.json
+assets/minecraft/models/block/tripwire_nsew.json
