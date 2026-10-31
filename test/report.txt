@@ -4,25 +4,25 @@
 server up: True
 rings: crater_fields, ember_wastes, the_bleeding_grove, the_ashen_orchard, titan_wood, the_salt_of_sodom, giants_reach, the_wall
 biome crater_fields: (2112, 2112)  dist 2986
-biome ember_wastes: (3552, -3520)  dist 5000
-biome the_bleeding_grove: (4160, -4128)  dist 5860
-biome the_ashen_orchard: (-4768, 4800)  dist 6765
-biome titan_wood: (5440, -5408)  dist 7670
-biome the_salt_of_sodom: (6176, 6176)  dist 8734
-biome giants_reach: [14:45:09] [Server thread/INFO]: System chat: Could not find a biome of type "sacrifice:giants_reach" within a reasonable distance
-biome the_wall: [14:45:10] [Server thread/INFO]: System chat: Could not find a biome of type "sacrifice:the_wall" within a reasonable distance
-vanilla structure minecraft:village_desert: 6320,6016  dist 8725
-vanilla structure minecraft:village_plains: -4832,4704  dist 6743
-vanilla structure minecraft:desert_pyramid: -6048,6256  dist 8701
-structure titan_tree: hread/INFO]: System chat: Could not find a structure of type "sacrifice:titan_tree" nearby
-structure blood_tree: -4176,-4176
-structure undergrowth: read/INFO]: System chat: Could not find a structure of type "sacrifice:undergrowth" nearby
-structure giant_sword: -6880,-6832
-structure giant_footprint: -6208,-6240
-structure giant_campfire: -6896,-6912
-structure giant_mushroom: -4128,4176
-structure bone_remains: -3584,-3552
+biome ember_wastes: (2784, -2752)  dist 3914
+biome the_bleeding_grove: (3232, -3200)  dist 4548
+biome the_ashen_orchard: (3712, 3712)  dist 5249
+biome titan_wood: (4160, 4160)  dist 5883
+biome the_salt_of_sodom: (4704, -4672)  dist 6629
+biome giants_reach: (5120, 5120)  dist 7240
+biome the_wall: (5504, 5504)  dist 7783
+vanilla structure minecraft:village_desert: -4736,-4672  dist 6652
+vanilla structure minecraft:village_plains: -3552,4160  dist 5470
+vanilla structure minecraft:desert_pyramid: -4464,4896  dist 6625
+structure titan_tree: -4160,4160
+structure blood_tree: -3216,-3216
+structure undergrowth: -4128,-4160
+structure giant_sword: -5056,5216
+structure giant_footprint: -4640,4784
+structure giant_campfire: -5248,-5280
+structure giant_mushroom: -3248,-3280
+structure bone_remains: ead/INFO]: System chat: Could not find a structure of type "sacrifice:bone_remains" nearby
 structure calf: 128,128
-generating 962 chunks
-region dir world/dimensions/sacrifice/sacrifice/region; saved 16 region files
+generating 1283 chunks
+region dir world/dimensions/sacrifice/sacrifice/region; saved 24 region files
 ===== WARN/ERROR lines =====
