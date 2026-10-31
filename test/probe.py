@@ -36,6 +36,14 @@ for b in RINGS:
     if m and m.group(2):
         loc[b] = (int(m.group(2)), int(m.group(3))); report.append(f"biome {b}: {loc[b]}  dist {int(math.hypot(*loc[b]))}")
     else: report.append(f"biome {b}: {line.strip() if line else 'timeout'}")
+zf = zipfile.ZipFile(PACK)
+VMAP = {"nether_fortress": "fortress"}
+for name in zf.namelist():
+    mm = re.match(r"data/minecraft/tags/worldgen/biome/has_structure/(\w+)\.json$", name)
+    if not mm: continue
+    sid = "minecraft:" + VMAP.get(mm.group(1), mm.group(1))
+    m, line = cmd(f"execute in {D} positioned 0 80 0 run locate structure {sid}", r"(is at \[(-?\d+), [~\d-]+, (-?\d+)\]|Could not|rror|nknown)", 300)
+    report.append(f"vanilla structure {sid}: " + (f"{m.group(2)},{m.group(3)}  dist {int(math.hypot(int(m.group(2)), int(m.group(3))))}" if m and m.group(2) else (line.strip()[-90:] if line else "timeout")))
 for s in ["titan_tree", "blood_tree", "undergrowth", "giant_sword", "giant_footprint", "giant_campfire", "giant_mushroom", "bone_remains", "calf"]:
     m, line = cmd(f"execute in {D} positioned 0 80 0 run locate structure sacrifice:{s}", r"(is at \[(-?\d+), [~\d-]+, (-?\d+)\]|Could not|rror|nknown)", 300)
     report.append(f"structure {s}: " + (f"{m.group(2)},{m.group(3)}" if m and m.group(2) else (line.strip()[-90:] if line else "timeout")))
