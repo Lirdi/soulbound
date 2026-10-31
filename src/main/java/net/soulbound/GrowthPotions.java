@@ -66,11 +66,11 @@ import java.util.function.Predicate;
  *   + Gunpowder / + Dragon's Breath  = splash / lingering
  *
  * Growth: bigger (+25% / +50%), a little more reach, knockback resistance, and Slowness I for as long as it lasts.
- * Shrinking: smaller (-25% / -40%) and Weakness I. Splash and lingering Growth also push crops (tumours included) and
+ * Shrinking: smaller (-25% / -40%) and faster (Speed I / II), but two hearts down while it lasts. Splash and lingering Growth also push crops (tumours included) and
  * saplings on, and turn young animals into adults. Two in a minute makes you sick and a tumour tears loose. In a Blood
  * Moon they last twice as long. Milk or death ends them.
  *
- * The potions carry their side effect (Slowness/Weakness) as a real potion effect, so vanilla handles the tooltip,
+ * The potions carry their side effect (Slowness/Speed) as a real potion effect, so vanilla handles the tooltip,
  * the colour, splash intensity and lingering clouds; the plugin adds the size change on top and times it.
  */
 final class GrowthPotions implements Listener {
@@ -83,7 +83,7 @@ final class GrowthPotions implements Listener {
 
     private final Soulbound plugin;
     private final NamespacedKey kindKey, levelKey, longKey, untilKey, stateKey, lastKey;
-    private final NamespacedKey scaleKey, reachEKey, reachBKey, kbKey;
+    private final NamespacedKey scaleKey, reachEKey, reachBKey, kbKey, hpKey;
     private final Set<UUID> tracked = new HashSet<>();
     /** lingering clouds of ours: cloud -> {kind, level, long} */
     private final Map<UUID, int[]> clouds = new HashMap<>();
@@ -102,6 +102,7 @@ final class GrowthPotions implements Listener {
         reachEKey = new NamespacedKey(plugin, "growth_reach_entity");
         reachBKey = new NamespacedKey(plugin, "growth_reach_block");
         kbKey = new NamespacedKey(plugin, "growth_knockback");
+        hpKey = new NamespacedKey(plugin, "growth_health");
     }
 
     void start() {
@@ -139,7 +140,7 @@ final class GrowthPotions implements Listener {
             int t = baseTicks(level, lng), shown = form == Material.LINGERING_POTION ? t / 4 : t;
             m.displayName(line(prefix + "Potion of " + (g ? "Growth" : "Shrinking"), NamedTextColor.WHITE));
             m.setColor(g ? GROWTH : SHRINK);
-            m.addCustomEffect(new PotionEffect(g ? PotionEffectType.SLOWNESS : PotionEffectType.WEAKNESS, t, 0, false, true, true), true);
+            m.addCustomEffect(new PotionEffect(g ? PotionEffectType.SLOWNESS : PotionEffectType.SPEED, t, g ? 0 : level >= 2 ? 1 : 0, false, true, true), true);
             lore.add(line((g ? "Growth" : "Shrinking") + (level >= 2 ? " II" : "") + " (" + time(shown) + ")", NamedTextColor.BLUE));
             if (g) {
                 lore.add(line(level >= 2 ? "+50% Size" : "+25% Size", NamedTextColor.BLUE));
@@ -149,6 +150,7 @@ final class GrowthPotions implements Listener {
                 lore.add(Component.text("Brewed from a tumour.", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, true));
             } else {
                 lore.add(line(level >= 2 ? "-40% Size" : "-25% Size", NamedTextColor.BLUE));
+                lore.add(line("-2 Hearts", NamedTextColor.RED));
                 lore.add(Component.text("Whatever it was, it's smaller now.", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, true));
             }
         }
@@ -263,6 +265,7 @@ final class GrowthPotions implements Listener {
         mod(e, Attribute.ENTITY_INTERACTION_RANGE, reachEKey, 0, AttributeModifier.Operation.ADD_NUMBER);
         mod(e, Attribute.BLOCK_INTERACTION_RANGE, reachBKey, 0, AttributeModifier.Operation.ADD_NUMBER);
         mod(e, Attribute.KNOCKBACK_RESISTANCE, kbKey, 0, AttributeModifier.Operation.ADD_NUMBER);
+        mod(e, Attribute.MAX_HEALTH, hpKey, 0, AttributeModifier.Operation.ADD_NUMBER);
     }
 
     /** bosses and other mobs the plugin has already resized are left alone */
@@ -290,15 +293,15 @@ final class GrowthPotions implements Listener {
             mod(e, Attribute.ENTITY_INTERACTION_RANGE, reachEKey, reach, AttributeModifier.Operation.ADD_NUMBER);
             mod(e, Attribute.BLOCK_INTERACTION_RANGE, reachBKey, reach, AttributeModifier.Operation.ADD_NUMBER);
             mod(e, Attribute.KNOCKBACK_RESISTANCE, kbKey, level >= 2 ? 0.5 : 0.3, AttributeModifier.Operation.ADD_NUMBER);
-        }
+        } else mod(e, Attribute.MAX_HEALTH, hpKey, -4, AttributeModifier.Operation.ADD_NUMBER);   // two hearts down
         pdc.set(untilKey, PersistentDataType.LONG, until);
         pdc.set(stateKey, PersistentDataType.STRING, state);
         tracked.add(e.getUniqueId());
         // the side effect lasts exactly as long as the change, and its timer is the one the player sees
-        PotionEffectType side = g ? PotionEffectType.SLOWNESS : PotionEffectType.WEAKNESS;
-        PotionEffectType other = g ? PotionEffectType.WEAKNESS : PotionEffectType.SLOWNESS;
+        PotionEffectType side = g ? PotionEffectType.SLOWNESS : PotionEffectType.SPEED;
+        PotionEffectType other = g ? PotionEffectType.SPEED : PotionEffectType.SLOWNESS;
         e.removePotionEffect(side);
-        e.addPotionEffect(new PotionEffect(side, (int) ((until - now) / 50), 0, false, true, true));
+        e.addPotionEffect(new PotionEffect(side, (int) ((until - now) / 50), g ? 0 : level >= 2 ? 1 : 0, false, true, true));
         if (was != null && !was.startsWith(k.name())) e.removePotionEffect(other);
         e.getWorld().playSound(e.getLocation(), g ? Sound.ENTITY_SLIME_SQUISH : Sound.ENTITY_SLIME_SQUISH_SMALL, 0.8f, g ? 0.5f : 1.6f);
         if (e instanceof Player p) p.sendActionBar(Component.text(g ? "You swell." : "You shrink.", g ? NamedTextColor.RED : NamedTextColor.LIGHT_PURPLE));

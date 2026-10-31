@@ -83,6 +83,9 @@ abstract class TripwireCrop implements Listener {
     abstract void dropRipe(Block b, Location at);
     /** a ripe crop near a player, now and then: a heartbeat, a sparkle */
     abstract void ambient(Player p, Block ripe);
+    /** the worlds it will grow in at all (Cloud Cotton: only Heaven) */
+    boolean growsIn(World w) { return true; }
+    String wrongWorldMessage() { return ""; }
     /** chance per pass that a ripe crop spreads to bare soil next to it */
     double spreadChance() { return 0; }
     void spread(Block b) {}
@@ -166,6 +169,7 @@ abstract class TripwireCrop implements Listener {
         double grow = GROW_CHANCE * (moon ? 2 : 1);
         List<Block> spread = new ArrayList<>();
         for (World w : Bukkit.getWorlds()) {
+            if (!growsIn(w)) continue;
             // like vanilla crops, growth follows the world's random tick speed (3 is normal; 0 stops it)
             Integer rts = w.getGameRuleValue(org.bukkit.GameRule.RANDOM_TICK_SPEED);
             double scale = Math.max(0, rts == null ? 3 : rts) / 3.0, worldGrow = Math.min(1.0, grow * scale);
@@ -245,6 +249,7 @@ abstract class TripwireCrop implements Listener {
         if (!isSeed(hand) || e.getBlockFace() != BlockFace.UP) return;
         e.setCancelled(true);
         Block above = b.getRelative(BlockFace.UP);
+        if (!growsIn(b.getWorld())) { p.sendActionBar(Component.text(wrongWorldMessage(), NamedTextColor.RED)); return; }
         if (!soil(b.getType())) { p.sendActionBar(Component.text(wrongSoilMessage(), NamedTextColor.RED)); return; }
         if (!above.getType().isAir()) return;
         set(above, 0);

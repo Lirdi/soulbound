@@ -636,7 +636,7 @@ peacekeeper:
   scale: 2.2
   levitation-seconds: 20
   gate-frames: 3
-  # Cloud Cotton seeds per trade (Heaven's crop; grows on end stone)
+  # Cloud Cotton seeds per trade (Heaven's crop: only grows in Heaven, on grass, dirt or end stone)
   cotton-seeds-count: 4
   price:
     breath-of-eden-tears: 2
