@@ -3,6 +3,8 @@ on:
   push:
     paths: ['test/paper/**', '.github/workflows/paper-test.yml']
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -27,4 +29,4 @@ jobs:
           mkdir -p test/paper/out && cp srv/report.txt test/paper/out/ 2>/dev/null || true
           grep -iE "soulbound|exception|error|caused by|\tat " srv/logs/latest.log | head -150 > test/paper/out/log.txt || true
           git config user.name ci && git config user.email ci@example.com
-          git add test/paper/out && git commit -m "paper test result [skip ci]" && git push || true
+          git add test/paper/out && git commit -m "paper test result [skip ci]" && (git pull --rebase -q origin worldgen-test; git push) || true

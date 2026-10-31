@@ -2,6 +2,7 @@ name: Worldgen probe
 on:
   push:
     branches: [worldgen-test]
+    paths-ignore: ['test/paper/**', '.github/workflows/paper-test.yml']
 permissions:
   contents: write
 jobs:
