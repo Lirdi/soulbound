@@ -40,7 +40,7 @@ jobs:
           cp run/report.txt test/report.txt || true
           grep -i -E 'error|warn|exception|failed|sacrifice' run/server.log | head -400 > test/server-excerpt.txt || true
           gzip -c run/server.log > test/server.log.gz || true
-          git config user.name probe && git config user.email probe@users.noreply.github.com
+          git config user.name Claude && git config user.email noreply@anthropic.com
           git add test/report.txt test/server-excerpt.txt test/server.log.gz test/out && git commit -m 'probe report [skip ci]' && git push || true
       - uses: actions/upload-artifact@v4
         if: always()
