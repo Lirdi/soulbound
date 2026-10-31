@@ -636,11 +636,14 @@ peacekeeper:
   scale: 2.2
   levitation-seconds: 20
   gate-frames: 3
+  # Cloud Cotton seeds per trade (Heaven's crop; grows on end stone)
+  cotton-seeds-count: 4
   price:
     breath-of-eden-tears: 2
     heart-of-light-eggs: 1
     levitation-diamonds: 10
     gate-frames-tears: 1
+    cotton-seeds-diamonds: 2
 
 heaven:
   # Outside the main island the sky is always clear midday, so God's night (and the dawn of each Day) is only seen there.

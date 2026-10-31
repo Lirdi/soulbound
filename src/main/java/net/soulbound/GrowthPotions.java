@@ -62,7 +62,7 @@ import java.util.function.Predicate;
  *   Fleshy Potion + Bone Meal        = Potion of Growth
  *   + Glowstone                      = Growth II
  *   + Tumour Seed                    = longer (stands in for redstone: the server has no natural redstone)
- *   + Fermented Spider Eye           = Potion of Shrinking
+ *   + Cloud Cotton                   = Potion of Shrinking (Heaven's crop: light as air)
  *   + Gunpowder / + Dragon's Breath  = splash / lingering
  *
  * Growth: bigger (+25% / +50%), a little more reach, knockback resistance, and Slowness I for as long as it lasts.
@@ -196,6 +196,7 @@ final class GrowthPotions implements Listener {
             case 1 -> { in = water; ing = plugin.tumourCrop().tumour(1); }
             case 2 -> { in = potion(Kind.FLESHY, 1, false, Material.POTION); ing = new ItemStack(Material.BONE_MEAL); }
             case 3 -> { in = potion(Kind.GROWTH, 1, false, Material.POTION); ing = plugin.tumourCrop().seed(1); }
+            case 5 -> { in = potion(Kind.GROWTH, 1, false, Material.POTION); ing = plugin.cloudCotton().cotton(1); }
             default -> { in = potion(Kind.GROWTH, 1, false, Material.POTION); ing = new ItemStack(Material.GUNPOWDER); }
         }
         var inv = bs.getInventory();
@@ -221,6 +222,7 @@ final class GrowthPotions implements Listener {
                 && it.getItemMeta() instanceof PotionMeta pm && pm.getBasePotionType() == PotionType.WATER && !pm.hasCustomEffects();
         mix("fleshy", potion(Kind.FLESHY, 1, false, Material.POTION), water, new RecipeChoice.ExactChoice(plugin.tumourCrop().tumour(1)));
         RecipeChoice seed = new RecipeChoice.ExactChoice(plugin.tumourCrop().seed(1));
+        RecipeChoice cotton = new RecipeChoice.ExactChoice(plugin.cloudCotton().cotton(1));
         int[][] variants = {{1, 0}, {2, 0}, {1, 1}};
         for (Material f : FORMS) {
             String fn = f.name().toLowerCase();
@@ -234,7 +236,7 @@ final class GrowthPotions implements Listener {
                     mix(n + "_glowstone", potion(k, 2, false, f), in, type(Material.GLOWSTONE_DUST));
                     mix(n + "_seed", potion(k, 1, true, f), in, seed);
                 }
-                if (k == Kind.GROWTH) mix(n + "_eye", potion(Kind.SHRINK, lvl, lng, f), in, type(Material.FERMENTED_SPIDER_EYE));
+                if (k == Kind.GROWTH) mix(n + "_cotton", potion(Kind.SHRINK, lvl, lng, f), in, cotton);
                 containers(k.name().toLowerCase() + "_" + lvl + (lng ? "_long" : ""), k, lvl, lng, f);
             }
         }
@@ -428,7 +430,7 @@ final class GrowthPotions implements Listener {
     }
 
     private void grow(Block b, int n) {
-        if (plugin.tumourCrop().grow(b, n)) { puff(b); return; }
+        if (plugin.tumourCrop().grow(b, n) || plugin.cloudCotton().grow(b, n)) { puff(b); return; }
         Material m = b.getType();
         BlockData d = b.getBlockData();
         if (CROPS.contains(m) && d instanceof org.bukkit.block.data.Ageable a && a.getAge() < a.getMaximumAge()) {

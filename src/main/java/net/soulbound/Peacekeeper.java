@@ -200,6 +200,10 @@ final class Peacekeeper implements Listener {
         list.add(deal(levitation(), new ItemStack(Material.DIAMOND, Math.max(1, Math.min(64, c.getInt("peacekeeper.price.levitation-diamonds", 10))))));
         ItemStack oneTear = tear.clone(); oneTear.setAmount(Math.max(1, c.getInt("peacekeeper.price.gate-frames-tears", 1)));
         list.add(deal(new ItemStack(Material.END_PORTAL_FRAME, Math.max(1, c.getInt("peacekeeper.gate-frames", 3))), oneTear));
+        // Heaven's crop: Cloud Cotton seeds
+        if (plugin.cloudCotton() != null)
+            list.add(deal(plugin.cloudCotton().seed(Math.max(1, Math.min(64, c.getInt("peacekeeper.cotton-seeds-count", 4)))),
+                    new ItemStack(Material.DIAMOND, Math.max(1, Math.min(64, c.getInt("peacekeeper.price.cotton-seeds-diamonds", 2))))));
         // last of all, the Angel Engine
         list.add(deal(plugin.grace().heart(), new ItemStack(Material.DRAGON_EGG, Math.max(1, c.getInt("peacekeeper.price.heart-of-light-eggs", 1)))));
         Merchant m = Bukkit.createMerchant();
