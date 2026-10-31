@@ -206,6 +206,22 @@ final class TumourCrop implements Listener {
             if (dirty) saveChunk(c);
           }
         }
+        // a quiet heartbeat from a ripe mass near each player (the pack makes them throb; this is the sound of it)
+        for (Player p : Bukkit.getOnlinePlayers()) {
+            if (r.nextInt(3) != 0) continue;
+            Chunk pc = p.getLocation().getChunk(); Block near = null;
+            for (int dx = -1; dx <= 1 && near == null; dx++) for (int dz = -1; dz <= 1 && near == null; dz++) {
+                if (!p.getWorld().isChunkLoaded(pc.getX() + dx, pc.getZ() + dz)) continue;
+                Chunk c = p.getWorld().getChunkAt(pc.getX() + dx, pc.getZ() + dz);
+                Map<Integer, Integer> m = crops.get(ck(c));
+                if (m == null) continue;
+                for (var e : m.entrySet()) if (e.getValue() >= RIPE) {
+                    Block b = unpack(c, e.getKey());
+                    if (b.getLocation().distanceSquared(p.getLocation()) < 144) { near = b; break; }
+                }
+            }
+            if (near != null) p.playSound(near.getLocation().add(.5, .5, .5), Sound.ENTITY_WARDEN_HEARTBEAT, 0.35f, 1.3f);
+        }
         for (Block b : spread) {   // a ripe mass reaches into bare soul soil beside it
             BlockFace f = new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST}[r.nextInt(4)];
             Block ground = b.getRelative(BlockFace.DOWN).getRelative(f), above = ground.getRelative(BlockFace.UP);
