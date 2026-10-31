@@ -1,0 +1,30 @@
+name: paper-test
+on:
+  push:
+    paths: ['test/paper/**', '.github/workflows/paper-test.yml']
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { ref: main, path: plugin }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '25' }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: cd plugin && chmod +x gradlew && ./gradlew build --no-daemon -q
+      - name: paper
+        run: |
+          mkdir -p srv/plugins && cp plugin/build/libs/*.jar srv/plugins/
+          URL=$(curl -sS -A "soulbound-ci (github.com/Lirdi/soulbound)" https://fill.papermc.io/v3/projects/paper/versions/26.3/builds/latest | python3 -c 'import json,sys; print(json.load(sys.stdin)["downloads"]["server:default"]["url"])')
+          echo "$URL"; curl -sS -L -A "soulbound-ci" -o srv/server.jar "$URL"
+          echo eula=true > srv/eula.txt
+          printf 'online-mode=false\nlevel-type=minecraft\\:flat\nspawn-protection=0\n' > srv/server.properties
+      - run: cd srv && timeout 900 python3 ../test/paper/drive.py
+      - if: always()
+        run: |
+          mkdir -p test/paper/out && cp srv/report.txt test/paper/out/ 2>/dev/null || true
+          grep -iE "soulbound|exception|error|caused by|\tat " srv/logs/latest.log | head -150 > test/paper/out/log.txt || true
+          git config user.name ci && git config user.email ci@example.com
+          git add test/paper/out && git commit -m "paper test result [skip ci]" && git push || true
