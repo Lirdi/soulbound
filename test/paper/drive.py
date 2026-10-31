@@ -19,18 +19,18 @@ def cmd(c, pat=None, t=60):
 rep = []
 rep.append("done: " + str(wait_for(r"Done \(", 900)))
 rep.append("brews line: " + str([l.strip() for l in lines if "Growth potion brews" in l]))
-T = '{Slot:3b,id:"minecraft:echo_shard",count:1,components:{"minecraft:custom_data":{PublicBukkitValues:{"soulbound:tumour":1b}}}}'
-W = lambda s: '{Slot:%db,id:"minecraft:potion",count:1,components:{"minecraft:potion_contents":{potion:"minecraft:water"}}}' % s
 cmd("forceload add 0 0")
-cmd('setblock 0 -50 0 minecraft:brewing_stand{Items:[%s,%s,%s,{Slot:4b,id:"minecraft:blaze_powder",count:64}]}' % (W(0), W(1), T))
-# a control: vanilla awkward brew
-cmd('setblock 2 -50 0 minecraft:brewing_stand{Items:[%s,{Slot:3b,id:"minecraft:nether_wart",count:1},{Slot:4b,id:"minecraft:blaze_powder",count:64}]}' % W(0))
+for st in (1, 2, 3, 4):
+    x = st * 2
+    cmd("setblock %d -50 0 minecraft:brewing_stand" % x); time.sleep(0.5)
+    rep.append("fill %d: %s" % (st, cmd("moloch gear @brew %d %d -50 0" % (st, x), r"Filled|isn't|rror|nknown|Usage|/moloch", 20)))
 time.sleep(4)
-rep.append("brewtime custom after 4s: " + str(cmd("data get block 0 -50 0 BrewTime", r"BrewTime|no|has the following", 20)))
-rep.append("brewtime vanilla after 4s: " + str(cmd("data get block 2 -50 0 BrewTime", r"BrewTime|no|has the following", 20)))
+for st in (1, 2, 3, 4):
+    rep.append("brewtime %d after 4s: %s" % (st, cmd("data get block %d -50 0 BrewTime" % (st * 2), r"has the following|no", 20)))
 time.sleep(25)
-rep.append("custom items: " + str(cmd("data get block 0 -50 0 Items", r"has the following|Items", 20)))
-rep.append("vanilla items: " + str(cmd("data get block 2 -50 0 Items", r"has the following|Items", 20)))
+for st in (1, 2, 3, 4):
+    l = cmd("data get block %d -50 0 Items" % (st * 2), r"has the following", 20) or ""
+    rep.append("items %d: %s" % (st, l[:900]))
 cmd("stop"); p.wait(timeout=300)
 open("report.txt", "w").write("\n".join(rep) + "\n")
 print("\n".join(rep))
