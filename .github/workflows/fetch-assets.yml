@@ -19,6 +19,17 @@ jobs:
           unzip -o -j client.jar 'assets/minecraft/blockstates/tripwire.json' -d test/vanilla/
           unzip -l client.jar | grep -E 'assets/minecraft/models/block/(tripwire|crop)' | awk '{print $4}' > test/vanilla/models-list.txt
           unzip -o -j client.jar 'assets/minecraft/models/block/crop.json' -d test/vanilla/ || true
+      - name: Vanilla worldgen data from the 26.3 server jar
+        run: |
+          url=$(curl -s https://piston-meta.mojang.com/mc/game/version_manifest_v2.json | python3 -c "import json,sys;d=json.load(sys.stdin);print([v['url'] for v in d['versions'] if v['id']=='26.3'][0])")
+          jar=$(curl -s "$url" | python3 -c "import json,sys;print(json.load(sys.stdin)['downloads']['server']['url'])")
+          curl -s -o server.jar "$jar"
+          inner=$(unzip -l server.jar | awk '{print $4}' | grep -E '^META-INF/versions/.*\.jar$' | head -1)
+          echo "inner: $inner"
+          unzip -o -q server.jar "$inner" -d srv && mv "srv/$inner" inner.jar
+          mkdir -p test/vanilla/data
+          unzip -o -q inner.jar 'data/minecraft/worldgen/biome/*' 'data/minecraft/tags/worldgen/biome/*' 'data/minecraft/worldgen/structure_set/*' 'data/minecraft/dimension_type/*' -d test/vanilla/data/ || true
+          ls test/vanilla/data/data/minecraft/worldgen/biome | wc -l
       - name: Commit
         run: |
           git config user.name Claude && git config user.email noreply@anthropic.com
