@@ -19,6 +19,10 @@ jobs:
           unzip -o -j client.jar 'assets/minecraft/blockstates/tripwire.json' -d test/vanilla/
           unzip -l client.jar | grep -E 'assets/minecraft/models/block/(tripwire|crop)' | awk '{print $4}' > test/vanilla/models-list.txt
           unzip -o -j client.jar 'assets/minecraft/models/block/crop.json' -d test/vanilla/ || true
+          mkdir -p test/vanilla/tex
+          for t in ghast/ghast ghast/happy_ghast breeze/breeze piglin/piglin_brute phantom illager/vex shulker/shulker_white enderdragon/dragon; do unzip -o -j client.jar "assets/minecraft/textures/entity/$t.png" -d test/vanilla/tex/ || true; done
+          unzip -o -j client.jar 'assets/minecraft/textures/gui/book.png' -d test/vanilla/tex/ || true
+          unzip -l client.jar | grep -E 'textures/entity/(ghast|breeze|phantom|piglin)' | awk '{print $4}' > test/vanilla/tex/list.txt
       - name: Vanilla worldgen data from the 26.3 server jar
         run: |
           url=$(curl -s https://piston-meta.mojang.com/mc/game/version_manifest_v2.json | python3 -c "import json,sys;d=json.load(sys.stdin);print([v['url'] for v in d['versions'] if v['id']=='26.3'][0])")
