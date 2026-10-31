@@ -1,0 +1,25 @@
+name: tebex-probe
+on:
+  push:
+    branches: [store-site]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask the Tebex Headless API what the store has
+        run: |
+          T=1560v-3e98abbf684fe7d070513a6896f8e23dbe3ad840
+          mkdir probe
+          for path in "" "/categories?includePackages=1" "/sidebar"; do
+            name=$(echo "x$path" | tr -c 'a-z0-9' '_')
+            curl -sS -D "probe/${name}.headers" -H "Origin: https://store.playbaffoonmc.net" -H "Accept: application/json" \
+              "https://headless.tebex.io/api/accounts/$T$path" -o "probe/${name}.json" || true
+          done
+          curl -sS -i -X OPTIONS -H "Origin: https://store.playbaffoonmc.net" -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: content-type" "https://headless.tebex.io/api/accounts/$T/baskets" > probe/preflight.txt || true
+          ls -la probe; head -c 400 probe/*.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tebex-probe
+          path: probe
