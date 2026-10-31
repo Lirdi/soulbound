@@ -18,7 +18,10 @@ jobs:
           done
           curl -sS -i -X OPTIONS -H "Origin: https://store.playbaffoonmc.net" -H "Access-Control-Request-Method: POST" \
             -H "Access-Control-Request-Headers: content-type" "https://headless.tebex.io/api/accounts/$T/baskets" > probe/preflight.txt || true
-          ls -la probe; head -c 400 probe/*.json
+          for f in probe/*; do
+            body=$(head -c 3500 "$f" | tr '\n\r' '  ' | sed 's/%/%25/g')
+            echo "::notice title=$(basename $f)::$body"
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: tebex-probe
