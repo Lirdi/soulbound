@@ -45,12 +45,13 @@ import java.util.UUID;
  * Eaten by someone inhuman, it makes them human again. Eaten by anyone else, it Graces them for good: undead take more
  * damage from them, the Archangel ghasts of Heaven leave them be (God's own host still fights them while He does), and
  * when they fall low a Second Wind of Regeneration lifts them (once a minute). Grace and the Heart of Darkness can't live
- * in the same body: eating the Heart of Darkness puts the light out.
+ * in the same body: eating the Heart of Darkness puts the light out. In Heaven (the End) the Graced carry three more
+ * hearts.
  */
 final class Grace implements Listener {
     private static final Particle.DustOptions GOLD = new Particle.DustOptions(Color.fromRGB(255, 214, 96), 1.0f);
     private final Soulbound plugin;
-    private final NamespacedKey key, heartKey;
+    private final NamespacedKey key, heartKey, heavenHeartsKey;
     private final Map<UUID, Long> lastWind = new HashMap<>();
     private Tag<EntityType> undeadTag;
     private boolean tagLooked;
@@ -59,7 +60,31 @@ final class Grace implements Listener {
         this.plugin = plugin;
         this.key = new NamespacedKey(plugin, "graced");
         this.heartKey = new NamespacedKey(plugin, "heart_of_light");
+        this.heavenHeartsKey = new NamespacedKey(plugin, "grace_heaven_hearts");
     }
+
+    // ---------------------------------------------------------------- three more hearts in Heaven
+
+    /** the Graced carry extra hearts while they're in Heaven (the End); everywhere else, and for everyone else, none */
+    void syncHearts(Player p) {
+        var hp = p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        if (hp == null) return;
+        double extra = plugin.getConfig().getDouble("grace.heaven-extra-health", 6);
+        boolean want = extra > 0 && is(p) && p.getWorld().getEnvironment() == org.bukkit.World.Environment.THE_END;
+        var cur = hp.getModifier(heavenHeartsKey);
+        if (want && cur != null && cur.getAmount() == extra) return;
+        if (cur != null) hp.removeModifier(heavenHeartsKey);
+        if (want) hp.addModifier(new org.bukkit.attribute.AttributeModifier(heavenHeartsKey, extra, org.bukkit.attribute.AttributeModifier.Operation.ADD_NUMBER, org.bukkit.inventory.EquipmentSlotGroup.ANY));
+    }
+
+    @EventHandler
+    public void onWorldChange(org.bukkit.event.player.PlayerChangedWorldEvent e) { syncHearts(e.getPlayer()); }
+
+    @EventHandler
+    public void onJoinHearts(org.bukkit.event.player.PlayerJoinEvent e) { syncHearts(e.getPlayer()); }
+
+    @EventHandler
+    public void onRespawnHearts(org.bukkit.event.player.PlayerRespawnEvent e) { Bukkit.getScheduler().runTask(plugin, () -> syncHearts(e.getPlayer())); }
 
     // ---------------------------------------------------------------- the item and the state
 
@@ -109,6 +134,7 @@ final class Grace implements Listener {
     void set(Player p, boolean graced) {
         if (graced) p.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
         else p.getPersistentDataContainer().remove(key);
+        syncHearts(p);
     }
 
     /** Heaven's own ghasts leave a Graced player alone - except while God Himself is fighting. */
