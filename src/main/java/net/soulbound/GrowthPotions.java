@@ -89,6 +89,8 @@ final class GrowthPotions implements Listener {
     private final Map<UUID, int[]> clouds = new HashMap<>();
     private final List<NamespacedKey> mixes = new ArrayList<>();
     private BukkitTask task;
+    /** set while this class changes potion effects itself, so its own changes aren't mistaken for a clear */
+    private boolean editing;
 
     GrowthPotions(Soulbound plugin) {
         this.plugin = plugin;
@@ -300,9 +302,12 @@ final class GrowthPotions implements Listener {
         // the side effect lasts exactly as long as the change, and its timer is the one the player sees
         PotionEffectType side = g ? PotionEffectType.SLOWNESS : PotionEffectType.SPEED;
         PotionEffectType other = g ? PotionEffectType.SPEED : PotionEffectType.SLOWNESS;
-        e.removePotionEffect(side);
-        e.addPotionEffect(new PotionEffect(side, (int) ((until - now) / 50), g ? 0 : level >= 2 ? 1 : 0, false, true, true));
-        if (was != null && !was.startsWith(k.name())) e.removePotionEffect(other);
+        editing = true;
+        try {
+            e.removePotionEffect(side);
+            e.addPotionEffect(new PotionEffect(side, (int) ((until - now) / 50), g ? 0 : level >= 2 ? 1 : 0, false, true, true));
+            if (was != null && !was.startsWith(k.name())) e.removePotionEffect(other);
+        } finally { editing = false; }
         e.getWorld().playSound(e.getLocation(), g ? Sound.ENTITY_SLIME_SQUISH : Sound.ENTITY_SLIME_SQUISH_SMALL, 0.8f, g ? 0.5f : 1.6f);
         if (e instanceof Player p) p.sendActionBar(Component.text(g ? "You swell." : "You shrink.", g ? NamedTextColor.RED : NamedTextColor.LIGHT_PURPLE));
     }
@@ -370,6 +375,28 @@ final class GrowthPotions implements Listener {
 
     @EventHandler
     public void onDeath(PlayerDeathEvent e) { clear(e.getPlayer()); }
+
+    /**
+     * Anything that takes the potion's own effect away early (/effect clear, a heal command, a totem, milk, another
+     * plugin) ends the size change with it, so the size, hearts and the timer the player sees always match.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEffectGone(org.bukkit.event.entity.EntityPotionEffectEvent e) {
+        if (editing || !(e.getEntity() instanceof LivingEntity le)) return;
+        var a = e.getAction();
+        if (a != org.bukkit.event.entity.EntityPotionEffectEvent.Action.REMOVED && a != org.bukkit.event.entity.EntityPotionEffectEvent.Action.CLEARED) return;
+        var c = e.getCause();
+        if (c == org.bukkit.event.entity.EntityPotionEffectEvent.Cause.EXPIRATION || c == org.bukkit.event.entity.EntityPotionEffectEvent.Cause.DEATH) return;
+        String st = le.getPersistentDataContainer().get(stateKey, PersistentDataType.STRING);
+        if (st == null) return;
+        PotionEffectType side = st.startsWith(Kind.GROWTH.name()) ? PotionEffectType.SLOWNESS : PotionEffectType.SPEED;
+        if (e.getModifiedType() != side) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!le.isValid() || le.getPersistentDataContainer().get(stateKey, PersistentDataType.STRING) == null) return;
+            clear(le);
+            if (le instanceof Player p) p.sendActionBar(Component.text("You're back to your own size.", NamedTextColor.GRAY));
+        });
+    }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) { check(e.getPlayer()); }
