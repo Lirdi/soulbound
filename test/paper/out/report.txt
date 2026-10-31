@@ -1,11 +1,23 @@
-done: [10:51:53 INFO]: Done (14.564s)! For help, type "help"
+done: [10:54:22 INFO]: Done (13.448s)! For help, type "help"
 
-brews line: ['[10:51:52 INFO]: [Soulbound] Registered 39 Growth potion brews.']
-brewtime custom after 4s: [10:51:57 INFO]: System chat: 0, -50, 0 has the following block data: 0
+brews line: ['[10:54:21 INFO]: [Soulbound] Registered 39 Growth potion brews.']
+fill 1: [10:54:23 INFO]: Filled the stand for step 1.
 
-brewtime vanilla after 4s: [10:51:58 INFO]: System chat: 2, -50, 0 has the following block data: 328
+fill 2: [10:54:23 INFO]: Filled the stand for step 2.
 
-custom items: [10:52:23 INFO]: System chat: 0, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:water"}}}, {Slot: 1b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:water"}}}, {Slot: 3b, id: "minecraft:echo_shard", count: 1, components: {"minecraft:custom_data": {PublicBukkitValues: {"soulbound:tumour": 1b}}}}, {Slot: 4b, id: "minecraft:blaze_powder", count: 63}]
+fill 3: [10:54:24 INFO]: Filled the stand for step 3.
 
-vanilla items: [10:52:23 INFO]: System chat: 2, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:awkward"}}}, {Slot: 4b, id: "minecraft:blaze_powder", count: 63}]
+fill 4: [10:54:24 INFO]: Filled the stand for step 4.
 
+brewtime 1 after 4s: [10:54:28 INFO]: System chat: 2, -50, 0 has the following block data: 286
+
+brewtime 2 after 4s: [10:54:28 INFO]: System chat: 4, -50, 0 has the following block data: 301
+
+brewtime 3 after 4s: [10:54:28 INFO]: System chat: 6, -50, 0 has the following block data: 302
+
+brewtime 4 after 4s: [10:54:29 INFO]: System chat: 8, -50, 0 has the following block data: 317
+
+items 1: [10:54:54 INFO]: System chat: 2, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:lore": [{italic: 1b, text: "It's thick. It moves.", color: "dark_gray"}], "minecraft:potion_contents": {custom_color: 13208192}, "minecraft:custom_data": {PublicBukkitValues: {"soulbound:moloch_potion_level": 1, "soulbound:moloch_potion": "FLESHY", "soulbound:moloch_potion_long": 0b}}, "minecraft:item_name": "Fleshy Potion"}}, {Slot: 1b, id: "minecraft:potion", count: 1, components: {"minecraft:lore": [{italic: 1b, text: "It's thick. It moves.", color: "dark_gray"}], "minecraft:potion_contents": {custom_color: 13208192}, "minecraft:custom_data": {PublicBukkitValues: {"soulbound:moloch_potion_level": 1, "soulbound:moloch_potion": "FLESHY", "soulbound:moloch_potion_long": 0b}}, "minecraft:item_name": "Fleshy Potion"}}, {Slot: 2b, id: "minecraft:potion"
+items 2: [10:54:54 INFO]: System chat: 4, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:lore": [{italic: 0b, text: "Growth (3:00)", color: "blue"}, {italic: 0b, text: "+25% Size", color: "blue"}, {italic: 0b, text: "+0.5 Reach", color: "blue"}, {italic: 0b, text: "+30% Knockback Resistance", color: "blue"}, {italic: 1b, text: "Brewed from a tumour.", color: "dark_gray"}], "minecraft:potion_contents": {custom_color: 14241898, custom_effects: [{duration: 3600, show_icon: 1b, id: "minecraft:slowness", ambient: 1b}]}, "minecraft:custom_data": {PublicBukkitValues: {"soulbound:moloch_potion_level": 1, "soulbound:moloch_potion": "GROWTH", "soulbound:moloch_potion_long": 0b}}, "minecraft:item_name": "Potion of Growth"}}, {Slot: 1b, id: "minecraft:potion", count: 1, components: {"minecraft:lore": [{italic: 0b, text: "Growth (3:00)", color: "blue
+items 3: [10:54:54 INFO]: System chat: 6, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:lore": [{italic: 0b, text: "Growth (8:00)", color: "blue"}, {italic: 0b, text: "+25% Size", color: "blue"}, {italic: 0b, text: "+0.5 Reach", color: "blue"}, {italic: 0b, text: "+30% Knockback Resistance", color: "blue"}, {italic: 1b, text: "Brewed from a tumour.", color: "dark_gray"}], "minecraft:potion_contents": {custom_color: 14241898, custom_effects: [{duration: 9600, show_icon: 1b, id: "minecraft:slowness", ambient: 1b}]}, "minecraft:custom_data": {PublicBukkitValues: {"soulbound:moloch_potion_level": 1, "soulbound:moloch_potion": "GROWTH", "soulbound:moloch_potion_long": 1b}}, "minecraft:item_name": "Potion of Growth"}}, {Slot: 1b, id: "minecraft:potion", count: 1, components: {"minecraft:lore": [{italic: 0b, text: "Growth (8:00)", color: "blue
+items 4: [10:54:54 INFO]: System chat: 8, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:splash_potion", count: 1, components: {"minecraft:lore": [{italic: 0b, text: "Growth (3:00)", color: "blue"}, {italic: 0b, text: "+25% Size", color: "blue"}, {italic: 0b, text: "+0.5 Reach", color: "blue"}, {italic: 0b, text: "+30% Knockback Resistance", color: "blue"}, {italic: 0b, text: "Grows crops, saplings and young animals.", color: "gray"}, {italic: 1b, text: "Brewed from a tumour.", color: "dark_gray"}], "minecraft:potion_contents": {custom_color: 14241898, custom_effects: [{duration: 3600, show_icon: 1b, id: "minecraft:slowness", ambient: 1b}]}, "minecraft:custom_data": {PublicBukkitValues: {"soulbound:moloch_potion_level": 1, "soulbound:moloch_potion": "GROWTH", "soulbound:moloch_potion_long": 0b}}, "minecraft:item_name": "Splash Potion of Growth"}}, {Slot: 1b, id: "minecraft:splash
