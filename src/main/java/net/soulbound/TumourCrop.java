@@ -232,6 +232,15 @@ final class TumourCrop implements Listener {
         }
     }
 
+    /** push a crop on by up to n stages (a Growth potion); true if it grew */
+    boolean grow(Block b, int n) {
+        if (b.getType() != Material.TRIPWIRE) return false;
+        int st = stageOf(b.getBlockData());
+        if (st < 0 || st >= RIPE) return false;
+        set(b, Math.min(RIPE, st + n)); saveChunk(b.getChunk());
+        return true;
+    }
+
     // ---------------------------------------------------------------- planting, and rotten flesh
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)

@@ -100,6 +100,13 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         m.put("blood_emerald", new Item("Moloch", () -> one(p.bloodEmeralds().create(1))));
         m.put("tumour_seed", new Item("Moloch", () -> one(p.tumourCrop().seed(1))));
         m.put("tumour", new Item("Moloch", () -> one(p.tumourCrop().tumour(1))));
+        m.put("fleshy_potion", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.FLESHY, 1, false, Material.POTION))));
+        m.put("potion_of_growth", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.GROWTH, 1, false, Material.POTION))));
+        m.put("potion_of_growth_ii", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.GROWTH, 2, false, Material.POTION))));
+        m.put("splash_potion_of_growth", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.GROWTH, 1, false, Material.SPLASH_POTION))));
+        m.put("lingering_potion_of_growth", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.GROWTH, 1, false, Material.LINGERING_POTION))));
+        m.put("potion_of_shrinking", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.SHRINK, 1, false, Material.POTION))));
+        m.put("splash_potion_of_shrinking", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.SHRINK, 1, false, Material.SPLASH_POTION))));
         // cute things
         String[][] cute = {{"cat_ears", "CAT"}, {"bunny_ears", "BUNNY"}, {"flower_crown", "CROWN"}, {"bubble_gut", "GUT"}, {"big_brain", "BRAIN"},
                 {"chef_hat", "CHEF"}, {"wizard_hat", "WIZARD"}, {"top_hat", "TOPHAT"}, {"prospector_hat", "PROSPECTOR"}, {"tomato_helmet", "TOMATO"}, {"baroque", "BAROQUE"}, {"crocodile_mask", "CROC"}, {"propeller_cap", "PROPELLER"}, {"blood_priest_hat", "BP_HAT"},

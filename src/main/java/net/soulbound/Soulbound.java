@@ -41,6 +41,7 @@ public final class Soulbound extends JavaPlugin {
     private CultistAxe cultistAxe;
     private BloodEmeralds bloodEmeralds;
     private TumourCrop tumourCrop;
+    private GrowthPotions growthPotions;
     private GodManager god;
     private HeavenAir heavenAir;
     private HeavenBuilder heaven;
@@ -192,6 +193,9 @@ public final class Soulbound extends JavaPlugin {
         tumourCrop = new TumourCrop(this);
         pm.registerEvents(tumourCrop, this);
         tumourCrop.start();
+        growthPotions = new GrowthPotions(this);
+        pm.registerEvents(growthPotions, this);
+        growthPotions.start();
         gate = new StrongholdGate(this, store);
         pm.registerEvents(gate, this);
         gate.start();
@@ -296,6 +300,7 @@ public final class Soulbound extends JavaPlugin {
         if (sacrifices != null) sacrifices.stop();
         if (bloodEmeralds != null) bloodEmeralds.stop();
         if (tumourCrop != null) tumourCrop.stop();
+        if (growthPotions != null) growthPotions.stop();
         if (drums != null) drums.stop();
         if (music != null) music.stop();
         if (gate != null) gate.stop();
@@ -352,6 +357,7 @@ public final class Soulbound extends JavaPlugin {
     CultistAxe cultistAxe() { return cultistAxe; }
     BloodEmeralds bloodEmeralds() { return bloodEmeralds; }
     TumourCrop tumourCrop() { return tumourCrop; }
+    GrowthPotions growthPotions() { return growthPotions; }
     public ScreenCrack cracks() { return cracks; }
 
     // ---------------------------------------------------------------- commands
@@ -526,6 +532,7 @@ public final class Soulbound extends JavaPlugin {
                 if (args[2].equalsIgnoreCase("parasite")) { sender.sendMessage(Component.text(parasite.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("quantum")) { sender.sendMessage(Component.text(quantum.adminGive(t, args.length > 3 ? args[3] : "set"), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("potential")) { sender.sendMessage(Component.text(potentialBlade.adminGive(t), NamedTextColor.GREEN)); return true; }
+                if (args[2].equalsIgnoreCase("growth") || args[2].equalsIgnoreCase("potions")) { sender.sendMessage(Component.text(growthPotions.adminGive(t), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("tumours") || args[2].equalsIgnoreCase("tumourseeds")) { sender.sendMessage(Component.text(tumourCrop.adminGive(t, 16), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("bloodemeralds") || args[2].equalsIgnoreCase("blood_emeralds")) { sender.sendMessage(Component.text(bloodEmeralds.adminGive(t, args.length > 3 ? Math.max(1, Math.min(64, Integer.parseInt(args[3].replaceAll("\\D", "0")))) : 64), NamedTextColor.GREEN)); return true; }
                 if (args[2].equalsIgnoreCase("axe") || args[2].equalsIgnoreCase("cultist_axe")) { sender.sendMessage(Component.text(cultistAxe.adminGive(t), NamedTextColor.GREEN)); return true; }
