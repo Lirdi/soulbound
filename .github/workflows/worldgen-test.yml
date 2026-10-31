@@ -22,10 +22,17 @@ jobs:
           curl -s -o server.jar "$jar"
           echo "eula=true" > eula.txt
           printf "online-mode=false\nlevel-seed=12345\nspawn-protection=0\nmax-tick-time=-1\nsync-chunk-writes=false\n" > server.properties
-          mkdir -p world/datapacks && cp ../test/sacrifice.zip world/datapacks/
       - name: Probe
         working-directory: run
-        run: python3 ../test/probe.py | tee report.txt
+        run: |
+          : > report.txt
+          for pk in ../test/packs/*.zip; do
+            rm -rf world && mkdir -p world/datapacks && cp "$pk" world/datapacks/sacrifice.zip
+            echo "##### $(basename $pk)" >> report.txt
+            PACK="$pk" python3 ../test/probe.py | tee -a report.txt
+            cp server.log "server-$(basename $pk .zip).log"
+          done
+          cat server-*.log > server.log
       - name: Commit the report back
         if: always()
         run: |
