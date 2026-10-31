@@ -521,6 +521,10 @@ public final class Soulbound extends JavaPlugin {
             }
             case "gear" -> {
                 if (!admin(sender)) return true;
+                if (args.length >= 6 && args[1].equalsIgnoreCase("@brew")) {   // test hook: /moloch gear @brew <stage> x y z fills a brewing stand
+                    org.bukkit.block.Block b = (sender instanceof Player sp ? sp.getWorld() : getServer().getWorlds().get(0)).getBlockAt(Integer.parseInt(args[3]), Integer.parseInt(args[4]), Integer.parseInt(args[5]));
+                    sender.sendMessage(Component.text(growthPotions.fillStand(b, Integer.parseInt(args[2])), NamedTextColor.GREEN)); return true;
+                }
                 Player t = args.length > 1 ? getServer().getPlayerExact(args[1]) : null;
                 if (t == null || args.length < 3) { sender.sendMessage(Component.text("/moloch gear <player> <horns|skull|viking|hood|cudgel|chains|cute [catears|bunnyears|flowercrown|bubblegut|brain|chef|wizard|tophat|prospector|lab|labcoat|labpants|labshoes]|parasite|cortex|tartare|set|helmet|chestplate|leggings|boots|vestments [piece]|quantum [piece|tools|sword|pickaxe|axe|shovel|hoe|core|ember|tear]|potential>", NamedTextColor.GRAY)); return true; }
                 if (args[2].equalsIgnoreCase("hood") || args[2].equalsIgnoreCase("cudgel")) { sender.sendMessage(Component.text(captures.items.adminGive(t, args[2]), NamedTextColor.GREEN)); return true; }

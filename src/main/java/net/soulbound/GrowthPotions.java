@@ -186,6 +186,25 @@ final class GrowthPotions implements Listener {
 
     // ---------------------------------------------------------------- brewing
 
+    /** fills a brewing stand for one step of the chain, for testing */
+    String fillStand(Block b, int stage) {
+        if (!(b.getState() instanceof org.bukkit.block.BrewingStand bs)) return "That isn't a brewing stand.";
+        ItemStack water = new ItemStack(Material.POTION);
+        PotionMeta wm = (PotionMeta) water.getItemMeta(); wm.setBasePotionType(PotionType.WATER); water.setItemMeta(wm);
+        ItemStack in, ing;
+        switch (stage) {
+            case 1 -> { in = water; ing = plugin.tumourCrop().tumour(1); }
+            case 2 -> { in = potion(Kind.FLESHY, 1, false, Material.POTION); ing = new ItemStack(Material.BONE_MEAL); }
+            case 3 -> { in = potion(Kind.GROWTH, 1, false, Material.POTION); ing = plugin.tumourCrop().seed(1); }
+            default -> { in = potion(Kind.GROWTH, 1, false, Material.POTION); ing = new ItemStack(Material.GUNPOWDER); }
+        }
+        var inv = bs.getInventory();
+        for (int i = 0; i < 3; i++) inv.setItem(i, in.clone());
+        inv.setIngredient(ing);
+        inv.setFuel(new ItemStack(Material.BLAZE_POWDER, 64));
+        return "Filled the stand for step " + stage + ".";
+    }
+
     /** the input bottle can be matched by a predicate, but the ingredient has to be an exact item or a material:
      *  Paper only lets those into the brewing stand's ingredient slot */
     private void mix(String name, ItemStack result, Predicate<ItemStack> input, RecipeChoice ingredient) {
