@@ -455,6 +455,7 @@ const store = {
   set(k, v) { try { localStorage.setItem("bmc_" + k, JSON.stringify(v)); } catch {} }
 };
 let catalogue = DEMO, byId = {}, basket = store.get("basket", []), CUSTOM = null;
+let STORE_OPEN = true;
 const money = n => CONFIG.currency + Number(n).toFixed(2);
 const slug = s => String(s).toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 const iconFor = p => ICONS[p.icon] || ICONS[slug(p.name)] || p.image || ICONS.top_hat;
@@ -575,6 +576,7 @@ $("#checkout").onclick = async () => {
   const ign = $("#ign").value.trim();
   if (!/^[A-Za-z0-9_]{3,16}$/.test(ign)) { msg("Enter a Minecraft username: 3 to 16 letters, numbers or underscores.", true); $("#ign").focus(); return; }
   if (!live) { msg("Example mode: connect the Tebex token in settings to take payments."); return; }
+  if (!STORE_OPEN) { msg("The store opens soon. Payments aren't switched on yet."); return; }
   const btn = $("#checkout"); btn.disabled = true; msg("Opening secure checkout…");
   try {
     const here = location.href.split("#")[0].split("?")[0];
@@ -603,6 +605,9 @@ $("#checkout").onclick = async () => {
 async function loadLive() {
   if (!live) return;
   try {
+    try { const ws = await api("GET", `/accounts/${CONFIG.tebexToken}`);
+      CONFIG.currency = ({ GBP: "£", USD: "$", EUR: "€", CAD: "CA$", AUD: "A$" })[ws.currency] || (ws.currency + " ");
+      STORE_OPEN = !ws.disabled; } catch (e) { console.warn("Tebex store:", e); }
     const cats = await api("GET", `/accounts/${CONFIG.tebexToken}/categories?includePackages=1`);
     /* Tebex owns names, prices and ids; the page's own catalogue supplies the looks (icons, perks, ribbons) by matching names */
     const norm = s => slug(s).replace(/^the_/, "");
