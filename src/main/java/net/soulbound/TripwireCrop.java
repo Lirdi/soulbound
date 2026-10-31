@@ -167,7 +167,7 @@ abstract class TripwireCrop implements Listener {
         ThreadLocalRandom r = ThreadLocalRandom.current();
         boolean moon = plugin.boss() != null && plugin.boss().bloodMoon();
         double grow = GROW_CHANCE * (moon ? 2 : 1);
-        List<Block> spread = new ArrayList<>();
+        List<Block> spread = new ArrayList<>(), unsupported = new ArrayList<>();
         for (World w : Bukkit.getWorlds()) {
             if (!growsIn(w)) continue;
             // like vanilla crops, growth follows the world's random tick speed (3 is normal; 0 stops it)
@@ -183,7 +183,7 @@ abstract class TripwireCrop implements Listener {
                     if (b.getType() != Material.TRIPWIRE) { it.remove(); dirty = true; continue; }   // gone some way we didn't see
                     int stage = e.getValue();
                     if (stageOf(b.getBlockData()) != stage) b.setBlockData(state(stage), false);        // something reshaped it: put it back
-                    if (!soil(b.getRelative(BlockFace.DOWN).getType())) continue;                       // no soil, no growth
+                    if (!soil(b.getRelative(BlockFace.DOWN).getType())) { unsupported.add(b); continue; }   // its soil is gone: it pops, like a crop
                     if (stage < RIPE) {
                         if (r.nextDouble() < worldGrow) { e.setValue(stage + 1); b.setBlockData(state(stage + 1), false); dirty = true; }
                     } else if (spreadChance() > 0 && r.nextDouble() < spreadChance() * scale) spread.add(b);
@@ -197,7 +197,39 @@ abstract class TripwireCrop implements Listener {
             if (near != null) ambient(p, near);
         }
         for (Block b : spread) spread(b);
+        for (Block b : unsupported) pop(b);
     }
+
+    /** a crop whose soil is gone breaks and drops what it would drop, like a vanilla crop */
+    void pop(Block b) {
+        if (!isCrop(b) || soil(b.getRelative(BlockFace.DOWN).getType())) return;
+        harvest(b, true);
+        b.setType(Material.AIR, false);
+    }
+
+    /** check the crop on top of this block once the change has happened */
+    private void checkAbove(Block below) {
+        Block up = below.getRelative(BlockFace.UP);
+        if (isCrop(up)) Bukkit.getScheduler().runTask(plugin, () -> pop(up));
+    }
+
+    /** the block under a crop is broken */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSupportBroken(BlockBreakEvent e) { checkAbove(e.getBlock()); }
+
+    /** farmland under a crop never dries back to dirt, as with vanilla crops */
+    @EventHandler(ignoreCancelled = true)
+    public void onDry(org.bukkit.event.block.BlockFadeEvent e) {
+        if (e.getBlock().getType() == Material.FARMLAND && isCrop(e.getBlock().getRelative(BlockFace.UP))) e.setCancelled(true);
+    }
+
+    /** trampled farmland (or any other block an entity changes) under a crop */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityChange(org.bukkit.event.entity.EntityChangeBlockEvent e) { checkAbove(e.getBlock()); }
+
+    /** the block under a crop burns away, melts, or is replaced */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBurn(org.bukkit.event.block.BlockBurnEvent e) { checkAbove(e.getBlock()); }
 
     private Block nearestRipe(Player p) {
         Chunk pc = p.getLocation().getChunk();
@@ -229,6 +261,7 @@ abstract class TripwireCrop implements Listener {
         if (e.getClickedBlock() == null) return;
         if (e.getAction() == Action.PHYSICAL) {   // stepping on it: tripwire would flip to "pressed" - not this one
             if (stageOf(e.getClickedBlock().getBlockData()) >= 0) e.setCancelled(true);
+            else if (e.getClickedBlock().getType() == Material.FARMLAND && !e.isCancelled()) checkAbove(e.getClickedBlock());   // trampled
             return;
         }
         if (e.getHand() != EquipmentSlot.HAND || e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
@@ -298,10 +331,10 @@ abstract class TripwireCrop implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPiston(BlockPistonExtendEvent e) { for (Block b : e.getBlocks()) if (isCrop(b)) { harvest(b, true); b.setType(Material.AIR, false); } }
+    public void onPiston(BlockPistonExtendEvent e) { for (Block b : e.getBlocks()) { if (isCrop(b)) { harvest(b, true); b.setType(Material.AIR, false); } else checkAbove(b); } }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPistonPull(BlockPistonRetractEvent e) { for (Block b : e.getBlocks()) if (isCrop(b)) { harvest(b, true); b.setType(Material.AIR, false); } }
+    public void onPistonPull(BlockPistonRetractEvent e) { for (Block b : e.getBlocks()) { if (isCrop(b)) { harvest(b, true); b.setType(Material.AIR, false); } else checkAbove(b); } }
 
     @EventHandler(ignoreCancelled = true)
     public void onExplode(EntityExplodeEvent e) { exploded(e.blockList()); }
@@ -311,6 +344,7 @@ abstract class TripwireCrop implements Listener {
 
     /** an explosion would also drop string: take the crops out of the blast list and break them ourselves */
     private void exploded(List<Block> list) {
+        for (Block b : list) if (!isCrop(b)) checkAbove(b);
         for (var it = list.iterator(); it.hasNext(); ) {
             Block b = it.next();
             if (isCrop(b)) { harvest(b, true); b.setType(Material.AIR, false); it.remove(); }

@@ -20,7 +20,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Cloud Cotton: Heaven's first crop. Pale stems that grow bolls of cloud. It only grows in Heaven (the End), on
- * soil (grass, dirt, farmland, moss), never bare end stone; carried anywhere else, the seeds won't take and planted ones stop.
+ * farmland (tilled soil), like wheat; carried anywhere else, the seeds won't take and planted ones stop.
  * Drawn over the tripwire states with attached=true (see {@link TripwireCrop}).
  *
  * Seeds come from the Peacekeeper. Bone meal pushes it a stage. A ripe plant drops 1-3 Cloud Cotton and 1-2 seeds,
@@ -43,7 +43,7 @@ final class CloudCotton extends TripwireCrop {
         ItemStack it = new ItemStack(Material.ECHO_SHARD, Math.max(1, Math.min(64, n)));
         ItemMeta m = it.getItemMeta();
         m.displayName(Component.text("Cloud Cotton Seeds", NAME, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
-        m.lore(List.of(Component.text("Only grows in Heaven, in soil (grass, dirt, farmland).", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
+        m.lore(List.of(Component.text("Only grows in Heaven, on farmland (hoe the ground first).", NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
                 Component.text("Bone meal makes it grow.", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false)));
         m.setItemModel(new NamespacedKey("soulbound", "cloud_cotton_seeds"));
         m.getPersistentDataContainer().set(seedKey, PersistentDataType.BYTE, (byte) 1);
@@ -76,11 +76,11 @@ final class CloudCotton extends TripwireCrop {
 
     @Override boolean soil(Material m) {
         return switch (m) {
-            case GRASS_BLOCK, DIRT, COARSE_DIRT, ROOTED_DIRT, PODZOL, MYCELIUM, MOSS_BLOCK, FARMLAND -> true;
+            case FARMLAND -> true;
             default -> false;
         };
     }
-    @Override String wrongSoilMessage() { return "Cloud Cotton needs soil: grass, dirt, farmland or moss."; }
+    @Override String wrongSoilMessage() { return "Cloud Cotton needs tilled soil: hoe the ground first."; }
     @Override boolean growsIn(org.bukkit.World w) { return w.getEnvironment() == org.bukkit.World.Environment.THE_END; }
     @Override String wrongWorldMessage() { return "Cloud Cotton only grows in Heaven."; }
     @Override boolean isFertiliser(ItemStack it) { return it != null && it.getType() == Material.BONE_MEAL; }
