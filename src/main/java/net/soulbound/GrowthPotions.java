@@ -66,7 +66,7 @@ import java.util.function.Predicate;
  *   + Gunpowder / + Dragon's Breath  = splash / lingering
  *
  * Growth: bigger (+25% / +50%), a little more reach, knockback resistance, and Slowness I for as long as it lasts.
- * Shrinking: smaller (-25% / -40%) and faster (Speed I / II), but two hearts down while it lasts. Splash and lingering Growth also push crops (tumours included) and
+ * Shrinking: a short burst (0:45, 1:30 long, 0:30 at II): smaller (-25% / -40%) and Speed III, but two hearts down. Splash and lingering Growth also push crops (tumours included) and
  * saplings on, and turn young animals into adults. Two in a minute makes you sick and a tumour tears loose. In a Blood
  * Moon they last twice as long. Milk or death ends them.
  *
@@ -122,7 +122,11 @@ final class GrowthPotions implements Listener {
 
     // ---------------------------------------------------------------- the potions
 
-    static int baseTicks(int level, boolean lng) { return level >= 2 ? 1800 : lng ? 9600 : 3600; }   // 1:30, 8:00, 3:00
+    /** Growth: 3:00, 8:00 long, 1:30 at II. Shrinking is a quick burst: 0:45, 1:30 long, 0:30 at II. */
+    static int baseTicks(Kind k, int level, boolean lng) {
+        if (k == Kind.SHRINK) return level >= 2 ? 600 : lng ? 1800 : 900;
+        return level >= 2 ? 1800 : lng ? 9600 : 3600;
+    }
 
     private static String time(int ticks) { int s = ticks / 20; return (s / 60) + ":" + String.format("%02d", s % 60); }
 
@@ -139,10 +143,10 @@ final class GrowthPotions implements Listener {
             lore.add(Component.text("It's thick. It moves.", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, true));
         } else {
             boolean g = k == Kind.GROWTH;
-            int t = baseTicks(level, lng), shown = form == Material.LINGERING_POTION ? t / 4 : t;
+            int t = baseTicks(k, level, lng), shown = form == Material.LINGERING_POTION ? t / 4 : t;
             m.displayName(line(prefix + "Potion of " + (g ? "Growth" : "Shrinking"), NamedTextColor.WHITE));
             m.setColor(g ? GROWTH : SHRINK);
-            m.addCustomEffect(new PotionEffect(g ? PotionEffectType.SLOWNESS : PotionEffectType.SPEED, t, g ? 0 : level >= 2 ? 1 : 0, false, true, true), true);
+            m.addCustomEffect(new PotionEffect(g ? PotionEffectType.SLOWNESS : PotionEffectType.SPEED, t, g ? 0 : 2, false, true, true), true);   // Shrinking: Speed III
             lore.add(line((g ? "Growth" : "Shrinking") + (level >= 2 ? " II" : "") + " (" + time(shown) + ")", NamedTextColor.BLUE));
             if (g) {
                 lore.add(line(level >= 2 ? "+50% Size" : "+25% Size", NamedTextColor.BLUE));
@@ -305,7 +309,7 @@ final class GrowthPotions implements Listener {
         editing = true;
         try {
             e.removePotionEffect(side);
-            e.addPotionEffect(new PotionEffect(side, (int) ((until - now) / 50), g ? 0 : level >= 2 ? 1 : 0, false, true, true));
+            e.addPotionEffect(new PotionEffect(side, (int) ((until - now) / 50), g ? 0 : 2, false, true, true));
             if (was != null && !was.startsWith(k.name())) e.removePotionEffect(other);
         } finally { editing = false; }
         e.getWorld().playSound(e.getLocation(), g ? Sound.ENTITY_SLIME_SQUISH : Sound.ENTITY_SLIME_SQUISH_SMALL, 0.8f, g ? 0.5f : 1.6f);
@@ -353,7 +357,7 @@ final class GrowthPotions implements Listener {
         if (e.getItem().getType() == Material.MILK_BUCKET) { clear(p); return; }
         Kind k = kind(e.getItem());
         if (k == null || k == Kind.FLESHY) return;
-        int lvl = level(e.getItem()), ticks = baseTicks(lvl, isLong(e.getItem()));
+        int lvl = level(e.getItem()), ticks = baseTicks(k, lvl, isLong(e.getItem()));
         long now = System.currentTimeMillis();
         Long last = p.getPersistentDataContainer().get(lastKey, PersistentDataType.LONG);
         p.getPersistentDataContainer().set(lastKey, PersistentDataType.LONG, now);
@@ -413,7 +417,7 @@ final class GrowthPotions implements Listener {
         ItemStack it = e.getPotion().getItem();
         Kind k = kind(it);
         if (k == null || k == Kind.FLESHY) return;
-        int lvl = level(it), ticks = baseTicks(lvl, isLong(it));
+        int lvl = level(it), ticks = baseTicks(k, lvl, isLong(it));
         for (LivingEntity le : e.getAffectedEntities()) {
             double in = e.getIntensity(le);
             int t = (int) Math.round(ticks * in);
@@ -437,7 +441,7 @@ final class GrowthPotions implements Listener {
         int[] s = clouds.get(e.getEntity().getUniqueId());
         if (s == null) return;
         Kind k = Kind.values()[s[0]];
-        int lvl = s[1], t = baseTicks(lvl, s[2] == 1) / 4;
+        int lvl = s[1], t = baseTicks(k, lvl, s[2] == 1) / 4;
         for (LivingEntity le : e.getAffectedEntities()) {
             if (k == Kind.GROWTH && le instanceof org.bukkit.entity.Ageable ag && !ag.isAdult()) ag.setAdult();
             Bukkit.getScheduler().runTask(plugin, () -> apply(le, k, lvl, t));
