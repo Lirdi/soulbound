@@ -35,6 +35,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.world.EntitiesLoadEvent;
 import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -185,20 +186,22 @@ final class GrowthPotions implements Listener {
 
     // ---------------------------------------------------------------- brewing
 
-    private void mix(String name, ItemStack result, Predicate<ItemStack> input, Predicate<ItemStack> ingredient) {
+    /** the input bottle can be matched by a predicate, but the ingredient has to be an exact item or a material:
+     *  Paper only lets those into the brewing stand's ingredient slot */
+    private void mix(String name, ItemStack result, Predicate<ItemStack> input, RecipeChoice ingredient) {
         NamespacedKey key = new NamespacedKey(plugin, "brew_" + name);
         Bukkit.getPotionBrewer().removePotionMix(key);   // a reload leaves the old one behind
-        Bukkit.getPotionBrewer().addPotionMix(new PotionMix(key, result, PotionMix.createPredicateChoice(input), PotionMix.createPredicateChoice(ingredient)));
+        Bukkit.getPotionBrewer().addPotionMix(new PotionMix(key, result, PotionMix.createPredicateChoice(input), ingredient));
         mixes.add(key);
     }
 
-    private static Predicate<ItemStack> type(Material m) { return it -> it != null && it.getType() == m; }
+    private static RecipeChoice type(Material m) { return new RecipeChoice.MaterialChoice(m); }
 
     private void registerMixes() {
         Predicate<ItemStack> water = it -> it != null && it.getType() == Material.POTION && kind(it) == null
                 && it.getItemMeta() instanceof PotionMeta pm && pm.getBasePotionType() == PotionType.WATER && !pm.hasCustomEffects();
-        mix("fleshy", potion(Kind.FLESHY, 1, false, Material.POTION), water, it -> plugin.tumourCrop().isTumour(it));
-        Predicate<ItemStack> seed = it -> plugin.tumourCrop().isSeed(it);
+        mix("fleshy", potion(Kind.FLESHY, 1, false, Material.POTION), water, new RecipeChoice.ExactChoice(plugin.tumourCrop().tumour(1)));
+        RecipeChoice seed = new RecipeChoice.ExactChoice(plugin.tumourCrop().seed(1));
         int[][] variants = {{1, 0}, {2, 0}, {1, 1}};
         for (Material f : FORMS) {
             String fn = f.name().toLowerCase();
