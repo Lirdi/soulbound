@@ -139,7 +139,7 @@ final class GrowthPotions implements Listener {
             int t = baseTicks(level, lng), shown = form == Material.LINGERING_POTION ? t / 4 : t;
             m.itemName(Component.text(prefix + "Potion of " + (g ? "Growth" : "Shrinking")));
             m.setColor(g ? GROWTH : SHRINK);
-            m.addCustomEffect(new PotionEffect(g ? PotionEffectType.SLOWNESS : PotionEffectType.WEAKNESS, t, 0), true);
+            m.addCustomEffect(new PotionEffect(g ? PotionEffectType.SLOWNESS : PotionEffectType.WEAKNESS, t, 0, false, true, true), true);
             lore.add(line((g ? "Growth" : "Shrinking") + (level >= 2 ? " II" : "") + " (" + time(shown) + ")", NamedTextColor.BLUE));
             if (g) {
                 lore.add(line(level >= 2 ? "+50% Size" : "+25% Size", NamedTextColor.BLUE));
