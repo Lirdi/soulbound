@@ -1,0 +1,9 @@
+ - Soulbound (0.69.0)
+[10:51:46] [Worker-Main-1/ERROR]: No key layers in MapLike[{}]
+[10:51:49] [Server thread/INFO]: [Soulbound] Loading server plugin Soulbound v0.69.0
+[10:51:51] [Server thread/INFO]: [Soulbound] Enabling Soulbound v0.69.0
+[10:51:52] [Server thread/INFO]: [Soulbound] Registered 39 Growth potion brews.
+[10:51:52] [Server thread/WARN]: [Soulbound] Moloch's realm 'sacrifice:sacrifice' isn't loaded. Install the Sacrifice data pack, or set moloch.world in config.yml.
+[10:51:52] [Server thread/INFO]: [Soulbound] Soulbound ready: captures, sacrifices, Moloch's curse, the Hunger meter and Moloch himself.
+[10:52:23] [Server thread/INFO]: System chat: 0, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:water"}}}, {Slot: 1b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:water"}}}, {Slot: 3b, id: "minecraft:echo_shard", count: 1, components: {"minecraft:custom_data": {PublicBukkitValues: {"soulbound:tumour": 1b}}}}, {Slot: 4b, id: "minecraft:blaze_powder", count: 63}]
+[10:52:23] [Server thread/INFO]: [Soulbound] Disabling Soulbound v0.69.0

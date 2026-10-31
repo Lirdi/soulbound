@@ -1,0 +1,11 @@
+done: [10:51:53 INFO]: Done (14.564s)! For help, type "help"
+
+brews line: ['[10:51:52 INFO]: [Soulbound] Registered 39 Growth potion brews.']
+brewtime custom after 4s: [10:51:57 INFO]: System chat: 0, -50, 0 has the following block data: 0
+
+brewtime vanilla after 4s: [10:51:58 INFO]: System chat: 2, -50, 0 has the following block data: 328
+
+custom items: [10:52:23 INFO]: System chat: 0, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:water"}}}, {Slot: 1b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:water"}}}, {Slot: 3b, id: "minecraft:echo_shard", count: 1, components: {"minecraft:custom_data": {PublicBukkitValues: {"soulbound:tumour": 1b}}}}, {Slot: 4b, id: "minecraft:blaze_powder", count: 63}]
+
+vanilla items: [10:52:23 INFO]: System chat: 2, -50, 0 has the following block data: [{Slot: 0b, id: "minecraft:potion", count: 1, components: {"minecraft:potion_contents": {potion: "minecraft:awkward"}}}, {Slot: 4b, id: "minecraft:blaze_powder", count: 63}]
+
