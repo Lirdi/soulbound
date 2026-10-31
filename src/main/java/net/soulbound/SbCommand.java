@@ -112,7 +112,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
         m.put("splash_potion_of_shrinking", new Item("Moloch", () -> one(p.growthPotions().potion(GrowthPotions.Kind.SHRINK, 1, false, Material.SPLASH_POTION))));
         // cute things
         String[][] cute = {{"cat_ears", "CAT"}, {"bunny_ears", "BUNNY"}, {"flower_crown", "CROWN"}, {"bubble_gut", "GUT"}, {"big_brain", "BRAIN"},
-                {"chef_hat", "CHEF"}, {"wizard_hat", "WIZARD"}, {"top_hat", "TOPHAT"}, {"prospector_hat", "PROSPECTOR"}, {"tomato_helmet", "TOMATO"}, {"baroque", "BAROQUE"}, {"crocodile_mask", "CROC"}, {"propeller_cap", "PROPELLER"}, {"blood_priest_hat", "BP_HAT"},
+                {"chef_hat", "CHEF"}, {"wizard_hat", "WIZARD"}, {"top_hat", "TOPHAT"}, {"prospector_hat", "PROSPECTOR"}, {"tomato_helmet", "TOMATO"}, {"baroque", "BAROQUE"}, {"crocodile_mask", "CROC"}, {"propeller_cap", "PROPELLER"}, {"blood_priest_hat", "BP_HAT"}, {"sinners_halo", "SINNER"},
                 {"lab_coat", "LAB_COAT"}, {"lab_pants", "LAB_PANTS"}, {"lab_shoes", "LAB_SHOES"}};
         for (String[] c : cute) { Cute.Kind k = Cute.Kind.valueOf(c[1]); m.put(c[0], new Item("Wearables", () -> one(p.cute().create(k)))); }
         m.put("lab_outfit", new Item("Wearables", () -> List.of(p.cute().create(Cute.Kind.LAB_COAT), p.cute().create(Cute.Kind.LAB_PANTS), p.cute().create(Cute.Kind.LAB_SHOES))));
