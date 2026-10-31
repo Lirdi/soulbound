@@ -13,6 +13,9 @@ commands:
   moloch:
     description: Moloch's state, and admin controls for his awakening.
     usage: /moloch [leave|awaken|stop|hunger|curse|uncurse|gate|setarrival|reload]
+  bestiary:
+    description: Open the Bestiary, the book of everyone and everything in BaffoonMC.
+    usage: /bestiary
   god:
     description: Answer God when he asks why you're here.
     usage: /god <challenge|lost|forgive|look>
@@ -25,6 +28,9 @@ permissions:
     default: op
   soulbound.admin:
     description: Can reload the config.
+    default: op
+  soulbound.bestiary.all:
+    description: Every Bestiary page is open, met or not.
     default: op
   soulbound.island.build:
     description: Can build and break on God's main island in the End (everyone else can't).

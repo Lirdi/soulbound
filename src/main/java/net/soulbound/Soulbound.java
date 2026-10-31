@@ -43,6 +43,7 @@ public final class Soulbound extends JavaPlugin {
     private TumourCrop tumourCrop;
     private CloudCotton cloudCotton;
     private GrowthPotions growthPotions;
+    private Bestiary bestiary;
     private GodManager god;
     private HeavenAir heavenAir;
     private HeavenBuilder heaven;
@@ -200,6 +201,10 @@ public final class Soulbound extends JavaPlugin {
         growthPotions = new GrowthPotions(this);
         pm.registerEvents(growthPotions, this);
         growthPotions.start();
+        bestiary = new Bestiary(this);
+        pm.registerEvents(bestiary, this);
+        bestiary.start();
+        if (getCommand("bestiary") != null) getCommand("bestiary").setExecutor(bestiary);
         gate = new StrongholdGate(this, store);
         pm.registerEvents(gate, this);
         gate.start();
@@ -306,6 +311,7 @@ public final class Soulbound extends JavaPlugin {
         if (tumourCrop != null) tumourCrop.stop();
         if (cloudCotton != null) cloudCotton.stop();
         if (growthPotions != null) growthPotions.stop();
+        if (bestiary != null) bestiary.stop();
         if (drums != null) drums.stop();
         if (music != null) music.stop();
         if (gate != null) gate.stop();
@@ -364,6 +370,7 @@ public final class Soulbound extends JavaPlugin {
     TumourCrop tumourCrop() { return tumourCrop; }
     CloudCotton cloudCotton() { return cloudCotton; }
     GrowthPotions growthPotions() { return growthPotions; }
+    Bestiary bestiary() { return bestiary; }
     public ScreenCrack cracks() { return cracks; }
 
     // ---------------------------------------------------------------- commands
