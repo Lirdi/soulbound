@@ -257,6 +257,10 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
             s.sendMessage(line("/sb world zephyr", "a Zephyr (Heaven's breeze) in front of you"));
             s.sendMessage(line("/sb world peacekeeper [remove]", "place (or remove) the Peacekeeper here"));
         }
+        if (group == null || group.equals("size")) {
+            s.sendMessage(line("/sb size <scale> [player]", "set a size: 0.0625 to 16 (1 is normal); yours if no player"));
+            s.sendMessage(line("/sb size reset [player]", "back to normal size"));
+        }
         if (group == null) {
             s.sendMessage(line("/sb reload", "reload config.yml"));
             s.sendMessage(line("/sb release", "let your captive go"));
@@ -319,9 +323,29 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
                 }
             }
             case "reload" -> plugin.legacyMoloch(s, new String[]{"reload"});
+            case "size" -> size(s, a);
             default -> help(s, null);
         }
         return true;
+    }
+
+    /** /sb size <scale|reset> [player]: sets the player's base size (potions and gear still stack on top) */
+    private void size(CommandSender s, String[] a) {
+        if (a.length < 2) { help(s, "size"); return; }
+        Player t = a.length > 2 ? org.bukkit.Bukkit.getPlayerExact(a[2]) : (s instanceof Player p ? p : null);
+        if (t == null) { s.sendMessage(Component.text(a.length > 2 ? "No player called " + a[2] + " is online." : "From the console, name a player: /sb size <scale|reset> <player>", NamedTextColor.RED)); return; }
+        var at = t.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (at == null) return;
+        double v;
+        if (a[1].equalsIgnoreCase("reset") || a[1].equalsIgnoreCase("normal")) v = 1;
+        else try { v = Double.parseDouble(a[1].toLowerCase(Locale.ROOT).replace("x", "")); }
+        catch (NumberFormatException e) { help(s, "size"); return; }
+        v = Math.max(0.0625, Math.min(16, v));
+        at.setBaseValue(v);
+        String now = String.format(Locale.ROOT, "%.2f", v).replaceAll("\\.?0+$", "");
+        String total = String.format(Locale.ROOT, "%.2f", at.getValue()).replaceAll("\\.?0+$", "");
+        s.sendMessage(Component.text("Set " + t.getName() + "'s size to " + now + "x" + (total.equals(now) ? "" : " (" + total + "x with their potions and gear)") + ".", NamedTextColor.GREEN));
+        if (t != s) t.sendActionBar(Component.text(v == 1 ? "You're back to your normal size." : "Your size was set to " + now + "x.", NamedTextColor.GRAY));
     }
 
     private void player(CommandSender s, String[] a) {
@@ -364,7 +388,7 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
     @Override
     public List<String> onTabComplete(CommandSender s, Command cmd, String label, String[] a) {
         if (!s.hasPermission("soulbound.admin")) return a.length == 1 ? filter(List.of("release"), a[0]) : List.of();
-        if (a.length == 1) return filter(List.of("give", "items", "player", "moloch", "god", "world", "reload", "release", "help"), a[0]);
+        if (a.length == 1) return filter(List.of("give", "items", "player", "moloch", "god", "world", "size", "reload", "release", "help"), a[0]);
         String sub = a[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "give" -> {
@@ -389,7 +413,11 @@ final class SbCommand implements CommandExecutor, TabCompleter, Listener {
                 if (a.length == 3 && (a[1].equalsIgnoreCase("priest") || a[1].equalsIgnoreCase("peacekeeper"))) return filter(List.of("remove"), a[2]);
                 if (a.length == 3 && a[1].equalsIgnoreCase("gate")) return filter(List.of("here"), a[2]);
             }
-            case "help" -> { if (a.length == 2) return filter(List.of("give", "player", "moloch", "god", "world"), a[1]); }
+            case "size" -> {
+                if (a.length == 2) return filter(List.of("0.25", "0.5", "0.75", "1", "1.5", "2", "3", "reset"), a[1]);
+                if (a.length == 3) { List<String> names = new ArrayList<>(); for (Player p : org.bukkit.Bukkit.getOnlinePlayers()) names.add(p.getName()); return filter(names, a[2]); }
+            }
+            case "help" -> { if (a.length == 2) return filter(List.of("give", "player", "moloch", "god", "world", "size"), a[1]); }
             default -> { }
         }
         return List.of();
