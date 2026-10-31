@@ -163,6 +163,7 @@ final class MolochBoss implements Listener {
     private boolean bloodMoonOverworld, bloodMoonGold;
     private Set<String> bloodMoonWorlds = new HashSet<>();
     private boolean blockWardens, noDarkness, wavesOn, templeNoSpawns;
+    private double noSpawnRadius;
     private List<String> waves = new ArrayList<>(), waveNames = new ArrayList<>(), participantCommands = new ArrayList<>(), topCommands = new ArrayList<>();
     private String phase2Wave, phase3Wave;
 
@@ -226,6 +227,7 @@ final class MolochBoss implements Listener {
         bloodMoonWorlds = new HashSet<>(c.getStringList("boss.blood-moon-worlds"));
         blockWardens = c.getBoolean("boss.block-other-wardens", true);
         templeNoSpawns = c.getBoolean("moloch.temple-no-natural-spawns", true);
+        noSpawnRadius = c.getDouble("moloch.no-spawn-radius", 400);
         noDarkness = c.getBoolean("boss.no-darkness", true);
         deathXp = Math.max(0, c.getInt("boss.death-xp", 1500));
         screamAt = c.getDouble("boss.scream-at", 0.5);
@@ -1992,6 +1994,12 @@ final class MolochBoss implements Listener {
         if (active && !dying) win();
     }
 
+    /** within moloch.no-spawn-radius blocks of the temple (the realm's centre) */
+    private boolean nearTemple(Location l) {
+        if (noSpawnRadius <= 0 || !zones.inRealm(l)) return false;
+        return l.getX() * l.getX() + l.getZ() * l.getZ() <= noSpawnRadius * noSpawnRadius;
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onSpawn(CreatureSpawnEvent e) {
         if (e.getEntityType() == EntityType.WARDEN && blockWardens) {
@@ -2002,7 +2010,7 @@ final class MolochBoss implements Listener {
             }
         }
         // nothing spawns on its own in or on the pyramid (its plaza and moat too): only Moloch, his summons, and what players spawn
-        if (templeNoSpawns && NATURAL_REASONS.contains(e.getSpawnReason().name()) && zones.inTemple(e.getLocation())) { e.setCancelled(true); return; }
+        if (templeNoSpawns && NATURAL_REASONS.contains(e.getSpawnReason().name()) && (zones.inTemple(e.getLocation()) || nearTemple(e.getLocation()))) { e.setCancelled(true); return; }
         // in the realm, light keeps everything away: nothing spawns on its own where the light from blocks is 8 or more, or on a spawn-proof block
         if (e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.NATURAL && zones.inRealm(e.getLocation()) && litOrProof(e.getLocation())) { e.setCancelled(true); return; }
         if (active && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.SLIME_SPLIT && zones.inArena(e.getLocation())) tagMinion(e.getEntity());

@@ -86,6 +86,8 @@ moloch:
   # In the realm nothing spawns on its own where block light is this or brighter (torches, lanterns...). 0 = off.
   realm-spawn-light: 8
   temple-no-natural-spawns: true
+  # ...and nothing spawns on its own within this many blocks of the temple (the realm's centre). 0 = only the temple grounds.
+  no-spawn-radius: 400
   # The battle arena under the pyramid: where Moloch rises (the top of the dais).
   arena:
     x: 0.5
@@ -597,6 +599,11 @@ grace:
 
 # Moloch's realm: these structures never generate within min-distance blocks of the temple (new chunks only).
 realm-structures:
+  # No structure at all generates within this many blocks of the temple, except those listed under always-allowed.
+  clear-radius: 400
+  always-allowed:
+    - "sacrifice:sanctum_arena"
+    - "sacrifice:sanctum_shrine"
   min-distance: 500
   keep-away:
     - "sacrifice:bloodaltar"
