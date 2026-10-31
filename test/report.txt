@@ -1,17 +1,22 @@
-server up: True
 
 ===== REPORT =====
-titan_tree: at 4144,-4368  minecraft:crimson_stem blocks found: 554  []
-blood_tree: at 4416,4096  minecraft:crimson_stem blocks found: 102  []
-bone_tree: LOCATE -> [14:24:53] [Server thread/INFO]: System chat: Could not find a structure of type "sacrifice:bone_tree" nearby
-willow: at 4288,-4272  minecraft:mangrove_log blocks found: 50  []
-huge_fungus: at 4368,4192  minecraft:shroomlight blocks found: 100  []
-giant_mushroom: at 4336,4224  minecraft:mushroom_stem blocks found: 182  []
-giant_sword: at -4944,-5184  minecraft:iron_block blocks found: 130  []
-bone_remains: at 3504,-3552  minecraft:bone_block blocks found: 544  []
-giant_campfire: at -5104,-5296  minecraft:dark_oak_log blocks found: 60  []
-calf: at 0,-176  minecraft:polished_blackstone_bricks blocks found: 837  []
-bloodaltar: at 144,-288  minecraft:red_nether_bricks blocks found: 49  []
-place template titan_tree_1: timeout
-place structure titan_tree: [14:30:51] [Server thread/INFO]: System chat: Generated structure "sacrifice:titan_tree" at 6020, 150, 20
+server up: True
+biome crater_fields: (2112, 2112)  dist 2986
+biome lake_of_fire: (3552, -3488)  dist 4978
+biome titan_wood: (4288, -4288)  dist 6064
+biome giants_reach: (5056, 5056)  dist 7150
+biome the_wall: (5504, 5504)  dist 7783
+structure titan_tree: 4288,4288
+structure blood_tree: 4288,-4272
+structure undergrowth: read/INFO]: System chat: Could not find a structure of type "sacrifice:undergrowth" nearby
+structure giant_sword: 5088,5088
+structure giant_footprint: 5056,5056
+structure giant_campfire: -5024,-5104
+structure giant_mushroom: 4304,4288
+structure bone_remains: -3584,-3552
+structure calf: 128,128
+generating 788 chunks
+titan_wood 64x64 counts: water=0, dead_bush=0, crimson_roots=0, bone_block=0, gravel=0, crimson_stem=0
+giants_reach 64x64 counts: water=0, short_dry_grass=0, tall_dry_grass=0, dead_bush=0, blackstone=0, red_sand=0
+region dir world/dimensions/sacrifice/sacrifice/region; saved 14 region files
 ===== WARN/ERROR lines =====
