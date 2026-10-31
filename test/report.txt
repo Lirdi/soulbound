@@ -1,8 +1,10 @@
+##### default.zip
 
 ===== REPORT =====
 server up: True
+rings: crater_fields, lake_of_fire, titan_wood, giants_reach, the_wall
 biome crater_fields: (2112, 2112)  dist 2986
-biome lake_of_fire: (3552, -3488)  dist 4978
+biome lake_of_fire: (3552, -3520)  dist 5000
 biome titan_wood: (4288, -4288)  dist 6064
 biome giants_reach: (5056, 5056)  dist 7150
 biome the_wall: (5504, 5504)  dist 7783
@@ -11,12 +13,33 @@ structure blood_tree: 4288,-4272
 structure undergrowth: read/INFO]: System chat: Could not find a structure of type "sacrifice:undergrowth" nearby
 structure giant_sword: 5088,5088
 structure giant_footprint: 5056,5056
-structure giant_campfire: -5024,-5104
-structure giant_mushroom: 4304,4288
+structure giant_campfire: -4992,-5120
+structure giant_mushroom: 4288,-4288
 structure bone_remains: -3584,-3552
 structure calf: 128,128
-generating 788 chunks
-titan_wood 64x64 counts: water=0, dead_bush=0, crimson_roots=0, bone_block=0, gravel=0, crimson_stem=0
-giants_reach 64x64 counts: water=0, short_dry_grass=0, tall_dry_grass=0, dead_bush=0, blackstone=0, red_sand=0
-region dir world/dimensions/sacrifice/sacrifice/region; saved 14 region files
+generating 863 chunks
+region dir world/dimensions/sacrifice/sacrifice/region; saved 11 region files
+===== WARN/ERROR lines =====
+##### variant.zip
+
+===== REPORT =====
+server up: True
+rings: crater_fields, lake_of_fire, titan_wood, ashen_steppe, giants_reach, the_wall
+biome crater_fields: (2112, 2112)  dist 2986
+biome lake_of_fire: (3552, -3520)  dist 5000
+biome titan_wood: (4288, -4288)  dist 6064
+biome ashen_steppe: (-4928, 4928)  dist 6969
+biome giants_reach: (5440, -5408)  dist 7670
+biome the_wall: (5856, -5824)  dist 8259
+structure titan_tree: 4320,-4288
+structure blood_tree: 4288,-4272
+structure undergrowth: read/INFO]: System chat: Could not find a structure of type "sacrifice:undergrowth" nearby
+structure giant_sword: -4944,-4960
+structure giant_footprint: -5440,-5344
+structure giant_campfire: 5456,5520
+structure giant_mushroom: 4288,-4288
+structure bone_remains: -3584,-3552
+structure calf: 128,128
+generating 1014 chunks
+region dir world/dimensions/sacrifice/sacrifice/region; saved 12 region files
 ===== WARN/ERROR lines =====
